@@ -1,22 +1,27 @@
-# Bước 2: chỉ có CSDL. Backend và frontend sẽ được thêm ở bước triển khai.
+# CSDL MySQL 8.4 (LTS). Backend và frontend sẽ được thêm ở bước triển khai.
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: parking-postgres
+  mysql:
+    image: mysql:8.4
+    container_name: parking-mysql
+    command:
+      - --character-set-server=utf8mb4          # lưu đúng tiếng Việt
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --default-time-zone=+00:00              # CSDL lưu UTC, ứng dụng đổi sang giờ Việt Nam
+      - --log-bin-trust-function-creators=1     # cho phép user thường tạo trigger (R10) khi bật binlog
     environment:
-      POSTGRES_DB: ${DB_NAME:-parking}
-      POSTGRES_USER: ${DB_USERNAME:-parking}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-parking}
-      TZ: Asia/Ho_Chi_Minh
+      MYSQL_DATABASE: ${DB_NAME:-parking}
+      MYSQL_USER: ${DB_USERNAME:-parking}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-parking}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "${DB_PORT:-3306}:3306"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - mysqldata:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-parking} -d ${DB_NAME:-parking}"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
       interval: 5s
       timeout: 3s
-      retries: 10
+      retries: 20
 
 volumes:
-  pgdata:
+  mysqldata:
