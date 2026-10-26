@@ -5,12 +5,12 @@
 -- =====================================================================
 
 CREATE TABLE roles (
-    code        VARCHAR(30)  PRIMARY KEY,          -- SINH_VIEN, BAO_VE, QUAN_LY, CHU_TAI_KHOAN
+    code        VARCHAR(30)  NOT NULL PRIMARY KEY,   -- SINH_VIEN, BAO_VE, QUAN_LY, CHU_TAI_KHOAN
     name        VARCHAR(100) NOT NULL
 );
 
 CREATE TABLE permissions (
-    code        VARCHAR(50)  PRIMARY KEY,          -- VEHICLE_REGISTER, PARKING_CHECK_IN, ...
+    code        VARCHAR(50)  NOT NULL PRIMARY KEY,   -- VEHICLE_REGISTER, PARKING_CHECK_IN, ...
     description VARCHAR(200) NOT NULL
 );
 

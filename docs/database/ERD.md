@@ -1,6 +1,7 @@
 # Thiết kế CSDL — Hệ thống thanh toán phí gửi xe bằng điểm
 
-PostgreSQL 16, quản lý bằng Flyway (`backend/src/main/resources/db/migration`).
+MySQL 8.4 (LTS), quản lý bằng Flyway (`backend/src/main/resources/db/migration`).
+Thời gian lưu theo UTC (`DATETIME(6)`), ứng dụng đổi sang giờ Việt Nam khi tính phí và hiển thị.
 
 ## 1. Sơ đồ ERD
 
@@ -82,11 +83,11 @@ erDiagram
 | Quy tắc | Ràng buộc |
 |---|---|
 | R01 điểm không âm | `ck_wallets_balance`, `ck_point_transactions_balances` |
-| R05 mỗi xe tối đa 1 lượt mở | `uq_parking_sessions_open` (unique có điều kiện `WHERE status='DANG_GUI'`) |
+| R05 mỗi xe tối đa 1 lượt mở | `uq_parking_sessions_open` trên cột sinh tự động `open_vehicle_id` (= `vehicle_id` khi `DANG_GUI`, `NULL` khi `DA_RA`) — cách làm "unique có điều kiện" trong MySQL |
 | Một lượt gửi chỉ thanh toán 1 lần | `uq_payment_details_session` |
 | Bấm xác nhận nhiều lần chỉ 1 giao dịch | `uq_point_transactions_idempotency` |
 | R06/R09 nguồn/đích đúng theo loại giao dịch | `ck_point_transactions_shape` |
-| R10 giao dịch không sửa/xóa | trigger `trg_*_append_only` |
+| R10 giao dịch không sửa/xóa | trigger `trg_*_no_update`, `trg_*_no_delete` (`SIGNAL SQLSTATE '45000'`) |
 | R11 lưu tỷ lệ tại thời điểm giao dịch | `cash_details.cash_per_point` |
 | R12, R13 đối soát | view `v_reconciliation` |
 | R14 bảo vệ chỉ khóa, không xóa | `users.status` + FK từ `parking_sessions` (xóa sẽ bị chặn) |
