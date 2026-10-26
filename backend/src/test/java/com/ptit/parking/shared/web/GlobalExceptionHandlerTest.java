@@ -1,35 +1,36 @@
 package com.ptit.parking.shared.web;
 
-import static org.hamcrest.Matchers.matchesPattern;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-
-import com.ptit.parking.shared.domain.DomainException;
-import com.ptit.parking.shared.domain.ErrorCode;
-import com.ptit.parking.shared.security.JsonSecurityErrorHandler;
-import com.ptit.parking.shared.security.SecurityConfig;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import java.sql.SQLIntegrityConstraintViolationException;
+
+import static org.hamcrest.Matchers.matchesPattern;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import org.springframework.test.web.servlet.MockMvc;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.ptit.parking.shared.domain.DomainException;
+import com.ptit.parking.shared.domain.ErrorCode;
+import com.ptit.parking.shared.security.WebSecurityTestConfig;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 
 /**
  * Kiểm tra định dạng lỗi chuẩn bằng một controller GIẢ chỉ dùng trong test,
@@ -37,8 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @WebMvcTest(controllers = GlobalExceptionHandlerTest.FakeController.class)
 @Import({GlobalExceptionHandlerTest.FakeController.class,       // class lồng trong test không được tự quét
-        GlobalExceptionHandler.class, ConstraintErrorTranslator.class, TraceIdFilter.class,
-        SecurityConfig.class, JsonSecurityErrorHandler.class})          // cấu hình bảo mật thật (BTL-6)
+        WebSecurityTestConfig.class})
 class GlobalExceptionHandlerTest {
 
     @Autowired

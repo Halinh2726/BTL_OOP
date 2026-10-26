@@ -1,11 +1,14 @@
 package com.ptit.parking.shared.security;
 
+import java.time.Clock;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
@@ -16,9 +19,10 @@ import org.springframework.security.web.context.SecurityContextRepository;
  *   <li>Phiên phía máy chủ (cookie SESSION), KHÔNG dùng JWT/localStorage.</li>
  *   <li>CSRF: cookie XSRF-TOKEN đọc được bằng JavaScript, giao diện gửi lại qua header X-XSRF-TOKEN.
  *       Bỏ qua cho login và register vì lúc đó chưa có phiên.</li>
- *   <li>Mọi /api/** cần đăng nhập, trừ 3 API công khai. Lỗi trả về JSON chuẩn.</li>
+ *   <li>Mỗi API cần đúng mã quyền theo {@link ProtectedEndpoint}; các /api/** còn lại chỉ cần đăng nhập.</li>
+ *   <li>Mọi request đã đăng nhập: phiên chưa quá 12 giờ, tài khoản chưa bị khóa — kiểm tra TRƯỚC quyền.</li>
  * </ul>
- * Kiểm tra QUYỀN theo từng API (VEHICLE_REGISTER, CASH_DEPOSIT...) thuộc task M5-05.
+ * Phân quyền nằm ở backend cho MỌI request, không dựa vào việc giao diện ẩn nút.
  */
 @Configuration
 public class SecurityConfig {
@@ -29,13 +33,22 @@ public class SecurityConfig {
     public static final String HEALTH_URL = "/api/v1/health";
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, JsonSecurityErrorHandler errors) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, JsonSecurityErrorHandler errors,
+                                            AccountStatusLookup accounts, Clock clock) throws Exception {
         http
                 .csrf(csrf -> csrf.spa().ignoringRequestMatchers(LOGIN_URL, REGISTER_URL))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(LOGIN_URL, REGISTER_URL, HEALTH_URL).permitAll()
-                        .requestMatchers("/api/**").authenticated()
-                        .anyRequest().permitAll())                     // file giao diện tĩnh
+                .authorizeHttpRequests(auth -> {
+                    auth.requestMatchers(LOGIN_URL, REGISTER_URL, HEALTH_URL).permitAll();
+                    for (ProtectedEndpoint endpoint : ProtectedEndpoint.values()) {
+                        auth.requestMatchers(endpoint.method(), endpoint.pathPattern())
+                                .hasAnyAuthority(endpoint.authorities());
+                    }
+                    auth.requestMatchers("/api/**").authenticated();
+                    auth.anyRequest().permitAll();                     // file giao diện tĩnh
+                })
+                // Thứ tự kiểm tra (Đặc tả API mục 4): phiên hợp lệ -> tài khoản không bị khóa -> có quyền
+                .addFilterBefore(new SessionLifetimeFilter(clock, errors), AuthorizationFilter.class)
+                .addFilterBefore(new ActiveAccountFilter(accounts, errors), AuthorizationFilter.class)
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(errors)
                         .accessDeniedHandler(errors))

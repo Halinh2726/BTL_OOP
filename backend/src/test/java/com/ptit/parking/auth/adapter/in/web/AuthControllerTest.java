@@ -1,9 +1,19 @@
 package com.ptit.parking.auth.adapter.in.web;
 
+import java.util.List;
+
 import static org.hamcrest.Matchers.notNullValue;
+import org.junit.jupiter.api.Test;
 import static org.mockito.Mockito.when;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -16,28 +26,14 @@ import com.ptit.parking.auth.application.usecase.LoginUseCase;
 import com.ptit.parking.auth.domain.Role;
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
-import com.ptit.parking.shared.security.JsonSecurityErrorHandler;
-import com.ptit.parking.shared.security.SecurityConfig;
-import com.ptit.parking.shared.web.ConstraintErrorTranslator;
-import com.ptit.parking.shared.web.GlobalExceptionHandler;
-import com.ptit.parking.shared.web.TraceIdFilter;
-import java.util.List;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.http.MediaType;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
+import com.ptit.parking.shared.security.WebSecurityTestConfig;
 
 /**
  * Test tầng web + bảo mật của C01. Use case được thay bằng mock: ở đây chỉ kiểm tra
  * HTTP, phiên, CSRF và định dạng lỗi — logic đăng nhập đã có LoginUseCaseTest.
  */
 @WebMvcTest(AuthController.class)
-@Import({SecurityConfig.class, JsonSecurityErrorHandler.class, SessionSignIn.class,
-        GlobalExceptionHandler.class, ConstraintErrorTranslator.class, TraceIdFilter.class})
+@Import({WebSecurityTestConfig.class, SessionSignIn.class})
 class AuthControllerTest {
 
     private static final AuthenticatedUser MANAGER = new AuthenticatedUser(
