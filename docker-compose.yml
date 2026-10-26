@@ -1,0 +1,22 @@
+# Bước 2: chỉ có CSDL. Backend và frontend sẽ được thêm ở bước triển khai.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: parking-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-parking}
+      POSTGRES_USER: ${DB_USERNAME:-parking}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-parking}
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-parking} -d ${DB_NAME:-parking}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
