@@ -24,6 +24,9 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+logging:
+  pattern:
+    level: "%5p [traceId=%X{traceId:-}]"   # mỗi dòng log kèm traceId của request (TraceIdFilter)
 
 server:
   port: ${SERVER_PORT:8080}
