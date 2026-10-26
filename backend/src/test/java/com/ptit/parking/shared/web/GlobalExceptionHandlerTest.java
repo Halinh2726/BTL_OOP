@@ -6,9 +6,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
+import com.ptit.parking.shared.security.JsonSecurityErrorHandler;
+import com.ptit.parking.shared.security.SecurityConfig;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -34,7 +37,8 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @WebMvcTest(controllers = GlobalExceptionHandlerTest.FakeController.class)
 @Import({GlobalExceptionHandlerTest.FakeController.class,       // class lồng trong test không được tự quét
-        GlobalExceptionHandler.class, ConstraintErrorTranslator.class, TraceIdFilter.class})
+        GlobalExceptionHandler.class, ConstraintErrorTranslator.class, TraceIdFilter.class,
+        SecurityConfig.class, JsonSecurityErrorHandler.class})          // cấu hình bảo mật thật (BTL-6)
 class GlobalExceptionHandlerTest {
 
     @Autowired
@@ -53,7 +57,7 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void bodySaiRangBuoc_traVeValidationErrorKemTungTruong() throws Exception {
-        mvc.perform(post("/test/vehicles").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/test/vehicles").with(csrf()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"plateNumber\": \"ab\", \"vehicleTypeCode\": \"\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
@@ -73,7 +77,8 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void jsonHong_traVeValidationError() throws Exception {
-        mvc.perform(post("/test/vehicles").contentType(MediaType.APPLICATION_JSON).content("{khong phai json"))
+        mvc.perform(post("/test/vehicles").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{khong phai json"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
