@@ -1,11 +1,7 @@
 package com.ptit.parking.shared.security;
 
-import com.ptit.parking.shared.domain.ErrorCode;
-import com.ptit.parking.shared.web.ErrorResponse;
-import com.ptit.parking.shared.web.TraceIdFilter;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
@@ -16,6 +12,13 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.stereotype.Component;
+
+import com.ptit.parking.shared.domain.ErrorCode;
+import com.ptit.parking.shared.web.ErrorResponse;
+import com.ptit.parking.shared.web.TraceIdFilter;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -37,7 +40,7 @@ public class JsonSecurityErrorHandler implements AuthenticationEntryPoint, Acces
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException ex)
             throws IOException {
-        write(response, ErrorCode.UNAUTHENTICATED);
+        writeError(response, ErrorCode.UNAUTHENTICATED);
     }
 
     /** Bị từ chối: thiếu/sai CSRF token -> CSRF_INVALID; thiếu quyền -> FORBIDDEN. */
@@ -46,9 +49,9 @@ public class JsonSecurityErrorHandler implements AuthenticationEntryPoint, Acces
             throws IOException {
         if (ex instanceof CsrfException) {
             // Chưa đăng nhập thì lỗi đúng hơn là 401 (thứ tự kiểm tra: phiên -> ... -> quyền, Đặc tả API mục 4)
-            write(response, isLoggedIn() ? ErrorCode.CSRF_INVALID : ErrorCode.UNAUTHENTICATED);
+            writeError(response, isLoggedIn() ? ErrorCode.CSRF_INVALID : ErrorCode.UNAUTHENTICATED);
         } else {
-            write(response, ErrorCode.FORBIDDEN);
+            writeError(response, ErrorCode.FORBIDDEN);
         }
     }
 
@@ -57,7 +60,8 @@ public class JsonSecurityErrorHandler implements AuthenticationEntryPoint, Acces
         return auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken);
     }
 
-    private void write(HttpServletResponse response, ErrorCode code) throws IOException {
+    /** Ghi một lỗi JSON chuẩn; các filter bảo mật (khóa tài khoản, hết hạn phiên) dùng chung. */
+    public void writeError(HttpServletResponse response, ErrorCode code) throws IOException {
         response.setStatus(code.httpStatus());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
