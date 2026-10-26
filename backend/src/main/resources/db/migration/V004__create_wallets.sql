@@ -1,0 +1,17 @@
+-- =====================================================================
+-- V004: Ví điểm (TaiKhoanDiem) — chỉ Sinh viên và Chủ tài khoản có ví.
+-- R01: điểm là số nguyên, không bao giờ âm. Bảo vệ 2 lớp:
+--   (1) Domain: Wallet.debit() ném lỗi khi không đủ điểm (đóng gói)
+--   (2) CSDL : ck_wallets_balance — lưới an toàn cuối cùng
+-- =====================================================================
+
+CREATE TABLE wallets (
+    id         BIGINT      NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    user_id    BIGINT      NOT NULL,
+    balance    BIGINT      NOT NULL DEFAULT 0,
+    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+
+    CONSTRAINT uq_wallets_user    UNIQUE (user_id),          -- mỗi người tối đa 1 ví
+    CONSTRAINT ck_wallets_balance CHECK (balance >= 0),
+    CONSTRAINT fk_wallets_user    FOREIGN KEY (user_id) REFERENCES users (id)
+);

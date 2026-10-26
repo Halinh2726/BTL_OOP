@@ -1,0 +1,46 @@
+# Cấu hình chung. Mọi giá trị nhạy cảm lấy từ biến môi trường (xem .env.example),
+# giá trị sau dấu ':' chỉ là mặc định cho máy dev.
+spring:
+  application:
+    name: parking-backend
+  autoconfigure:
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+  datasource:
+    # connectionTimeZone=UTC: mọi thời điểm lưu xuống CSDL theo UTC, đổi sang giờ VN ở tầng ứng dụng
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:parking}?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&characterEncoding=UTF-8
+    username: ${DB_USERNAME:parking}
+    password: ${DB_PASSWORD:parking}
+    hikari:
+      connection-timeout: 3000     # ms; CSDL sập thì báo lỗi nhanh (health trả 503) thay vì treo 30s
+
+  jpa:
+    open-in-view: false            # không giữ kết nối CSDL suốt request; transaction do use case quyết định
+    hibernate:
+      ddl-auto: validate           # schema do Flyway quản lý; Hibernate chỉ KIỂM TRA, không tự sửa bảng
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+logging:
+  pattern:
+    level: "%5p [traceId=%X{traceId:-}]"   # mỗi dòng log kèm traceId của request (TraceIdFilter)
+
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-stacktrace: never      # không bao giờ trả stack trace cho client
+  servlet:
+    session:
+      timeout: 30m                 # Đặc tả API mục 3: hết hạn sau 30 phút không hoạt động
+      cookie:
+        name: SESSION
+        http-only: true            # JavaScript không đọc được cookie phiên
+        same-site: strict
+        secure: ${COOKIE_SECURE:false}
+# Cấu hình nghiệp vụ của ứng dụng
+parking:
+  zone-id: Asia/Ho_Chi_Minh        # R03: giờ tính phí là giờ Việt Nam theo đồng hồ máy chủ

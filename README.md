@@ -2,7 +2,7 @@
 
 Bài tập lớn môn Lập trình hướng đối tượng.
 
-- Backend: Java 21, Spring Boot 4, PostgreSQL, Flyway
+- Backend: Java 21, Spring Boot 4, MySQL 8.4, Flyway
 - Kiến trúc: Modular Monolith + Clean Architecture
 
 ## Quy ước nhánh
