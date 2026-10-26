@@ -1,10 +1,9 @@
 package com.ptit.parking.auth.adapter.in.web;
 
-import com.ptit.parking.auth.application.AuthenticatedUser;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
+
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -12,6 +11,12 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Component;
+
+import com.ptit.parking.auth.application.AuthenticatedUser;
+import com.ptit.parking.shared.security.SessionLifetimeFilter;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * Ghi người dùng đã xác thực vào phiên. Tách khỏi controller (SRP): controller lo HTTP,
@@ -21,9 +26,11 @@ import org.springframework.stereotype.Component;
 class SessionSignIn {
 
     private final SecurityContextRepository contextRepository;
+    private final Clock clock;
 
-    SessionSignIn(SecurityContextRepository contextRepository) {
+    SessionSignIn(SecurityContextRepository contextRepository, Clock clock) {
         this.contextRepository = contextRepository;
+        this.clock = clock;
     }
 
     void signIn(AuthenticatedUser user, HttpServletRequest request, HttpServletResponse response) {
@@ -40,5 +47,8 @@ class SessionSignIn {
         context.setAuthentication(UsernamePasswordAuthenticationToken.authenticated(user, null, authorities));
         SecurityContextHolder.setContext(context);
         contextRepository.saveContext(context, request, response);
+
+        // Mốc tính giới hạn 12 giờ của phiên (SessionLifetimeFilter)
+        request.getSession().setAttribute(SessionLifetimeFilter.SIGNED_IN_AT, clock.instant());
     }
 }
