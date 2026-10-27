@@ -3,6 +3,7 @@ package com.ptit.parking.payment.config;
 import com.ptit.parking.payment.application.IdempotencyGuard;
 import com.ptit.parking.payment.application.port.out.PointTransactionRepository;
 import com.ptit.parking.payment.application.port.out.WalletRepository;
+import com.ptit.parking.payment.application.usecase.GetMyTransactionsUseCase;
 import com.ptit.parking.payment.application.usecase.GetMyWalletUseCase;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import org.springframework.context.annotation.Bean;
@@ -20,5 +21,10 @@ public class PaymentConfig {
     @Bean
     GetMyWalletUseCase getMyWalletUseCase(WalletRepository wallets) {
         return new GetMyWalletUseCase(wallets);
+    }
+
+    @Bean
+    GetMyTransactionsUseCase getMyTransactionsUseCase(WalletRepository wallets, PointTransactionRepository transactions) {
+        return new GetMyTransactionsUseCase(wallets, transactions);
     }
 }
