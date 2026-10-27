@@ -7,20 +7,21 @@ import com.ptit.parking.auth.domain.AccountStatus;
 import com.ptit.parking.auth.domain.Guard;
 import com.ptit.parking.auth.domain.PasswordHasher;
 import com.ptit.parking.auth.domain.Role;
-import com.ptit.parking.manager.application.port.out.GuardAccountRepository;
 import com.ptit.parking.manager.application.usecase.CreateGuardUseCase.Command;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
+import com.ptit.parking.manager.application.port.out.GuardAccountRepository;
+import com.ptit.parking.manager.application.port.out.InMemoryGuardAccountRepository;
+
 import java.util.ArrayList;
-import java.util.List;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 
 /** QL03 — tạo tài khoản bảo vệ. Không cần CSDL, không cần Spring. */
 class CreateGuardUseCaseTest {
 
-    private final FakeGuards guards = new FakeGuards();
+    private final InMemoryGuardAccountRepository guards = new InMemoryGuardAccountRepository();
     private final PasswordHasher hasher = new PasswordHasher() {
         @Override
         public String hash(String rawPassword) { return "hashed:" + rawPassword; }
@@ -56,23 +57,6 @@ class CreateGuardUseCaseTest {
         assertThatThrownBy(() -> createGuard.create(new Command("Ngô Văn H", "0912345678", "baove03", "MatKhau@123")))
                 .isInstanceOfSatisfying(DomainException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.USERNAME_EXISTS));
-        assertThat(guards.saved).hasSize(1);
-    }
-
-    static final class FakeGuards implements GuardAccountRepository {
-        final List<Guard> saved = new ArrayList<>();
-
-        @Override
-        public boolean usernameExists(String username) {
-            return saved.stream().anyMatch(g -> g.username().equals(username));
-        }
-
-        @Override
-        public Guard save(Guard guard) {
-            Guard withId = new Guard((long) saved.size() + 1, guard.username(), guard.passwordHash(),
-                    guard.fullName(), guard.status(), guard.phone());
-            saved.add(withId);
-            return withId;
-        }
+        assertThat(guards.all()).hasSize(1);
     }
 }
