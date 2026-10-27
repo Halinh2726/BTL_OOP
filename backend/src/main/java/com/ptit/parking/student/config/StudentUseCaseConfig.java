@@ -10,6 +10,7 @@ import com.ptit.parking.payment.application.port.out.WalletRepository;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import com.ptit.parking.student.application.port.out.StudentAccountRepository;
 import com.ptit.parking.student.application.port.out.VehicleRepository;
+import com.ptit.parking.student.application.usecase.ListMyVehiclesUseCase;
 import com.ptit.parking.student.application.usecase.RegisterStudentUseCase;
 import com.ptit.parking.student.application.usecase.RegisterVehicleUseCase;
 
@@ -26,5 +27,10 @@ public class StudentUseCaseConfig {
     @Bean
     RegisterVehicleUseCase registerVehicleUseCase(VehicleRepository vehicles, Clock clock) {
         return new RegisterVehicleUseCase(vehicles, clock);
+    }
+
+    @Bean
+    ListMyVehiclesUseCase listMyVehiclesUseCase(VehicleRepository vehicles) {
+        return new ListMyVehiclesUseCase(vehicles);
     }
 }

@@ -61,5 +61,11 @@ class RegisterVehicleUseCaseTest {
             saved.add(withId);
             return withId;
         }
+
+        
+        @Override
+        public List<Vehicle> findByStudentId(long studentId) {
+            return saved.stream().filter(v -> v.studentId() == studentId).toList();
+        }
     }
 }

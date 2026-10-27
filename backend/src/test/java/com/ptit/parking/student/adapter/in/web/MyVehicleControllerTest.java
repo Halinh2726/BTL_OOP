@@ -8,7 +8,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import com.ptit.parking.student.application.usecase.ListMyVehiclesUseCase;
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
 import com.ptit.parking.shared.security.SessionUser;
@@ -42,6 +43,26 @@ class MyVehicleControllerTest {
 
     @MockitoBean
     private RegisterVehicleUseCase registerVehicle;
+
+    
+    @MockitoBean
+    private ListMyVehiclesUseCase listMyVehicles;
+
+    @Test
+    void danhSachXe_layTheoNguoiDangNhap_gioVietNam() throws Exception {
+        when(listMyVehicles.list(7L)).thenReturn(List.of(
+                new Vehicle(101L, 7L, PlateNumber.of("29A33333"), "XE_DAP", Instant.parse("2026-10-03T01:00:00Z")),
+                new Vehicle(100L, 7L, PlateNumber.of("29A11111"), "XE_MAY", Instant.parse("2026-10-01T01:00:00Z"))));
+
+        mvc.perform(get(URL).with(authentication(student(7L))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].id").value(101))
+                .andExpect(jsonPath("$[0].plateNumber").value("29A33333"))
+                .andExpect(jsonPath("$[0].vehicleTypeCode").value("XE_DAP"))
+                .andExpect(jsonPath("$[0].registeredAt").value("2026-10-03T08:00:00+07:00"))
+                .andExpect(jsonPath("$[1].id").value(100));
+    }
 
     @Test
     void dangKyThanhCong_201_chuXeTuPhien_boQuaStudentIdTrongBody() throws Exception {

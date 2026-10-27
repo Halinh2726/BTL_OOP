@@ -2,6 +2,7 @@ package com.ptit.parking.student.adapter.out.persistence;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -42,5 +43,21 @@ class VehicleJdbcAdapter implements VehicleRepository {
                 .param("registeredAt", LocalDateTime.ofInstant(vehicle.registeredAt(), ZoneOffset.UTC))
                 .update(keys);
         return vehicle.withId(keys.getKey().longValue());
+    }
+
+    
+    @Override
+    public List<Vehicle> findByStudentId(long studentId) {
+        return jdbc.sql("""
+                SELECT id, student_id, plate_number, vehicle_type_code, registered_at
+                FROM vehicles WHERE student_id = :studentId""")
+                .param("studentId", studentId)
+                .query((rs, row) -> new Vehicle(
+                        rs.getLong("id"),
+                        rs.getLong("student_id"),
+                        new PlateNumber(rs.getString("plate_number")),
+                        rs.getString("vehicle_type_code"),
+                        rs.getObject("registered_at", LocalDateTime.class).toInstant(ZoneOffset.UTC)))
+                .list();
     }
 }
