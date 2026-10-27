@@ -1,11 +1,16 @@
 package com.ptit.parking.parking.application.usecase;
 
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.Test;
 
 import com.ptit.parking.catalog.domain.FeeRule;
 import com.ptit.parking.parking.application.port.out.InMemoryParkingSessionRepository;
-import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory;
+import com.ptit.parking.parking.application.port.out.InMemoryVehicleOwnerDirectory;
 import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory.VehicleOwner;
 import com.ptit.parking.parking.application.usecase.PreviewCheckInUseCase.Preview;
 import com.ptit.parking.parking.domain.TimeSlotFeePolicy;
@@ -14,11 +19,6 @@ import com.ptit.parking.payment.domain.Wallet;
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
 import com.ptit.parking.student.domain.PlateNumber;
-import java.time.LocalTime;
-import java.time.ZoneId;
-import java.util.List;
-import java.util.Optional;
-import org.junit.jupiter.api.Test;
 
 /** BV01 — tra cứu trước khi cho xe vào: đủ thông tin để đối chiếu thẻ, và kết luận kèm lý do. */
 class PreviewCheckInUseCaseTest {
@@ -28,7 +28,7 @@ class PreviewCheckInUseCaseTest {
     private static final VehicleOwner OWNER = new VehicleOwner(VEHICLE, new PlateNumber("29A12345"), "XE_MAY",
             STUDENT, "B21DCCN001", "Nguyễn Văn A");
 
-    private final VehicleOwnerDirectory vehicles = plate -> plate.equals(OWNER.plate()) ? Optional.of(OWNER) : Optional.empty();
+    private final InMemoryVehicleOwnerDirectory vehicles = new InMemoryVehicleOwnerDirectory();
     private final InMemoryParkingSessionRepository sessions = new InMemoryParkingSessionRepository();
     private final InMemoryWalletRepository wallets = new InMemoryWalletRepository();
     private final TimeSlotFeePolicy feePolicy = new TimeSlotFeePolicy(List.of(
@@ -36,6 +36,10 @@ class PreviewCheckInUseCaseTest {
 
     private final PreviewCheckInUseCase previewCheckIn = new PreviewCheckInUseCase(vehicles, sessions, wallets, feePolicy);
 
+    
+    PreviewCheckInUseCaseTest() {
+        vehicles.add(OWNER);
+    }
     @Test
     void duDiem_khongCoLuotMo_choVao_kemThongTinDoiChieuThe() {
         wallets.insert(new Wallet(null, STUDENT, 10_000));
@@ -46,7 +50,8 @@ class PreviewCheckInUseCaseTest {
         assertThat(preview.reason()).isNull();
         assertThat(preview.owner()).isEqualTo(OWNER);                     // MSSV + họ tên để đối chiếu thẻ
         assertThat(preview.balance()).isEqualTo(10_000);
-        assertThat(preview.minFee()).isEqualTo(3_000);                    // mức thấp nhất của bảng giá, không phải 5.000
+        assertThat(preview.minFee()).isEqualTo(3_000); 
+        assertThat(vehicles.locked()).isEmpty();                          // chỉ đọc: tra cứu KHÔNG khóa dòng xe                           // mức thấp nhất của bảng giá, không phải 5.000
     }
 
     @Test
