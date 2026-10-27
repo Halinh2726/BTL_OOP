@@ -1,15 +1,19 @@
 package com.ptit.parking.parking.config;
 
+import java.time.Clock;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
 import com.ptit.parking.catalog.application.port.out.FeeRuleRepository;
 import com.ptit.parking.parking.application.port.out.ParkingSessionRepository;
 import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory;
+import com.ptit.parking.parking.application.usecase.CheckInUseCase;
 import com.ptit.parking.parking.application.usecase.PreviewCheckInUseCase;
 import com.ptit.parking.parking.domain.FeePolicy;
 import com.ptit.parking.parking.domain.TimeSlotFeePolicy;
 import com.ptit.parking.payment.application.port.out.WalletRepository;
-import java.time.Clock;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import com.ptit.parking.shared.application.port.out.TransactionRunner;
 
 /**
  * Composition Root của module parking. Đây là nơi DUY NHẤT biết chính sách giá đang dùng là
@@ -31,5 +35,12 @@ public class ParkingUseCaseConfig {
     PreviewCheckInUseCase previewCheckInUseCase(VehicleOwnerDirectory vehicles, ParkingSessionRepository sessions,
                                                 WalletRepository wallets, FeePolicy feePolicy) {
         return new PreviewCheckInUseCase(vehicles, sessions, wallets, feePolicy);
+    }
+
+    @Bean
+    CheckInUseCase checkInUseCase(VehicleOwnerDirectory vehicles, ParkingSessionRepository sessions,
+                                  WalletRepository wallets, FeePolicy feePolicy,
+                                  TransactionRunner transactions, Clock clock) {
+        return new CheckInUseCase(vehicles, sessions, wallets, feePolicy, transactions, clock);
     }
 }
