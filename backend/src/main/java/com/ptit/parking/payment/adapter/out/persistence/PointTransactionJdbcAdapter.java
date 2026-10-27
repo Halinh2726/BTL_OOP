@@ -1,5 +1,6 @@
 package com.ptit.parking.payment.adapter.out.persistence;
 
+import com.ptit.parking.payment.application.port.out.DuplicateIdempotencyKeyException;
 import com.ptit.parking.payment.application.port.out.PointTransactionRepository;
 import com.ptit.parking.payment.domain.PointTransaction;
 import com.ptit.parking.payment.domain.TransactionType;
@@ -10,6 +11,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -32,6 +34,9 @@ class PointTransactionJdbcAdapter implements PointTransactionRepository {
             LEFT JOIN parking_payment_details p ON p.transaction_id = t.id
             """;
 
+    /** Ràng buộc UNIQUE của cột idempotency_key (V006). */
+    private static final String IDEMPOTENCY_CONSTRAINT = "uq_point_transactions_idempotency";
+
     private final JdbcClient jdbc;
 
     PointTransactionJdbcAdapter(JdbcClient jdbc) {
@@ -42,22 +47,14 @@ class PointTransactionJdbcAdapter implements PointTransactionRepository {
     public long save(PointTransaction transaction, String requestHash) {
         PointTransactionRow row = PointTransactionRow.from(transaction);
         KeyHolder keys = new GeneratedKeyHolder();
-        jdbc.sql("""
-                INSERT INTO point_transactions (type, points, source_wallet_id, target_wallet_id,
-                    source_balance_after, target_balance_after, idempotency_key, request_hash, performed_by, created_at)
-                VALUES (:type, :points, :sourceWalletId, :targetWalletId,
-                    :sourceBalanceAfter, :targetBalanceAfter, :idempotencyKey, :requestHash, :performedBy, :createdAt)""")
-                .param("type", row.type().name())
-                .param("points", row.points())
-                .param("sourceWalletId", row.sourceWalletId())
-                .param("targetWalletId", row.targetWalletId())
-                .param("sourceBalanceAfter", row.sourceBalanceAfter())
-                .param("targetBalanceAfter", row.targetBalanceAfter())
-                .param("idempotencyKey", row.idempotencyKey().toString())
-                .param("requestHash", requestHash)
-                .param("performedBy", row.performedBy())
-                .param("createdAt", LocalDateTime.ofInstant(row.createdAt(), ZoneOffset.UTC))
-                .update(keys);
+        try {
+            insertTransaction(row, requestHash, keys);
+        } catch (DuplicateKeyException e) {
+            if (String.valueOf(e.getMessage()).contains(IDEMPOTENCY_CONSTRAINT)) {
+                throw new DuplicateIdempotencyKeyException(e);
+            }
+            throw e;
+        }
         long id = keys.getKey().longValue();
 
         if (row.cashAmount() != null) {
@@ -74,6 +71,25 @@ class PointTransactionJdbcAdapter implements PointTransactionRepository {
                     .update();
         }
         return id;
+    }
+
+    private void insertTransaction(PointTransactionRow row, String requestHash, KeyHolder keys) {
+        jdbc.sql("""
+                INSERT INTO point_transactions (type, points, source_wallet_id, target_wallet_id,
+                    source_balance_after, target_balance_after, idempotency_key, request_hash, performed_by, created_at)
+                VALUES (:type, :points, :sourceWalletId, :targetWalletId,
+                    :sourceBalanceAfter, :targetBalanceAfter, :idempotencyKey, :requestHash, :performedBy, :createdAt)""")
+                .param("type", row.type().name())
+                .param("points", row.points())
+                .param("sourceWalletId", row.sourceWalletId())
+                .param("targetWalletId", row.targetWalletId())
+                .param("sourceBalanceAfter", row.sourceBalanceAfter())
+                .param("targetBalanceAfter", row.targetBalanceAfter())
+                .param("idempotencyKey", row.idempotencyKey().toString())
+                .param("requestHash", requestHash)
+                .param("performedBy", row.performedBy())
+                .param("createdAt", LocalDateTime.ofInstant(row.createdAt(), ZoneOffset.UTC))
+                .update(keys);
     }
 
     @Override
