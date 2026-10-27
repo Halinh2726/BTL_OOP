@@ -13,6 +13,9 @@ import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import com.ptit.parking.manager.application.port.out.OwnerAccountDirectory;
+import com.ptit.parking.manager.application.usecase.GetOwnerWalletUseCase;
+import com.ptit.parking.manager.application.usecase.WithdrawCashUseCase;
 
 /** Composition Root của module manager. */
 @Configuration
@@ -34,5 +37,17 @@ public class ManagerUseCaseConfig {
     CreateGuardUseCase createGuardUseCase(GuardAccountRepository guards, PasswordHasher hasher,
                                           TransactionRunner transactions) {
         return new CreateGuardUseCase(guards, hasher, transactions);
+    }
+    
+    @Bean
+    GetOwnerWalletUseCase getOwnerWalletUseCase(OwnerAccountDirectory owners, WalletRepository wallets) {
+        return new GetOwnerWalletUseCase(owners, wallets);
+    }
+
+    @Bean
+    WithdrawCashUseCase withdrawCashUseCase(OwnerAccountDirectory owners, WalletRepository wallets,
+                                            ExchangeRateRepository exchangeRates, IdempotencyGuard idempotency,
+                                            Clock clock) {
+        return new WithdrawCashUseCase(owners, wallets, exchangeRates, idempotency, clock);
     }
 }
