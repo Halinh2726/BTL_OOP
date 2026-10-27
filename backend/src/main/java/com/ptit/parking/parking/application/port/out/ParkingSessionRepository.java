@@ -1,12 +1,17 @@
 package com.ptit.parking.parking.application.port.out;
 
 import com.ptit.parking.parking.domain.ParkingSession;
+import java.util.Optional;
 
 /** Port: lượt gửi xe (bảng parking_sessions). */
 public interface ParkingSessionRepository {
 
     /** R05: xe này đang có lượt gửi CHƯA ra (DANG_GUI) hay không. */
     boolean hasOpenSession(long vehicleId);
+
+    
+    /** Lượt DANG_GUI của xe (nếu có). Chỉ đọc, không khóa — dùng cho tra cứu khi xe ra. */
+    Optional<ParkingSession> findOpenByVehicle(long vehicleId);
 
     /**
      * Lưu lượt gửi MỚI, trả về bản có id. Xe đã có lượt đang mở (hai request song song lọt qua bước kiểm tra)

@@ -1,7 +1,10 @@
 package com.ptit.parking.parking.adapter.out.persistence;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Optional;
 
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -11,6 +14,7 @@ import org.springframework.stereotype.Component;
 
 import com.ptit.parking.parking.application.port.out.ParkingSessionRepository;
 import com.ptit.parking.parking.domain.ParkingSession;
+import com.ptit.parking.parking.domain.SessionStatus;
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
 
@@ -36,6 +40,17 @@ class ParkingSessionJdbcAdapter implements ParkingSessionRepository {
                 .single() > 0;
     }
 
+    
+    @Override
+    public Optional<ParkingSession> findOpenByVehicle(long vehicleId) {
+        return jdbc.sql("""
+                SELECT id, vehicle_id, status, entered_at, entry_guard_id, exited_at, exit_guard_id
+                FROM parking_sessions WHERE open_vehicle_id = :vehicleId""")
+                .param("vehicleId", vehicleId)
+                .query(ParkingSessionJdbcAdapter::map)
+                .optional();
+    }
+
     @Override
     public ParkingSession save(ParkingSession session) {
         KeyHolder keys = new GeneratedKeyHolder();
@@ -55,5 +70,15 @@ class ParkingSessionJdbcAdapter implements ParkingSessionRepository {
             throw e;
         }
         return session.withId(keys.getKey().longValue());
+    }
+    
+    private static ParkingSession map(ResultSet rs, int row) throws SQLException {
+        LocalDateTime exitedAt = rs.getObject("exited_at", LocalDateTime.class);
+        return ParkingSession.restore(rs.getLong("id"), rs.getLong("vehicle_id"),
+                SessionStatus.valueOf(rs.getString("status")),
+                rs.getObject("entered_at", LocalDateTime.class).toInstant(ZoneOffset.UTC),
+                rs.getLong("entry_guard_id"),
+                exitedAt == null ? null : exitedAt.toInstant(ZoneOffset.UTC),
+                rs.getObject("exit_guard_id", Long.class));
     }
 }

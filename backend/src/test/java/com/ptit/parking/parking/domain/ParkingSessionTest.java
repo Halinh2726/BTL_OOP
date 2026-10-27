@@ -75,4 +75,17 @@ class ParkingSessionTest {
         assertThat(session.vehicleId()).isEqualTo(VEHICLE);
         assertThat(session.entryGuardId()).isEqualTo(GUARD_IN);
     }
+    
+    @Test
+    void restore_luotDaRa_giuNguyenTrangThai_khongDongLaiDuoc() {
+        ParkingSession session = ParkingSession.restore(501L, VEHICLE, SessionStatus.DA_RA, ENTER, GUARD_IN,
+                EXIT, GUARD_OUT);
+
+        assertThat(session.id()).isEqualTo(501L);
+        assertThat(session.isOpen()).isFalse();
+        assertThat(session.exitGuardId()).isEqualTo(GUARD_OUT);
+        assertThatThrownBy(() -> session.close(6L, EXIT.plusSeconds(60)))
+                .isInstanceOfSatisfying(DomainException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.NO_OPEN_SESSION));
+    }
 }

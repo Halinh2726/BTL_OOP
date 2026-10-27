@@ -43,6 +43,13 @@ public final class ParkingSession {
                 SessionStatus.DANG_GUI, null, null);
     }
 
+    
+    /** Dựng lại lượt gửi đã lưu trong CSDL (chỉ adapter dùng). */
+    public static ParkingSession restore(long id, long vehicleId, SessionStatus status, Instant enteredAt,
+                                         long entryGuardId, Instant exitedAt, Long exitGuardId) {
+        return new ParkingSession(id, vehicleId, enteredAt, entryGuardId, status, exitedAt, exitGuardId);
+    }
+
     /** BV02: bảo vệ cho xe ra. Lượt đã kết thúc thì không đóng lần hai. */
     public void close(long exitGuardId, Instant now) {
         if (!isOpen()) {
