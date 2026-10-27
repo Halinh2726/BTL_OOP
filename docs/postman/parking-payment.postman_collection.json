@@ -1,0 +1,1572 @@
+{
+  "info": {
+    "name": "Hệ thống thanh toán phí gửi xe bằng điểm",
+    "description": "Kịch bản demo đầy đủ: sinh viên đăng ký -> quản lý đổi điểm -> bảo vệ cho xe vào/ra -> chủ tài khoản nhận điểm -> quản lý rút điểm. Chạy theo thứ tự từ trên xuống (Run collection). Mỗi lần chạy tự sinh MSSV, tên đăng nhập, biển số mới nên chạy lại được nhiều lần. Phiên đăng nhập là cookie SESSION; token CSRF được tự lấy từ cookie XSRF-TOKEN sau mỗi request.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Lấy token CSRF từ cookie XSRF-TOKEN để gửi lại qua header X-XSRF-TOKEN ở các request ghi dữ liệu",
+          "const token = pm.cookies.get('XSRF-TOKEN');",
+          "if (token) { pm.collectionVariables.set('xsrf', token); }"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api/v1"
+    },
+    {
+      "key": "svPassword",
+      "value": "MatKhau@123"
+    },
+    {
+      "key": "guardPassword",
+      "value": "Baove@123"
+    },
+    {
+      "key": "xsrf",
+      "value": ""
+    },
+    {
+      "key": "svCode",
+      "value": ""
+    },
+    {
+      "key": "svUsername",
+      "value": ""
+    },
+    {
+      "key": "plate",
+      "value": ""
+    },
+    {
+      "key": "guardUsername",
+      "value": ""
+    },
+    {
+      "key": "guardPhone",
+      "value": ""
+    },
+    {
+      "key": "guardId",
+      "value": ""
+    },
+    {
+      "key": "sessionId",
+      "value": ""
+    },
+    {
+      "key": "fee",
+      "value": ""
+    },
+    {
+      "key": "depositKey",
+      "value": ""
+    },
+    {
+      "key": "depositId",
+      "value": ""
+    },
+    {
+      "key": "checkoutKey",
+      "value": ""
+    },
+    {
+      "key": "withdrawKey",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Kiểm tra hệ thống",
+      "item": [
+        {
+          "name": "Health (công khai)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('CSDL UP', () => pm.expect(pm.response.json().database).to.eql('UP'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Sinh viên đăng ký tài khoản và xe",
+      "item": [
+        {
+          "name": "Đăng ký sinh viên (SV01)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/students/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "students",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentCode\": \"{{svCode}}\",\n  \"fullName\": \"Nguyễn Văn Demo\",\n  \"username\": \"{{svUsername}}\",\n  \"password\": \"{{svPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Sinh dữ liệu mới mỗi lần chạy để collection chạy lại được nhiều lần",
+                  "const n = Date.now().toString().slice(-6);",
+                  "pm.collectionVariables.set('svCode', 'DEMO' + n);",
+                  "pm.collectionVariables.set('svUsername', 'sv' + n);",
+                  "pm.collectionVariables.set('plate', '59X' + n);",
+                  "pm.collectionVariables.set('guardUsername', 'baove' + n);",
+                  "pm.collectionVariables.set('guardPhone', '09' + n + '00');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.test('MSSV đúng', () => pm.expect(pm.response.json().studentCode).to.eql(pm.collectionVariables.get('svCode')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đăng nhập sinh viên (C01)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{svUsername}}\",\n  \"password\": \"{{svPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Vai trò SINH_VIEN', () => pm.expect(pm.response.json().user.role).to.eql('SINH_VIEN'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Danh mục loại xe",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/vehicle-types",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicle-types"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đăng ký xe (SV02)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-XSRF-TOKEN",
+                "value": "{{xsrf}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/me/vehicles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "vehicles"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plateNumber\": \"{{plate}}\",\n  \"vehicleTypeCode\": \"XE_MAY\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Xe của tôi",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me/vehicles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "vehicles"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Có xe vừa đăng ký', () => pm.expect(pm.response.json().map(v => v.plateNumber)).to.include(pm.collectionVariables.get('plate')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ví của tôi: 0 điểm (SV03)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me/wallet",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "wallet"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Số dư 0', () => pm.expect(pm.response.json().balance).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Quản lý đổi tiền sang điểm, tạo bảo vệ",
+      "item": [
+        {
+          "name": "Đăng nhập quản lý",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"quanly01\",\n  \"password\": \"Quanly@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Vai trò QUAN_LY', () => pm.expect(pm.response.json().user.role).to.eql('QUAN_LY'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tỷ lệ quy đổi hiện hành",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/config/exchange-rate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "config",
+                "exchange-rate"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tra cứu sinh viên theo MSSV",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/manager/students/{{svCode}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "manager",
+                "students",
+                "{{svCode}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Số dư 0', () => pm.expect(pm.response.json().balance).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đổi 50.000đ sang điểm (QL01)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-XSRF-TOKEN",
+                "value": "{{xsrf}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{depositKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/manager/deposits",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "manager",
+                "deposits"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentCode\": \"{{svCode}}\",\n  \"cashAmount\": 50000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('depositKey', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Cộng 50.000 điểm', () => pm.expect(pm.response.json().balanceAfter).to.eql(50000));",
+                  "pm.collectionVariables.set('depositId', pm.response.json().transactionId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bấm lại cùng Idempotency-Key: không cộng 2 lần",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-XSRF-TOKEN",
+                "value": "{{xsrf}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{depositKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/manager/deposits",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "manager",
+                "deposits"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentCode\": \"{{svCode}}\",\n  \"cashAmount\": 50000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Header Idempotent-Replayed', () => pm.expect(pm.response.headers.get('Idempotent-Replayed')).to.eql('true'));",
+                  "pm.test('Cùng giao dịch cũ', () => pm.expect(pm.response.json().transactionId).to.eql(Number(pm.collectionVariables.get('depositId'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tạo tài khoản bảo vệ (QL03)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-XSRF-TOKEN",
+                "value": "{{xsrf}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/manager/guards",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "manager",
+                "guards"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Trần Văn Bảo Demo\",\n  \"phone\": \"{{guardPhone}}\",\n  \"username\": \"{{guardUsername}}\",\n  \"password\": \"{{guardPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('guardId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Danh sách bảo vệ",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/manager/guards",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "manager",
+                "guards"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Có bảo vệ vừa tạo', () => pm.expect(pm.response.json().map(g => g.username)).to.include(pm.collectionVariables.get('guardUsername')));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Bảo vệ xác minh xe vào, xe ra (tự trừ điểm)",
+      "item": [
+        {
+          "name": "Đăng nhập bảo vệ",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{guardUsername}}\",\n  \"password\": \"{{guardPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Vai trò BAO_VE', () => pm.expect(pm.response.json().user.role).to.eql('BAO_VE'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Xem trước xe vào (BV01)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/guard/check-in/preview?plate={{plate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guard",
+                "check-in",
+                "preview"
+              ],
+              "query": [
+                {
+                  "key": "plate",
+                  "value": "{{plate}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Được vào', () => pm.expect(pm.response.json().allowed).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Xác nhận xe vào",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-XSRF-TOKEN",
+                "value": "{{xsrf}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guard/check-in",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guard",
+                "check-in"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plateNumber\": \"{{plate}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('sessionId', pm.response.json().sessionId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cho vào lần nữa: bị chặn (R05)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-XSRF-TOKEN",
+                "value": "{{xsrf}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guard/check-in",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guard",
+                "check-in"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plateNumber\": \"{{plate}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Mã lỗi SESSION_ALREADY_OPEN', () => pm.expect(pm.response.json().code).to.eql('SESSION_ALREADY_OPEN'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Xem trước xe ra (BV02)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/guard/check-out/preview?plate={{plate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guard",
+                "check-out",
+                "preview"
+              ],
+              "query": [
+                {
+                  "key": "plate",
+                  "value": "{{plate}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Đúng lượt gửi', () => pm.expect(pm.response.json().sessionId).to.eql(Number(pm.collectionVariables.get('sessionId'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Xác nhận xe ra: tự trừ phí (HT01)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-XSRF-TOKEN",
+                "value": "{{xsrf}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{checkoutKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guard/check-out",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guard",
+                "check-out"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionId\": {{sessionId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('checkoutKey', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "const fee = pm.response.json().fee;",
+                  "pm.test('Phí 3.000 (trước 18:00) hoặc 5.000 (từ 18:00)', () => pm.expect([3000, 5000]).to.include(fee));",
+                  "pm.test('Số dư sau = 50.000 - phí', () => pm.expect(pm.response.json().balanceAfter).to.eql(50000 - fee));",
+                  "pm.collectionVariables.set('fee', fee);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bấm lại cùng key: không trừ 2 lần",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-XSRF-TOKEN",
+                "value": "{{xsrf}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{checkoutKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guard/check-out",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guard",
+                "check-out"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionId\": {{sessionId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Header Idempotent-Replayed', () => pm.expect(pm.response.headers.get('Idempotent-Replayed')).to.eql('true'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Sinh viên xem điểm và lịch sử",
+      "item": [
+        {
+          "name": "Đăng nhập sinh viên",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{svUsername}}\",\n  \"password\": \"{{svPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Vai trò SINH_VIEN', () => pm.expect(pm.response.json().user.role).to.eql('SINH_VIEN'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ví của tôi: 50.000 - phí",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me/wallet",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "wallet"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Trừ đúng 1 lần', () => pm.expect(pm.response.json().balance).to.eql(50000 - Number(pm.collectionVariables.get('fee'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lịch sử giao dịch (mới nhất trước)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me/transactions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "transactions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const items = pm.response.json().items;",
+                  "pm.test('2 giao dịch: THANH_TOAN rồi DOI_DIEM', () => pm.expect(items.map(t => t.type)).to.eql(['THANH_TOAN', 'DOI_DIEM']));",
+                  "pm.test('Thanh toán là điểm âm', () => pm.expect(items[0].change).to.be.below(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sinh viên gọi API quản lý: 403",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/manager/guards",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "manager",
+                "guards"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('Mã lỗi FORBIDDEN', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Chủ tài khoản nhận điểm (CT01)",
+      "item": [
+        {
+          "name": "Đăng nhập chủ tài khoản",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"chutk01\",\n  \"password\": \"Chutk@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Vai trò CHU_TAI_KHOAN', () => pm.expect(pm.response.json().user.role).to.eql('CHU_TAI_KHOAN'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ví chủ tài khoản",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me/wallet",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "wallet"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Có ít nhất số phí vừa nhận', () => pm.expect(pm.response.json().balance).to.be.at.least(Number(pm.collectionVariables.get('fee'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lịch sử nhận phí gửi xe",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me/transactions?type=THANH_TOAN&limit=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "transactions"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "THANH_TOAN"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Phí là điểm dương với chủ tài khoản', () => pm.expect(pm.response.json().items[0].change).to.eql(Number(pm.collectionVariables.get('fee'))));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Quản lý rút điểm, khóa / mở khóa bảo vệ",
+      "item": [
+        {
+          "name": "Đăng nhập quản lý",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"quanly01\",\n  \"password\": \"Quanly@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Vai trò QUAN_LY', () => pm.expect(pm.response.json().user.role).to.eql('QUAN_LY'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ví chủ tài khoản (QL02)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/manager/owner-wallet",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "manager",
+                "owner-wallet"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Rút đúng số phí vừa nhận ra tiền mặt",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-XSRF-TOKEN",
+                "value": "{{xsrf}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{withdrawKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/manager/withdrawals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "manager",
+                "withdrawals"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"points\": {{fee}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('withdrawKey', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Tiền mặt = điểm x tỷ lệ', () => { const r = pm.response.json(); pm.expect(r.cashAmount).to.eql(r.points * r.cashPerPoint); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Khóa bảo vệ (QL04)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-XSRF-TOKEN",
+                "value": "{{xsrf}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/manager/guards/{{guardId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "manager",
+                "guards",
+                "{{guardId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"BI_KHOA\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('BI_KHOA', () => pm.expect(pm.response.json().status).to.eql('BI_KHOA'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bảo vệ bị khóa đăng nhập: 403",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{guardUsername}}\",\n  \"password\": \"{{guardPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('Mã lỗi ACCOUNT_LOCKED', () => pm.expect(pm.response.json().code).to.eql('ACCOUNT_LOCKED'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mở khóa bảo vệ",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-XSRF-TOKEN",
+                "value": "{{xsrf}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/manager/guards/{{guardId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "manager",
+                "guards",
+                "{{guardId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"HOAT_DONG\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('HOAT_DONG', () => pm.expect(pm.response.json().status).to.eql('HOAT_DONG'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đăng xuất",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-XSRF-TOKEN",
+                "value": "{{xsrf}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Gọi API sau khi đăng xuất: 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                  "pm.test('Mã lỗi UNAUTHENTICATED', () => pm.expect(pm.response.json().code).to.eql('UNAUTHENTICATED'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
