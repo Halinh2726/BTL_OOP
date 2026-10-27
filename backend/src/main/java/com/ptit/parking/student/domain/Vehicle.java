@@ -3,6 +3,7 @@ package com.ptit.parking.student.domain;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
+import java.util.Comparator;
 
 /**
  * Xe của sinh viên (SV02). Mỗi xe thuộc đúng một sinh viên; biển số là {@link PlateNumber} nên luôn
@@ -10,6 +11,10 @@ import java.util.Objects;
  */
 public final class Vehicle {
 
+    
+    /** Thứ tự hiển thị "xe của tôi" (Đặc tả API #5): xe đăng ký gần nhất lên đầu; cùng thời điểm thì id lớn trước. */
+    public static final Comparator<Vehicle> NEWEST_FIRST =
+            Comparator.comparing(Vehicle::registeredAt).thenComparing(Vehicle::id).reversed();
     private final Long id;                  // null khi chưa lưu CSDL
     private final long studentId;
     private final PlateNumber plate;
