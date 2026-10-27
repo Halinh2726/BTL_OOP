@@ -1,4 +1,6 @@
 package com.ptit.parking.manager.config;
+import com.ptit.parking.manager.application.usecase.ChangeGuardStatusUseCase;
+import com.ptit.parking.manager.application.usecase.ListGuardsUseCase;
 
 import com.ptit.parking.auth.domain.PasswordHasher;
 import com.ptit.parking.catalog.application.port.out.ExchangeRateRepository;
@@ -50,4 +52,15 @@ public class ManagerUseCaseConfig {
                                             Clock clock) {
         return new WithdrawCashUseCase(owners, wallets, exchangeRates, idempotency, clock);
     }
+    
+    @Bean
+    ListGuardsUseCase listGuardsUseCase(GuardAccountRepository guards) {
+        return new ListGuardsUseCase(guards);
+    }
+
+    @Bean
+    ChangeGuardStatusUseCase changeGuardStatusUseCase(GuardAccountRepository guards, TransactionRunner transactions) {
+        return new ChangeGuardStatusUseCase(guards, transactions);
+    }
+
 }

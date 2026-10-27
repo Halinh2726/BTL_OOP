@@ -34,5 +34,4 @@ public class PaymentConfig {
     PayParkingFeeUseCase payParkingFeeUseCase(WalletRepository wallets, ReceivingWalletProvider receivingWallet) {
         return new PayParkingFeeUseCase(wallets, receivingWallet);
     }
-
 }
