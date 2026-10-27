@@ -32,6 +32,11 @@ public class InMemoryVehicleOwnerDirectory implements VehicleOwnerDirectory {
         return findByPlate(plate);
     }
 
+        @Override
+    public Optional<VehicleOwner> findByVehicleId(long vehicleId) {
+        return byPlate.values().stream().filter(v -> v.vehicleId() == vehicleId).findFirst();
+    }
+
     public List<PlateNumber> locked() {
         return List.copyOf(locked);
     }

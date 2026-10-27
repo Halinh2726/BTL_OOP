@@ -18,4 +18,8 @@ public interface VehicleOwnerDirectory {
      * xác nhận cùng một xe thì người sau phải chờ người trước xong. Phải gọi BÊN TRONG transaction.
      */
     Optional<VehicleOwner> lockByPlate(PlateNumber plate);
+    
+    /** Xe và chủ xe theo id xe — khi xe ra, từ lượt gửi tìm ra ví của ai cần trừ phí. Chỉ đọc, không khóa. */
+    Optional<VehicleOwner> findByVehicleId(long vehicleId);
+
 }

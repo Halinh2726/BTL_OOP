@@ -1,25 +1,23 @@
 package com.ptit.parking.parking.adapter.out.persistence;
 
+import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory;
+import com.ptit.parking.student.domain.PlateNumber;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Optional;
-
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
-import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory;
-import com.ptit.parking.student.domain.PlateNumber;
-
-/** Cài đặt {@link VehicleOwnerDirectory}: ghép vehicles + students + users theo biển số (đã chuẩn hóa). */
+/** Cài đặt {@link VehicleOwnerDirectory}: ghép vehicles + students + users theo biển số (đã chuẩn hóa) hoặc id xe. */
 @Component
 class VehicleOwnerJdbcAdapter implements VehicleOwnerDirectory {
 
-    private static final String SELECT_BY_PLATE = """
+    private static final String SELECT_OWNER = """
             SELECT v.id, v.plate_number, v.vehicle_type_code, u.id AS user_id, s.student_code, u.full_name
             FROM vehicles v
             JOIN students s ON s.user_id = v.student_id
             JOIN users u ON u.id = s.user_id
-            WHERE v.plate_number = :plate""";
+            """;
 
     private final JdbcClient jdbc;
 
@@ -29,7 +27,7 @@ class VehicleOwnerJdbcAdapter implements VehicleOwnerDirectory {
 
     @Override
     public Optional<VehicleOwner> findByPlate(PlateNumber plate) {
-        return jdbc.sql(SELECT_BY_PLATE)
+        return jdbc.sql(SELECT_OWNER + "WHERE v.plate_number = :plate")
                 .param("plate", plate.value())
                 .query(VehicleOwnerJdbcAdapter::map)
                 .optional();
@@ -38,8 +36,16 @@ class VehicleOwnerJdbcAdapter implements VehicleOwnerDirectory {
     /** "FOR UPDATE OF v": chỉ khóa dòng vehicles (Đặc tả API mục 8), không khóa dòng sinh viên/người dùng. */
     @Override
     public Optional<VehicleOwner> lockByPlate(PlateNumber plate) {
-        return jdbc.sql(SELECT_BY_PLATE + " FOR UPDATE OF v")
+        return jdbc.sql(SELECT_OWNER + "WHERE v.plate_number = :plate FOR UPDATE OF v")
                 .param("plate", plate.value())
+                .query(VehicleOwnerJdbcAdapter::map)
+                .optional();
+    }
+
+    @Override
+    public Optional<VehicleOwner> findByVehicleId(long vehicleId) {
+        return jdbc.sql(SELECT_OWNER + "WHERE v.id = :vehicleId")
+                .param("vehicleId", vehicleId)
                 .query(VehicleOwnerJdbcAdapter::map)
                 .optional();
     }
