@@ -62,5 +62,4 @@ public class ManagerUseCaseConfig {
     ChangeGuardStatusUseCase changeGuardStatusUseCase(GuardAccountRepository guards, TransactionRunner transactions) {
         return new ChangeGuardStatusUseCase(guards, transactions);
     }
-
 }

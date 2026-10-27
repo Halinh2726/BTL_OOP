@@ -24,16 +24,22 @@ class AuthController {
     private final LoginUseCase loginUseCase;
     private final GetCurrentUserUseCase getCurrentUser;
     private final SessionSignIn sessionSignIn;
+    private final LoginThrottle loginThrottle;
 
-    AuthController(LoginUseCase loginUseCase, GetCurrentUserUseCase getCurrentUser, SessionSignIn sessionSignIn) {
+    AuthController(LoginUseCase loginUseCase, GetCurrentUserUseCase getCurrentUser, SessionSignIn sessionSignIn,
+                   LoginThrottle loginThrottle) {
         this.loginUseCase = loginUseCase;
         this.getCurrentUser = getCurrentUser;
         this.sessionSignIn = sessionSignIn;
+        this.loginThrottle = loginThrottle;
     }
 
     @PostMapping("/auth/login")
     MeResponse login(@Valid @RequestBody LoginRequest body, HttpServletRequest request, HttpServletResponse response) {
+        String throttleKey = LoginThrottle.keyOf(request, body.username());
+        loginThrottle.beforeAttempt(throttleKey);                      // sai 5 lần trong 1 phút -> 429
         AuthenticatedUser user = loginUseCase.login(body.username(), body.password());
+        loginThrottle.succeeded(throttleKey);
         sessionSignIn.signIn(user, request, response);
         return MeResponse.from(user);
     }

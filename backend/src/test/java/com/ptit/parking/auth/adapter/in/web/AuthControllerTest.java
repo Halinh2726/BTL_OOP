@@ -5,6 +5,11 @@ import java.util.List;
 import static org.hamcrest.Matchers.notNullValue;
 import org.junit.jupiter.api.Test;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -14,6 +19,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -33,7 +39,7 @@ import com.ptit.parking.shared.security.WebSecurityTestConfig;
  * HTTP, phiên, CSRF và định dạng lỗi — logic đăng nhập đã có LoginUseCaseTest.
  */
 @WebMvcTest(AuthController.class)
-@Import({WebSecurityTestConfig.class, SessionSignIn.class})
+@Import({WebSecurityTestConfig.class, SessionSignIn.class, LoginThrottle.class})
 class AuthControllerTest {
 
     private static final AuthenticatedUser MANAGER = new AuthenticatedUser(
@@ -126,6 +132,45 @@ class AuthControllerTest {
         mvc.perform(post("/api/v1/manager/deposits").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
+    }
+
+        // Bộ đếm đăng nhập sai sống suốt các test của lớp này: mỗi test dùng tên đăng nhập riêng.
+
+    @Test
+    void sai5LanTrong1Phut_lanThu6Bi429KemRetryAfter_khongKiemTraMatKhau() throws Exception {
+        when(loginUseCase.login(anyString(), eq("sai"))).thenThrow(new DomainException(ErrorCode.INVALID_CREDENTIALS));
+
+        for (int i = 0; i < LoginThrottle.MAX_FAILURES; i++) {
+            mvc.perform(login(i % 2 == 0 ? "baove09" : "BAOVE09", "sai"))        // hoa / thường vẫn là một tài khoản
+                    .andExpect(status().isUnauthorized());
+        }
+
+        mvc.perform(login("baove09", "sai"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("TOO_MANY_REQUESTS"))
+                .andExpect(header().exists("Retry-After"));
+        verify(loginUseCase, times(LoginThrottle.MAX_FAILURES)).login(anyString(), eq("sai"));
+        mvc.perform(login("baove10", "sai")).andExpect(status().isUnauthorized());   // tài khoản khác không bị ảnh hưởng
+    }
+
+    @Test
+    void dangNhapDung_xoaCacLanSaiTruocDo() throws Exception {
+        when(loginUseCase.login("sv77", "sai")).thenThrow(new DomainException(ErrorCode.INVALID_CREDENTIALS));
+        when(loginUseCase.login("sv77", "Dung@123")).thenReturn(MANAGER);
+
+        for (int i = 0; i < LoginThrottle.MAX_FAILURES - 1; i++) {
+            mvc.perform(login("sv77", "sai")).andExpect(status().isUnauthorized());
+        }
+        mvc.perform(login("sv77", "Dung@123")).andExpect(status().isOk());
+
+        for (int i = 0; i < LoginThrottle.MAX_FAILURES; i++) {
+            mvc.perform(login("sv77", "sai")).andExpect(status().isUnauthorized());      // không phải 429
+        }
+    }
+
+    private static MockHttpServletRequestBuilder login(String username, String password) {
+        return post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}");
     }
 
     private static UsernamePasswordAuthenticationToken loggedIn(AuthenticatedUser user) {

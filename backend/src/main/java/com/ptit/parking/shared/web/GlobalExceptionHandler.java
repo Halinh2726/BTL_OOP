@@ -10,6 +10,7 @@ import org.springframework.context.MessageSourceResolvable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
+import com.ptit.parking.shared.ratelimit.TooManyRequestsException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -42,6 +43,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(DomainException.class)
     public ResponseEntity<Object> handleDomain(DomainException ex) {
         return respond(ErrorResponse.of(ex.errorCode(), TraceIdFilter.currentTraceId()));
+    }
+
+        // ===== Vượt giới hạn tần suất: 429 kèm header Retry-After (Đặc tả API mục 11) =====
+
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<Object> handleTooManyRequests(TooManyRequestsException ex) {
+        ErrorResponse body = ErrorResponse.of(ErrorCode.TOO_MANY_REQUESTS, TraceIdFilter.currentTraceId());
+        return ResponseEntity.status(body.status())
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.retryAfterSeconds()))
+                .body(body);
     }
 
     // ===== Vi phạm ràng buộc CSDL (UNIQUE, CHECK, FK) =====
