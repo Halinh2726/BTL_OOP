@@ -1,8 +1,12 @@
 package com.ptit.parking.parking.config;
 
 import com.ptit.parking.catalog.application.port.out.FeeRuleRepository;
+import com.ptit.parking.parking.application.port.out.ParkingSessionRepository;
+import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory;
+import com.ptit.parking.parking.application.usecase.PreviewCheckInUseCase;
 import com.ptit.parking.parking.domain.FeePolicy;
 import com.ptit.parking.parking.domain.TimeSlotFeePolicy;
+import com.ptit.parking.payment.application.port.out.WalletRepository;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,5 +25,11 @@ public class ParkingUseCaseConfig {
     @Bean
     FeePolicy feePolicy(FeeRuleRepository feeRules, Clock clock) {
         return new TimeSlotFeePolicy(feeRules.allFeeRules(), clock.getZone());
+    }
+
+    @Bean
+    PreviewCheckInUseCase previewCheckInUseCase(VehicleOwnerDirectory vehicles, ParkingSessionRepository sessions,
+                                                WalletRepository wallets, FeePolicy feePolicy) {
+        return new PreviewCheckInUseCase(vehicles, sessions, wallets, feePolicy);
     }
 }

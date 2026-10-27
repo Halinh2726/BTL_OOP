@@ -1,6 +1,7 @@
 package com.ptit.parking.student.domain;
 
 import java.util.Locale;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
@@ -30,7 +31,13 @@ public record PlateNumber(String value) {
     public static PlateNumber of(String raw) {
         return new PlateNumber(normalize(raw));
     }
-
+    /** Biển số người dùng gõ (bảo vệ tra cứu): sai định dạng thì rỗng thay vì ném lỗi. */
+    public static Optional<PlateNumber> tryParse(String raw) {
+        String normalized = normalize(raw);
+        return normalized != null && VALID.matcher(normalized).matches()
+                ? Optional.of(new PlateNumber(normalized))
+                : Optional.empty();
+    }
     @Override
     public String toString() {
         return value;
