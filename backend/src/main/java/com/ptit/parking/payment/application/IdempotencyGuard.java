@@ -53,6 +53,14 @@ public class IdempotencyGuard {
         } catch (DuplicateIdempotencyKeyException e) {
             // Request song song cùng key đã ghi trước; transaction của ta đã rollback toàn bộ -> trả lại kết quả của nó
             return replay(transactions.findByIdempotencyKey(idempotencyKey).orElseThrow(), requestHash, type);
+        } catch (DomainException e) {
+            // Request song song cùng key có thể đã xong TRƯỚC khi ta kiểm tra nghiệp vụ (ví dụ lượt gửi đã bị nó
+            // đóng -> ta thấy SESSION_ALREADY_PAID). Có giao dịch mang key này thì đây là request gửi lặp: trả kết quả cũ.
+            Optional<Recorded> winner = transactions.findByIdempotencyKey(idempotencyKey);
+            if (winner.isPresent()) {
+                return replay(winner.get(), requestHash, type);
+            }
+            throw e;
         }
     }
 

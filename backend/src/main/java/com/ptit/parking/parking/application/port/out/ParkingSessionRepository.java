@@ -19,4 +19,14 @@ public interface ParkingSessionRepository {
      * ở tầng cuối cùng, kể cả khi code phía trên có sai sót.
      */
     ParkingSession save(ParkingSession session);
+    
+    /**
+     * Lượt gửi theo id, KHÓA dòng (SELECT ... FOR UPDATE) tới hết transaction: hai bảo vệ xác nhận cùng một lượt
+     * thì người sau chờ người trước xong, rồi thấy lượt đã đóng. Phải gọi BÊN TRONG transaction.
+     */
+    Optional<ParkingSession> lockById(long sessionId);
+
+    /** Ghi việc xe ra của một lượt vừa {@link ParkingSession#close đóng} (giờ ra, bảo vệ cho ra, DA_RA). */
+    void saveExit(ParkingSession session);
+
 }

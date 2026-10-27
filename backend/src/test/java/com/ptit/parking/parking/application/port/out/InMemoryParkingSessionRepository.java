@@ -42,6 +42,22 @@ public class InMemoryParkingSessionRepository implements ParkingSessionRepositor
         return store(session);
     }
 
+        /** "Khóa" không chặn gì (test đồng thời ghi đè để khóa thật); trả về bản sao như CSDL. */
+    @Override
+    public synchronized Optional<ParkingSession> lockById(long sessionId) {
+        return Optional.ofNullable(byId.get(sessionId)).map(InMemoryParkingSessionRepository::copy);
+    }
+
+    /** Như câu UPDATE ... WHERE status = 'DANG_GUI': lượt đã ra thì không ghi đè. */
+    @Override
+    public synchronized void saveExit(ParkingSession session) {
+        ParkingSession stored = byId.get(session.id());
+        if (stored == null || !stored.isOpen()) {
+            throw new DomainException(ErrorCode.SESSION_ALREADY_PAID);
+        }
+        byId.put(session.id(), copy(session));
+    }
+
     /** Chuẩn bị dữ liệu test: xe này đang có lượt gửi chưa ra. */
     public ParkingSession markOpen(long vehicleId) {
         return markOpen(vehicleId, Instant.parse("2026-10-27T00:55:00Z"));

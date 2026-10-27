@@ -4,6 +4,9 @@ import java.time.Clock;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import com.ptit.parking.parking.application.usecase.CheckOutUseCase;
+import com.ptit.parking.payment.application.IdempotencyGuard;
+import com.ptit.parking.payment.application.usecase.PayParkingFeeUseCase;
 
 import com.ptit.parking.catalog.application.port.out.FeeRuleRepository;
 import com.ptit.parking.parking.application.port.out.ParkingSessionRepository;
@@ -50,4 +53,12 @@ public class ParkingUseCaseConfig {
                                   TransactionRunner transactions, Clock clock) {
         return new CheckInUseCase(vehicles, sessions, wallets, feePolicy, transactions, clock);
     }
+    
+    @Bean
+    CheckOutUseCase checkOutUseCase(ParkingSessionRepository sessions, VehicleOwnerDirectory vehicles,
+                                    PayParkingFeeUseCase payParkingFee, IdempotencyGuard idempotency,
+                                    FeePolicy feePolicy, Clock clock) {
+        return new CheckOutUseCase(sessions, vehicles, payParkingFee, idempotency, feePolicy, clock);
+    }
+
 }

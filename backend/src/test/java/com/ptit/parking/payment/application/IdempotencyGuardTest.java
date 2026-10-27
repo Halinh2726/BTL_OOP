@@ -89,6 +89,30 @@ class IdempotencyGuardTest {
         assertThat(transactions.all()).isEmpty();
     }
 
+        @Test
+    void loiNghiepVu_vaRequestSongSongCungKeyDaXongTruoc_traKetQuaCuaRequestDo() {
+        // Request kia đã ghi xong; request này kiểm tra nghiệp vụ SAU đó nên thấy lỗi (ví dụ lượt gửi đã đóng)
+        Execution<CashDeposit> execution = guard.execute(KEY, hash, CashDeposit.class, () -> {
+            transactions.save(deposit(), hash);
+            throw new DomainException(ErrorCode.SESSION_ALREADY_PAID);
+        });
+
+        assertThat(execution.replayed()).isTrue();
+        assertThat(execution.transaction().id()).isEqualTo(1L);
+        assertThat(transactions.all()).hasSize(1);
+    }
+
+    @Test
+    void loiNghiepVu_requestKiaCungKeyKhacNoiDung_baoIdempotencyKeyReused() {
+        String otherHash = RequestFingerprint.of(TransactionType.DOI_DIEM, 1L, "B21DCCN001", 99_000L);
+
+        assertThatThrownBy(() -> guard.execute(KEY, hash, CashDeposit.class, () -> {
+            transactions.save(deposit(), otherHash);
+            throw new DomainException(ErrorCode.SESSION_ALREADY_PAID);
+        })).isInstanceOfSatisfying(DomainException.class,
+                e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.IDEMPOTENCY_KEY_REUSED));
+    }
+
     private CashDeposit deposit() {
         executions.incrementAndGet();
         return CashDeposit.execute(new Wallet(5L, 3L, 0), 10_000, new ExchangeRate(1), 1L, KEY, NOW);

@@ -14,6 +14,7 @@ import java.util.UUID;
 /**
  * Sổ giao dịch GIẢ trong bộ nhớ, dùng chung cho test các use case cộng/trừ điểm. Giống CSDL thật ở các điểm
  * quan trọng: gán id khi lưu, chặn trùng Idempotency-Key, lịch sử lọc theo ví và sắp id giảm dần.
+ * Các hàm {@code synchronized} để test nhiều luồng dùng được.
  */
 public class InMemoryPointTransactionRepository implements PointTransactionRepository {
 
@@ -22,7 +23,7 @@ public class InMemoryPointTransactionRepository implements PointTransactionRepos
     private Runnable beforeNextSave = () -> { };
 
     @Override
-    public long save(PointTransaction transaction, String requestHash) {
+    public synchronized long save(PointTransaction transaction, String requestHash) {
         Runnable hook = beforeNextSave;
         beforeNextSave = () -> { };
         hook.run();
@@ -35,12 +36,12 @@ public class InMemoryPointTransactionRepository implements PointTransactionRepos
     }
 
     @Override
-    public Optional<Recorded> findByIdempotencyKey(UUID idempotencyKey) {
+    public synchronized Optional<Recorded> findByIdempotencyKey(UUID idempotencyKey) {
         return saved.stream().filter(r -> r.transaction().idempotencyKey().equals(idempotencyKey)).findFirst();
     }
 
     @Override
-    public List<PointTransaction> findPageForWallet(long walletId, TransactionType type, Long before, int limit) {
+    public synchronized List<PointTransaction> findPageForWallet(long walletId, TransactionType type, Long before, int limit) {
         return saved.stream().map(Recorded::transaction)
                 .filter(t -> t.involves(walletId))
                 .filter(t -> type == null || t.type() == type)
@@ -51,12 +52,12 @@ public class InMemoryPointTransactionRepository implements PointTransactionRepos
     }
 
     /** Mọi giao dịch đã lưu, theo thứ tự lưu. */
-    public List<PointTransaction> all() {
+    public synchronized List<PointTransaction> all() {
         return saved.stream().map(Recorded::transaction).toList();
     }
 
     /** Giả lập một request SONG SONG chen vào ghi trước, ngay trước lần save kế tiếp. */
-    public void beforeNextSave(Runnable action) {
+    public synchronized void beforeNextSave(Runnable action) {
         this.beforeNextSave = action;
     }
 

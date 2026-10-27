@@ -11,7 +11,8 @@ import java.util.Optional;
 /**
  * Kho ví GIẢ trong bộ nhớ, dùng chung cho test của mọi use case cộng/trừ điểm (thay cho MySQL).
  * <p>Giống CSDL thật ở chỗ quan trọng nhất: đối tượng trả ra là BẢN SAO — đổi số dư mà quên {@link #save}
- * thì kho không đổi. "Khóa" không cần chặn gì (test chạy một luồng) nhưng ghi lại THỨ TỰ khóa để test kiểm tra.
+ * thì kho không đổi. "Khóa" không chặn gì nhưng ghi lại THỨ TỰ khóa để test kiểm tra.
+ * Các hàm {@code synchronized} để test nhiều luồng dùng được.
  */
 public class InMemoryWalletRepository implements WalletRepository {
 
@@ -20,42 +21,42 @@ public class InMemoryWalletRepository implements WalletRepository {
     private long nextId = 1;
 
     @Override
-    public long insert(Wallet wallet) {
+    public synchronized long insert(Wallet wallet) {
         long id = nextId++;
         byId.put(id, new Wallet(id, wallet.userId(), wallet.balance()));
         return id;
     }
 
     @Override
-    public Optional<Wallet> findByUserId(long userId) {
+    public synchronized Optional<Wallet> findByUserId(long userId) {
         return byId.values().stream().filter(w -> w.userId() == userId).findFirst().map(InMemoryWalletRepository::copy);
     }
 
     @Override
-    public Wallet lockById(long walletId) {
+    public synchronized Wallet lockById(long walletId) {
         lockOrder.add(walletId);
         return copy(require(walletId));
     }
 
     @Override
-    public Map<Long, Wallet> lockInIdOrder(Collection<Long> walletIds) {
+    public synchronized Map<Long, Wallet> lockInIdOrder(Collection<Long> walletIds) {
         Map<Long, Wallet> locked = new LinkedHashMap<>();
         walletIds.stream().distinct().sorted().forEach(id -> locked.put(id, lockById(id)));
         return locked;
     }
 
     @Override
-    public void save(Wallet wallet) {
+    public synchronized void save(Wallet wallet) {
         require(wallet.id());
         byId.put(wallet.id(), copy(wallet));
     }
 
     /** Số dư đang LƯU trong kho (sau các lần save). */
-    public long balanceOf(long walletId) {
+    public synchronized long balanceOf(long walletId) {
         return require(walletId).balance();
     }
 
-    public List<Long> lockOrder() {
+    public synchronized List<Long> lockOrder() {
         return List.copyOf(lockOrder);
     }
 
