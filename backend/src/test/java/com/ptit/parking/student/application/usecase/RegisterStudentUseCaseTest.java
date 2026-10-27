@@ -12,7 +12,7 @@ import com.ptit.parking.auth.domain.AccountStatus;
 import com.ptit.parking.auth.domain.PasswordHasher;
 import com.ptit.parking.auth.domain.Role;
 import com.ptit.parking.auth.domain.Student;
-import com.ptit.parking.payment.application.port.out.WalletRepository;
+import com.ptit.parking.payment.application.port.out.InMemoryWalletRepository;
 import com.ptit.parking.payment.domain.Wallet;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import com.ptit.parking.shared.domain.DomainException;
@@ -131,7 +131,8 @@ class RegisterStudentUseCaseTest {
         }
     }
 
-    static final class FakeWallets implements WalletRepository {
+        /** Dùng lại kho ví giả chung; chỉ GHI ĐÈ insert để ghi nhận ví được tạo trong transaction hay không. */
+    static final class FakeWallets extends InMemoryWalletRepository {
         final List<Wallet> created = new ArrayList<>();
         boolean createdInsideTransaction;
         private final FakeTransactions transactions;
@@ -142,7 +143,8 @@ class RegisterStudentUseCaseTest {
         public long insert(Wallet wallet) {
             createdInsideTransaction = transactions.active;
             created.add(wallet);
-            return created.size();
+            return super.insert(wallet);
         }
     }
+
 }
