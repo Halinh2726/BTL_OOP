@@ -66,6 +66,7 @@ const CASH_PER_POINT = 1;
 const MAX_AMOUNT = 10_000_000;
 const LOGIN_MAX_FAILURES = 5;
 const LOGIN_WINDOW_MS = 60_000;
+const MAX_SUGGESTIONS = 8;
 
 const USERNAME = /^[a-z0-9._]{4,50}$/;
 const PLATE = /^[A-Z0-9]{5,20}$/;
@@ -338,6 +339,24 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         const items = mine.slice(0, limit);
         const hasMore = mine.length > limit;
         return { items, hasMore, nextBefore: hasMore ? (items[items.length - 1]?.id ?? null) : null };
+      }),
+
+    suggestPlates: (rawFragment, parkedOnly) =>
+      call(() => {
+        requireRole('BAO_VE');
+        const fragment = normalizePlate(rawFragment);
+        if (!/^[A-Z0-9]{2,20}$/.test(fragment)) fail('VALIDATION_ERROR');
+        const parked = (vehicleId: number) => openSessionOf(vehicleId) !== undefined;
+        return state.vehicles
+          .filter((vehicle) => vehicle.plateNumber.includes(fragment))
+          .filter((vehicle) => !parkedOnly || parked(vehicle.id))
+          .sort(
+            (a, b) =>
+              Number(b.plateNumber.endsWith(fragment)) - Number(a.plateNumber.endsWith(fragment)) ||
+              a.plateNumber.localeCompare(b.plateNumber),
+          )
+          .slice(0, MAX_SUGGESTIONS)
+          .map(({ id, plateNumber, vehicleTypeCode }) => ({ plateNumber, vehicleTypeCode, parked: parked(id) }));
       }),
 
     previewCheckIn: (rawPlate) =>

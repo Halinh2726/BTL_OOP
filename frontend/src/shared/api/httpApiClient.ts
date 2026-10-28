@@ -114,6 +114,7 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
     myTransactions: (query) =>
       json('/me/transactions', { query: { type: query.type, limit: query.limit, before: query.before } }),
 
+    suggestPlates: (q, parkedOnly) => json('/guard/plates', { query: { q, parked: String(parkedOnly) } }),
     previewCheckIn: (plate) => json('/guard/check-in/preview', { query: { plate } }),
     checkIn: (plateNumber) => json('/guard/check-in', { method: 'POST', body: { plateNumber } }),
     previewCheckOut: (plate) => json('/guard/check-out/preview', { query: { plate } }),

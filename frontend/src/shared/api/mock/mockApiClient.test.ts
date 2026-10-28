@@ -61,6 +61,15 @@ describe('mockApiClient (dữ liệu giả lập phải theo đúng hợp đồn
     expect(history.items[0]?.change).toBe(fee);
   });
 
+  it('gợi ý biển số: biển kết thúc bằng số vừa gõ xếp trước; xe ra chỉ gợi ý xe trong bãi', async () => {
+    await api.login({ username: 'baove01', password: 'Baove@123' });
+    expect((await api.suggestPlates('45', false)).map((s) => s.plateNumber)).toEqual(['29A12345']);
+    expect((await api.suggestPlates('0', false).catch((e: unknown) => e)) instanceof ApiError).toBe(true);
+    expect(await api.suggestPlates('12345', true)).toEqual([]);
+    await api.checkIn('29A12345');
+    expect(await api.suggestPlates('2345', true)).toEqual([{ plateNumber: '29A12345', vehicleTypeCode: 'XE_MAY', parked: true }]);
+  });
+
   it('không đủ điểm thì không cho xe vào', async () => {
     await api.login({ username: 'baove01', password: 'Baove@123' });
     expect(await api.previewCheckIn('30B67890')).toMatchObject({ allowed: false, reason: 'INSUFFICIENT_POINTS' });

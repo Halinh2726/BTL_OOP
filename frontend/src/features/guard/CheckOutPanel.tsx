@@ -64,7 +64,19 @@ export function CheckOutPanel() {
   return (
     <div className="space-y-4">
       <Card>
-        <PlateLookupForm key={formKey} ref={inputRef} onLookup={lookup} pending={preview.isPending} disabled={checkOut.isPending} />
+        <PlateLookupForm
+          key={formKey}
+          ref={inputRef}
+          onLookup={lookup}
+          pending={preview.isPending}
+          disabled={checkOut.isPending}
+          parkedOnly
+          onEdit={() => {
+            preview.reset();
+            checkOut.reset();
+            idempotency.finish();
+          }}
+        />
       </Card>
       {preview.isError && <Alert tone="error">{errorMessage(preview.error)}</Alert>}
       {data && (

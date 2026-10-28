@@ -13,6 +13,7 @@ import type {
   LoginRequest,
   MeResponse,
   OwnerWallet,
+  PlateSuggestion,
   RegisteredStudent,
   RegisterStudentRequest,
   RegisterVehicleRequest,
@@ -53,6 +54,8 @@ export interface ApiClient {
   myTransactions(query: TransactionQuery): Promise<TransactionPage>;
 
   // Bảo vệ
+  /** Gợi ý biển số chứa `fragment` (≥ 2 ký tự); parkedOnly = chỉ xe đang trong bãi. */
+  suggestPlates(fragment: string, parkedOnly: boolean): Promise<PlateSuggestion[]>;
   previewCheckIn(plate: string): Promise<CheckInPreview>;
   checkIn(plateNumber: string): Promise<CheckInResult>;
   previewCheckOut(plate: string): Promise<CheckOutPreview>;

@@ -44,12 +44,23 @@ Mock còn có `sv02` / `MatKhau@123` (2.000 điểm, xe `30B67890`) để thử 
 | Đường dẫn | Vai trò | Nội dung |
 |---|---|---|
 | `/login`, `/register` | — | Đăng nhập; sinh viên tự đăng ký |
-| `/student` | Sinh viên | Số điểm, bảng phí, xe của tôi + đăng ký xe, lịch sử giao dịch (lọc, "Xem thêm") |
+| `/student` | Sinh viên | Số điểm, bảng phí, xe của tôi + đăng ký xe + **mã QR của xe**, lịch sử giao dịch (lọc, "Xem thêm") |
 | `/guard` | Bảo vệ | Tab **Xe vào** / **Xe ra**: nhập biển số → tra cứu → kết luận xanh/đỏ → xác nhận → "Xe tiếp theo". Chữ và nút cỡ lớn cho máy tính bảng ở cổng |
 | `/manager` | Quản lý | Tab **Đổi điểm** (tìm MSSV → nhập tiền → xác nhận → biên nhận), **Rút điểm** (ví chủ tài khoản), **Bảo vệ** (tạo, khóa/mở khóa) |
 | `/owner` | Chủ tài khoản | Số điểm nhận từ phí gửi xe, lịch sử |
 
+**Bảo vệ không cần gõ đủ biển số** — ba cách nhập:
+
+1. **Quét mã QR**: sinh viên mở "Mã QR" của xe trên điện thoại, bảo vệ bấm *Quét mã QR của sinh viên* → camera đọc mã → tự tra cứu. Mã chỉ chứa `GUIXE:<biển số>` (không có thông tin cá nhân); bảo vệ vẫn đối chiếu biển số trên màn hình với xe thật. Trình duyệt chỉ cho mở camera khi trang chạy bằng **https** hoặc `localhost`.
+2. **Gõ vài số cuối** (từ 2 ký tự): hiện tối đa 8 biển số gợi ý (API #24 `GET /guard/plates`), chạm để chọn; chỉ khớp một xe thì Enter chọn luôn. Tab Xe ra chỉ gợi ý xe đang trong bãi.
+3. Gõ đủ biển số như bình thường.
+
 Sau khi đăng nhập, mỗi vai trò được đưa về trang của mình; mở trang của vai trò khác thì thấy "Không có quyền". Đây chỉ là trải nghiệm — **backend mới là nơi kiểm tra quyền**.
+
+## Logo
+
+Đặt file logo Học viện tại `frontend/public/logo-ptit.png` (PNG, ảnh vuông). Logo hiện ở thanh trên cùng, trang đăng nhập/đăng ký
+và icon tab trình duyệt. Chưa có file thì giao diện tạm hiện chữ "P".
 
 ## Cấu trúc
 

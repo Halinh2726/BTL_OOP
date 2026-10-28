@@ -6,12 +6,15 @@ import { Button } from '../../shared/components/Button';
 import { Card } from '../../shared/components/Card';
 import { QueryError } from '../../shared/components/QueryError';
 import { LoadingBlock } from '../../shared/components/Spinner';
+import type { Vehicle } from '../../shared/types/api';
 import { formatDateTime } from '../../shared/utils/format';
 import { RegisterVehicleDialog } from './RegisterVehicleDialog';
+import { VehicleQrDialog } from './VehicleQrDialog';
 
 /** "Xe của tôi" (GET /me/vehicles) + nút đăng ký xe mới. */
 export function VehiclesCard() {
   const [registering, setRegistering] = useState(false);
+  const [qrVehicle, setQrVehicle] = useState<Vehicle | null>(null);
   const vehicles = useQuery({ queryKey: queryKeys.myVehicles, queryFn: api.myVehicles });
   const types = useQuery({ queryKey: queryKeys.vehicleTypes, queryFn: api.vehicleTypes, staleTime: Infinity });
   const typeName = (code: string) => types.data?.find((type) => type.code === code)?.name ?? code;
@@ -33,14 +36,20 @@ export function VehiclesCard() {
       {vehicles.data && vehicles.data.length > 0 && (
         <ul className="grid gap-3 sm:grid-cols-2">
           {vehicles.data.map((vehicle) => (
-            <li key={vehicle.id} className="rounded-lg border border-slate-200 p-4">
-              <p className="font-mono text-xl font-bold tracking-wider text-slate-900">{vehicle.plateNumber}</p>
-              <p className="mt-1 text-sm text-slate-600">{typeName(vehicle.vehicleTypeCode)}</p>
-              <p className="mt-1 text-xs text-slate-400">Đăng ký lúc {formatDateTime(vehicle.registeredAt)}</p>
+            <li key={vehicle.id} className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 p-4">
+              <div>
+                <p className="font-mono text-xl font-bold tracking-wider text-slate-900">{vehicle.plateNumber}</p>
+                <p className="mt-1 text-sm text-slate-600">{typeName(vehicle.vehicleTypeCode)}</p>
+                <p className="mt-1 text-xs text-slate-400">Đăng ký lúc {formatDateTime(vehicle.registeredAt)}</p>
+              </div>
+              <Button size="sm" variant="secondary" onClick={() => setQrVehicle(vehicle)}>
+                Mã QR
+              </Button>
             </li>
           ))}
         </ul>
       )}
+      {qrVehicle && <VehicleQrDialog vehicle={qrVehicle} onClose={() => setQrVehicle(null)} />}
       {registering && <RegisterVehicleDialog types={types.data ?? []} onClose={() => setRegistering(false)} />}
     </Card>
   );

@@ -136,6 +136,14 @@ export interface CheckOutResult {
   balanceAfter: number;
 }
 
+/** GET /guard/plates — gợi ý biển số, KHÔNG có thông tin chủ xe. */
+export interface PlateSuggestion {
+  plateNumber: string;
+  vehicleTypeCode: string;
+  /** Xe đang có lượt gửi chưa ra. */
+  parked: boolean;
+}
+
 export interface StudentSummary {
   studentCode: string;
   fullName: string;

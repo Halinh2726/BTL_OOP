@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseAmount } from '../../features/manager/amount';
 import { newIdempotencyKey } from '../hooks/useIdempotencyKey';
 import { formatDateTime, formatNumber, formatSignedPoints, normalizePlate } from './format';
+import { plateFromQr, plateQrPayload } from './plateQr';
 
 describe('định dạng hiển thị', () => {
   it('số theo vi-VN', () => {
@@ -22,6 +23,14 @@ describe('định dạng hiển thị', () => {
     expect(parseAmount('50.000')).toBe(50000);
     expect(parseAmount('12a')).toBeNull();
     expect(parseAmount('-5')).toBeNull();
+  });
+
+  it('mã QR chỉ chứa biển số, có tiền tố để không nhận nhầm mã QR khác', () => {
+    expect(plateQrPayload('29A12345')).toBe('GUIXE:29A12345');
+    expect(plateFromQr(' guixe:29a-123.45 ')).toBe('29A12345');
+    expect(plateFromQr('29A12345')).toBeNull();
+    expect(plateFromQr('https://example.com')).toBeNull();
+    expect(plateFromQr('GUIXE:12')).toBeNull();
   });
 
   it('Idempotency-Key là UUID v4', () => {

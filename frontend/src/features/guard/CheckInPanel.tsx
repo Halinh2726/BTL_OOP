@@ -42,7 +42,18 @@ export function CheckInPanel() {
   return (
     <div className="space-y-4">
       <Card>
-        <PlateLookupForm key={formKey} ref={inputRef} onLookup={lookup} pending={preview.isPending} disabled={checkIn.isPending} />
+        <PlateLookupForm
+          key={formKey}
+          ref={inputRef}
+          onLookup={lookup}
+          pending={preview.isPending}
+          disabled={checkIn.isPending}
+          parkedOnly={false}
+          onEdit={() => {
+            preview.reset();
+            checkIn.reset();
+          }}
+        />
       </Card>
       {preview.isError && <Alert tone="error">{errorMessage(preview.error)}</Alert>}
       {data && (

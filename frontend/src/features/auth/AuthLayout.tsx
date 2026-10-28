@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Logo } from '../../shared/components/Logo';
 import { MockBadge } from '../../shared/components/MockBadge';
 
 /** Khung chung cho trang đăng nhập và đăng ký. */
@@ -7,9 +8,10 @@ export function AuthLayout({ title, subtitle, children }: { title: string; subti
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-700 text-2xl font-bold text-white shadow">
-            P
+          <div className="mb-3 flex justify-center">
+            <Logo className="h-20 w-20 shadow" />
           </div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Học viện Công nghệ Bưu chính Viễn thông</p>
           <p className="text-sm font-medium uppercase tracking-wide text-blue-700">
             Hệ thống thanh toán phí gửi xe bằng điểm <MockBadge />
           </p>

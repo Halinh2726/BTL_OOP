@@ -146,6 +146,14 @@ describe('httpApiClient', () => {
     expect(calls[0]?.url).toBe('/api/v1/me/transactions?type=THANH_TOAN&limit=20');
   });
 
+  it('gợi ý biển số gửi q và parked', async () => {
+    const { fn, calls } = fakeFetch(json(200, [{ plateNumber: '29A12345', vehicleTypeCode: 'XE_MAY', parked: true }]));
+    const result = await createHttpApiClient('/api/v1', fn).suggestPlates('2345', true);
+
+    expect(calls[0]?.url).toBe('/api/v1/guard/plates?q=2345&parked=true');
+    expect(result[0]?.parked).toBe(true);
+  });
+
   it('lỗi mạng và response không phải JSON có thông báo tiếng Việt', async () => {
     const network = vi.fn(async () => {
       throw new TypeError('Failed to fetch');
