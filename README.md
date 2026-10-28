@@ -14,7 +14,7 @@ Bài tập lớn môn Lập trình hướng đối tượng. Sinh viên đổi t
 
 - Java 21, Spring Boot 4, Spring Security (phiên phía máy chủ, CSRF), Maven Wrapper
 - MySQL 8.4 chạy bằng Docker, Flyway quản lý schema (`backend/src/main/resources/db/migration`)
-- JUnit 5, Mockito, AssertJ (274 test), Postman / Newman cho kịch bản demo
+- JUnit 5, Mockito, AssertJ (294 test), Postman / Newman cho kịch bản demo
 - Giao diện: React 18 + TypeScript + Vite, TanStack Query, Tailwind CSS, Vitest (`frontend/`)
 
 ## Chạy dự án
@@ -121,6 +121,7 @@ Collection **ghi dữ liệu thật** (tạo sinh viên, bảo vệ, giao dịch
 | 21 | POST | `/manager/guards` | GUARD_CREATE | Tạo tài khoản bảo vệ |
 | 22 | PATCH | `/manager/guards/{id}/status` | GUARD_LOCK | Khóa / mở khóa bảo vệ |
 | 23 | GET | `/health` | Công khai | Kiểm tra tình trạng dịch vụ |
+| 24 | GET | `/guard/plates?q=&parked=` | PARKING_CHECK_IN hoặc PARKING_CHECK_OUT | Gợi ý biển số khi bảo vệ gõ vài ký tự |
 
 ### Quy ước khi gọi API
 
@@ -166,7 +167,7 @@ Thiết kế CSDL: [`docs/database/ERD.md`](docs/database/ERD.md).
 ```powershell
 cd backend
 .\mvnw.cmd test
-# Tests run: 274, Failures: 0, Errors: 0
+# Tests run: 294, Failures: 0, Errors: 0
 ```
 
 Test không cần MySQL: use case được test với kho dữ liệu giả trong bộ nhớ, controller test bằng `@WebMvcTest`

@@ -5,7 +5,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-
+import java.util.Comparator;
+import java.util.Set;
 import com.ptit.parking.student.domain.PlateNumber;
 
 /**
@@ -16,7 +17,7 @@ public class InMemoryVehicleOwnerDirectory implements VehicleOwnerDirectory {
 
     private final Map<PlateNumber, VehicleOwner> byPlate = new ConcurrentHashMap<>();
     private final List<PlateNumber> locked = new CopyOnWriteArrayList<>();
-
+    private final Set<PlateNumber> parked = ConcurrentHashMap.newKeySet();
     public void add(VehicleOwner vehicle) {
         byPlate.put(vehicle.plate(), vehicle);
     }
@@ -35,6 +36,24 @@ public class InMemoryVehicleOwnerDirectory implements VehicleOwnerDirectory {
         @Override
     public Optional<VehicleOwner> findByVehicleId(long vehicleId) {
         return byPlate.values().stream().filter(v -> v.vehicleId() == vehicleId).findFirst();
+    }
+
+        /** Chuẩn bị dữ liệu test cho gợi ý biển số: xe này đang có lượt gửi chưa ra. */
+    public void markParked(PlateNumber plate) {
+        parked.add(plate);
+    }
+
+    /** Cùng quy tắc với câu SQL: chứa đoạn ký tự, biển kết thúc bằng đoạn đó xếp trước, rồi theo biển số. */
+    @Override
+    public List<PlateSuggestion> suggestPlates(String fragment, boolean parkedOnly, int limit) {
+        return byPlate.values().stream()
+                .filter(v -> v.plate().value().contains(fragment))
+                .filter(v -> !parkedOnly || parked.contains(v.plate()))
+                .sorted(Comparator.comparing((VehicleOwner v) -> !v.plate().value().endsWith(fragment))
+                        .thenComparing(v -> v.plate().value()))
+                .limit(limit)
+                .map(v -> new PlateSuggestion(v.plate(), v.vehicleTypeCode(), parked.contains(v.plate())))
+                .toList();
     }
 
     public List<PlateNumber> locked() {

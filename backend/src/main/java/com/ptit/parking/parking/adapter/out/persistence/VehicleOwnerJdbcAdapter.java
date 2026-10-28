@@ -7,7 +7,7 @@ import java.sql.SQLException;
 import java.util.Optional;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
-
+import java.util.List;
 /** Cài đặt {@link VehicleOwnerDirectory}: ghép vehicles + students + users theo biển số (đã chuẩn hóa) hoặc id xe. */
 @Component
 class VehicleOwnerJdbcAdapter implements VehicleOwnerDirectory {
@@ -48,6 +48,30 @@ class VehicleOwnerJdbcAdapter implements VehicleOwnerDirectory {
                 .param("vehicleId", vehicleId)
                 .query(VehicleOwnerJdbcAdapter::map)
                 .optional();
+    }
+
+        /**
+     * open_vehicle_id = id xe khi lượt đang gửi (cột tính toán của V005), nên LEFT JOIN theo nó cho biết xe có trong bãi.
+     * fragment chỉ gồm chữ và số (use case đã kiểm tra) nên không chứa ký tự đại diện % hay _ của LIKE.
+     */
+    @Override
+    public List<PlateSuggestion> suggestPlates(String fragment, boolean parkedOnly, int limit) {
+        return jdbc.sql("""
+                        SELECT v.plate_number, v.vehicle_type_code, ps.id IS NOT NULL AS parked
+                        FROM vehicles v
+                        LEFT JOIN parking_sessions ps ON ps.open_vehicle_id = v.id
+                        WHERE v.plate_number LIKE :contains
+                          AND (:parkedOnly = FALSE OR ps.id IS NOT NULL)
+                        ORDER BY v.plate_number LIKE :endsWith DESC, v.plate_number
+                        LIMIT :limit
+                        """)
+                .param("contains", "%" + fragment + "%")
+                .param("endsWith", "%" + fragment)
+                .param("parkedOnly", parkedOnly)
+                .param("limit", limit)
+                .query((rs, row) -> new PlateSuggestion(new PlateNumber(rs.getString("plate_number")),
+                        rs.getString("vehicle_type_code"), rs.getBoolean("parked")))
+                .list();
     }
 
     private static VehicleOwner map(ResultSet rs, int row) throws SQLException {
