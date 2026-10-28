@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import com.ptit.parking.parking.application.usecase.CheckOutUseCase;
 import com.ptit.parking.payment.application.IdempotencyGuard;
 import com.ptit.parking.payment.application.usecase.PayParkingFeeUseCase;
+import com.ptit.parking.parking.application.usecase.SuggestPlatesUseCase;
 
 import com.ptit.parking.catalog.application.port.out.FeeRuleRepository;
 import com.ptit.parking.parking.application.port.out.ParkingSessionRepository;
@@ -45,6 +46,11 @@ public class ParkingUseCaseConfig {
     PreviewCheckOutUseCase previewCheckOutUseCase(VehicleOwnerDirectory vehicles, ParkingSessionRepository sessions,
                                                   WalletRepository wallets, FeePolicy feePolicy, Clock clock) {
         return new PreviewCheckOutUseCase(vehicles, sessions, wallets, feePolicy, clock);
+    }
+
+        @Bean
+    SuggestPlatesUseCase suggestPlatesUseCase(VehicleOwnerDirectory vehicles) {
+        return new SuggestPlatesUseCase(vehicles);
     }
 
     @Bean
