@@ -12,8 +12,9 @@ spring:
     password: ${DB_PASSWORD:parking}
     hikari:
       connection-timeout: 3000     # ms; CSDL sập thì báo lỗi nhanh (health trả 503) thay vì treo 30s
-
-  jpa:
+            # Chờ khóa dòng (ví đang bị giao dịch khác khóa) tối đa 5 giây thay vì 50 giây mặc định của InnoDB
+      connection-init-sql: SET SESSION innodb_lock_wait_timeout = 5
+  jpa: 
     open-in-view: false            # không giữ kết nối CSDL suốt request; transaction do use case quyết định
     hibernate:
       ddl-auto: validate           # schema do Flyway quản lý; Hibernate chỉ KIỂM TRA, không tự sửa bảng

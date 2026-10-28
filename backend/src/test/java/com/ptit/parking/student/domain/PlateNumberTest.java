@@ -24,4 +24,11 @@ class PlateNumberTest {
     void null_khongTaoDuoc() {
         assertThatThrownBy(() -> PlateNumber.of(null)).isInstanceOf(IllegalArgumentException.class);
     }
+    
+    @Test
+    void tryParse_hopLeThiCoGiaTri_saiThiRong_khongNemLoi() {
+        assertThat(PlateNumber.tryParse("29a-123.45")).contains(new PlateNumber("29A12345"));
+        assertThat(PlateNumber.tryParse("29-A1")).isEmpty();
+        assertThat(PlateNumber.tryParse(null)).isEmpty();
+    }
 }

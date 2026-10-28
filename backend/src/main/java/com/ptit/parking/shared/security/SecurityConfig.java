@@ -46,6 +46,8 @@ public class SecurityConfig {
                     auth.requestMatchers("/api/**").authenticated();
                     auth.anyRequest().permitAll();                     // file giao diện tĩnh
                 })
+                // Giới hạn tần suất (Đặc tả API mục 11): đăng ký 10 lần/giờ/IP, mỗi phiên 120 request/phút
+                .addFilterBefore(new RateLimitFilter(clock, errors), AuthorizationFilter.class)
                 // Thứ tự kiểm tra (Đặc tả API mục 4): phiên hợp lệ -> tài khoản không bị khóa -> có quyền
                 .addFilterBefore(new SessionLifetimeFilter(clock, errors), AuthorizationFilter.class)
                 .addFilterBefore(new ActiveAccountFilter(accounts, errors), AuthorizationFilter.class)
