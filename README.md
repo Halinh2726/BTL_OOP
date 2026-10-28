@@ -15,6 +15,7 @@ Bài tập lớn môn Lập trình hướng đối tượng. Sinh viên đổi t
 - Java 21, Spring Boot 4, Spring Security (phiên phía máy chủ, CSRF), Maven Wrapper
 - MySQL 8.4 chạy bằng Docker, Flyway quản lý schema (`backend/src/main/resources/db/migration`)
 - JUnit 5, Mockito, AssertJ (274 test), Postman / Newman cho kịch bản demo
+- Giao diện: React 18 + TypeScript + Vite, TanStack Query, Tailwind CSS, Vitest (`frontend/`)
 
 ## Chạy dự án
 
@@ -39,6 +40,16 @@ curl.exe http://localhost:8080/api/v1/health
 Mặc định dùng CSDL `parking` (user `parking` / `parking`) trên cổng 3306, backend cổng 8080 — không cần cấu hình gì.
 Muốn đổi thì sao chép `.env.example` thành `.env` và sửa (cho `docker compose`), đồng thời đặt các biến môi trường
 cùng tên (`DB_PORT`, `DB_PASSWORD`, `SERVER_PORT`...) trước khi chạy backend.
+
+**Giao diện web** (cần Node.js 20+), mở terminal thứ hai khi backend đang chạy:
+
+```powershell
+cd frontend
+npm install
+npm run dev                         # mở http://localhost:5173
+```
+
+Chỉ muốn xem giao diện, không cần backend: `npm run dev:mock` (dữ liệu giả lập). Chi tiết: [`frontend/README.md`](frontend/README.md).
 
 **Xóa sạch dữ liệu để demo lại từ đầu:** `docker compose down -v` rồi `docker compose up -d`
 (giao dịch điểm không sửa / xóa được bằng API theo R10, nên làm lại từ đầu là xóa cả CSDL).
