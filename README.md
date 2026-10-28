@@ -14,7 +14,7 @@ Bài tập lớn môn Lập trình hướng đối tượng. Sinh viên đổi t
 
 - Java 21, Spring Boot 4, Spring Security (phiên phía máy chủ, CSRF), Maven Wrapper
 - MySQL 8.4 chạy bằng Docker, Flyway quản lý schema (`backend/src/main/resources/db/migration`)
-- JUnit 5, Mockito, AssertJ (294 test), Postman / Newman cho kịch bản demo
+- JUnit 5, Mockito, AssertJ, Testcontainers (300 test), Postman / Newman cho kịch bản demo
 - Giao diện: React 18 + TypeScript + Vite, TanStack Query, Tailwind CSS, Vitest (`frontend/`)
 
 ## Chạy dự án
@@ -167,11 +167,15 @@ Thiết kế CSDL: [`docs/database/ERD.md`](docs/database/ERD.md).
 ```powershell
 cd backend
 .\mvnw.cmd test
-# Tests run: 294, Failures: 0, Errors: 0
+# Tests run: 300, Failures: 0, Errors: 0
 ```
 
-Test không cần MySQL: use case được test với kho dữ liệu giả trong bộ nhớ, controller test bằng `@WebMvcTest`
+294 test không cần MySQL: use case được test với kho dữ liệu giả trong bộ nhớ, controller test bằng `@WebMvcTest`
 với cấu hình bảo mật thật.
+
+6 test tích hợp (`ParkingFlowIntegrationTest`) chạy toàn bộ ứng dụng trên **MySQL 8.4 thật** do Testcontainers tự bật
+trong Docker: đăng ký → đổi điểm → xe vào → xe ra → chủ tài khoản nhận điểm, hai bảo vệ cùng bấm xe ra, khóa bảo vệ,
+trigger chặn sửa giao dịch, bảo toàn điểm. Cần Docker Desktop đang chạy; không có Docker thì 6 test này được bỏ qua.
 
 ## Lỗi thường gặp
 
