@@ -16,9 +16,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory.VehicleOwner;
 import com.ptit.parking.parking.application.usecase.CheckOutUseCase;
 import com.ptit.parking.parking.application.usecase.CheckOutUseCase.Command;
+import com.ptit.parking.parking.application.usecase.PayParkingFeeByVietQrUseCase;
 import com.ptit.parking.parking.application.usecase.PreviewCheckOutUseCase;
 import com.ptit.parking.parking.application.usecase.PreviewCheckOutUseCase.Preview;
+import com.ptit.parking.parking.application.usecase.QuickCheckOutUseCase;
 import com.ptit.parking.parking.domain.ParkingSession;
+import com.ptit.parking.parking.domain.VietQrOrder;
 import com.ptit.parking.payment.domain.ParkingPayment;
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
@@ -60,6 +63,12 @@ class CheckOutControllerTest {
 
     @MockitoBean
     private CheckOutUseCase checkOut;
+
+    @MockitoBean
+    private QuickCheckOutUseCase quickCheckOut;
+
+    @MockitoBean
+    private PayParkingFeeByVietQrUseCase payParkingFeeByVietQr;
 
     @Test
     void choRa_traDuThongTin_gioVaoTheoGioVietNam() throws Exception {
@@ -166,6 +175,106 @@ class CheckOutControllerTest {
                         """).header("Idempotency-Key", KEY.toString()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("SESSION_ALREADY_PAID"));
+    }
+
+    @Test
+    void quickCheckOut_thanhCong_201Created_traDuThongTin() throws Exception {
+        when(quickCheckOut.checkOut(any())).thenReturn(new QuickCheckOutUseCase.Result(PAYMENT, OWNER, false));
+
+        mvc.perform(post(URL + "/quick").with(csrf()).with(authentication(guard()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Idempotency-Key", KEY.toString())
+                        .content("""
+                                {"plateNumber":"29a-123.45"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(header().doesNotExist("Idempotent-Replayed"))
+                .andExpect(jsonPath("$.transactionId").value(902))
+                .andExpect(jsonPath("$.sessionId").value(501))
+                .andExpect(jsonPath("$.plateNumber").value("29A12345"))
+                .andExpect(jsonPath("$.studentCode").value("B21DCCN001"))
+                .andExpect(jsonPath("$.fullName").value("Nguyễn Văn A"))
+                .andExpect(jsonPath("$.vehicleTypeCode").value("XE_MAY"))
+                .andExpect(jsonPath("$.fee").value(5000))
+                .andExpect(jsonPath("$.balanceAfter").value(5000))
+                .andExpect(jsonPath("$.exitedAt").value("2026-10-05T18:30:00+07:00"));
+    }
+
+    @Test
+    void quickCheckOut_replayed_traHeaderIdempotentReplayed() throws Exception {
+        when(quickCheckOut.checkOut(any())).thenReturn(new QuickCheckOutUseCase.Result(PAYMENT, OWNER, true));
+
+        mvc.perform(post(URL + "/quick").with(csrf()).with(authentication(guard()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Idempotency-Key", KEY.toString())
+                        .content("""
+                                {"plateNumber":"29A12345"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Idempotent-Replayed", "true"))
+                .andExpect(jsonPath("$.transactionId").value(902));
+    }
+
+    @Test
+    void quickCheckOut_thieuIdempotencyKey_400() throws Exception {
+        mvc.perform(post(URL + "/quick").with(csrf()).with(authentication(guard()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"plateNumber":"29A12345"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_REQUIRED"));
+
+        verifyNoInteractions(quickCheckOut);
+    }
+
+    @Test
+    void quickCheckOut_bienSoKhongHopLe_400() throws Exception {
+        mvc.perform(post(URL + "/quick").with(csrf()).with(authentication(guard()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Idempotency-Key", KEY.toString())
+                        .content("""
+                                {"plateNumber":"xyz"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+        verifyNoInteractions(quickCheckOut);
+    }
+
+    @Test
+    void payVietQr_thanhCong_201Created() throws Exception {
+        when(payParkingFeeByVietQr.payByVietQr(any())).thenReturn(new PayParkingFeeByVietQrUseCase.Result(PAYMENT, OWNER, false));
+
+        mvc.perform(post(URL + "/vietqr").with(csrf()).with(authentication(guard()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Idempotency-Key", KEY.toString())
+                        .content("""
+                                {"sessionId":501}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(header().doesNotExist("Idempotent-Replayed"))
+                .andExpect(jsonPath("$.transactionId").value(902))
+                .andExpect(jsonPath("$.sessionId").value(501))
+                .andExpect(jsonPath("$.fee").value(5000));
+    }
+
+    @Test
+    void preview_khongDuDiem_traVeVietQrOrder() throws Exception {
+        ParkingSession session = ParkingSession.open(100L, 4L, Instant.parse("2026-10-05T00:55:00.654321Z")).withId(501L);
+        VietQrOrder qrOrder = VietQrOrder.create(501L, "29A12345", "B21DCCN001", "Nguyễn Văn A", 5000,
+                "MB", "0987654321", "BAI XE PTIT", "compact2");
+        when(previewCheckOut.preview("29A12345")).thenReturn(new Preview(OWNER, session, 1000L, 5000L, false,
+                ErrorCode.INSUFFICIENT_POINTS, qrOrder));
+
+        mvc.perform(get(URL + "/preview").param("plate", "29A12345").with(authentication(guard())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.allowed").value(false))
+                .andExpect(jsonPath("$.reason").value("INSUFFICIENT_POINTS"))
+                .andExpect(jsonPath("$.vietQrOrder.sessionId").value(501))
+                .andExpect(jsonPath("$.vietQrOrder.fee").value(5000))
+                .andExpect(jsonPath("$.vietQrOrder.transferContent").value("TTGX 501"))
+                .andExpect(jsonPath("$.vietQrOrder.qrCodeUrl").isNotEmpty());
     }
 
     private static MockHttpServletRequestBuilder checkOutRequest(String body) {

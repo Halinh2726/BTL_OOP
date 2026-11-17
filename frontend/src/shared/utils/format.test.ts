@@ -27,7 +27,9 @@ describe('định dạng hiển thị', () => {
 
   it('mã QR chỉ chứa biển số, có tiền tố để không nhận nhầm mã QR khác', () => {
     expect(plateQrPayload('29A12345')).toBe('GUIXE:29A12345');
+    expect(plateQrPayload('29A12345', 1731816000000)).toBe('GUIXE:29A12345:1731816000000');
     expect(plateFromQr(' guixe:29a-123.45 ')).toBe('29A12345');
+    expect(plateFromQr('GUIXE:29A12345:1731816000000')).toBe('29A12345');
     expect(plateFromQr('29A12345')).toBeNull();
     expect(plateFromQr('https://example.com')).toBeNull();
     expect(plateFromQr('GUIXE:12')).toBeNull();

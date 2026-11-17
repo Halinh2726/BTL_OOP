@@ -1,0 +1,79 @@
+\chapter{GIỚI THIỆU DỰ ÁN}
+
+\section{Bối cảnh và lý do chọn đề tài}
+
+Hoạt động trông giữ xe tại trường học và các khu vực tập trung đông người đòi hỏi phải kiểm soát chính xác phương tiện ra vào, thời điểm gửi xe, chủ phương tiện và khoản phí phát sinh. Khi các bước này được ghi chép hoặc xử lý rời rạc, việc tra cứu thông tin và đối soát có thể mất thời gian; sai sót trong xác định lượt gửi hoặc thu phí cũng ảnh hưởng đến người gửi xe và đơn vị vận hành.
+
+Từ thực tế đó, nhóm lựa chọn đề tài \textit{Hệ thống thanh toán phí gửi xe bằng điểm}. Hệ thống tổ chức quy trình gửi xe trên nền tảng web: sinh viên đăng ký tài khoản và phương tiện; bảo vệ xác nhận xe vào, xe ra; phí được tính và thanh toán từ số dư điểm; khoản phí được ghi nhận vào ví của chủ tài khoản bãi xe. Quản lý có thể nạp điểm cho sinh viên, thực hiện nghiệp vụ rút điểm theo quyền được cấp và quản lý tài khoản bảo vệ.
+
+Đề tài phù hợp với mục tiêu học phần Lập trình hướng đối tượng vì có nhiều đối tượng nghiệp vụ và mối quan hệ giữa chúng, đồng thời yêu cầu vận dụng đóng gói, trừu tượng hóa, phân chia trách nhiệm và tổ chức mã nguồn thành các thành phần có ranh giới rõ ràng. Dự án cũng tạo cơ hội áp dụng kiến thức về ứng dụng web, cơ sở dữ liệu quan hệ, xác thực, phân quyền và kiểm thử phần mềm.
+
+\section{Mục tiêu của đề tài}
+
+\subsection{Mục tiêu tổng quát}
+Xây dựng một ứng dụng web hỗ trợ quản lý lượt gửi xe và thanh toán phí bằng điểm, bảo đảm các nghiệp vụ chính được thực hiện nhất quán, có phân quyền theo vai trò và có thể tra cứu lại lịch sử giao dịch.
+
+\subsection{Mục tiêu cụ thể}
+\begin{enumerate}[label=\arabic*)]
+    \item Cho phép sinh viên đăng ký tài khoản, đăng ký phương tiện, xem số dư ví và lịch sử giao dịch của mình.
+    \item Hỗ trợ bảo vệ tra cứu phương tiện, xác nhận xe vào bãi và xác nhận xe ra bãi.
+    \item Tự động xác định phí gửi xe theo quy tắc cấu hình, trừ điểm từ ví sinh viên và ghi nhận khoản thu cho chủ tài khoản bãi xe.
+    \item Hỗ trợ quản lý nạp điểm cho sinh viên, quản lý tài khoản bảo vệ và thực hiện các thao tác quản trị được phân quyền.
+    \item Hỗ trợ chủ tài khoản theo dõi số điểm nhận được, xem lịch sử và thực hiện rút điểm theo nghiệp vụ của hệ thống.
+    \item Lưu lại các giao dịch và bảo vệ những thao tác có ảnh hưởng đến số dư trước tình huống yêu cầu bị gửi lặp.
+    \item Xây dựng giao diện web và REST API có thể chạy trong môi trường phát triển được hướng dẫn trong README của dự án.
+\end{enumerate}
+
+\section{Đối tượng sử dụng và vai trò}
+
+Hệ thống có bốn vai trò nghiệp vụ chính. Mỗi vai trò chỉ được thực hiện những thao tác phù hợp với nhiệm vụ của mình.
+
+\begin{table}[htbp]
+\centering
+\caption{Các vai trò sử dụng hệ thống}
+\label{tab:roles}
+\begin{tabular}{|p{3cm}|p{10cm}|}
+\hline
+\textbf{Vai trò} & \textbf{Chức năng chính} \\ \hline
+Sinh viên & Đăng ký tài khoản, đăng ký phương tiện, xem số dư và lịch sử giao dịch của bản thân. \\ \hline
+Bảo vệ & Tra cứu biển số, xác nhận xe vào và xác nhận xe ra; hệ thống xử lý việc tính phí khi hoàn tất lượt gửi. \\ \hline
+Quản lý & Nạp điểm cho sinh viên, tạo và khóa/mở khóa tài khoản bảo vệ, thực hiện nghiệp vụ quản lý được cấp quyền. \\ \hline
+Chủ tài khoản & Theo dõi số dư và lịch sử phí gửi xe nhận được, thực hiện rút điểm theo quy trình. \\ \hline
+\end{tabular}
+\end{table}
+
+\section{Phạm vi của đề tài}
+
+\subsection{Phạm vi chức năng}
+Phiên bản hiện tại tập trung vào các chức năng liên quan trực tiếp đến tài khoản, phương tiện, lượt gửi xe và luồng điểm. Hệ thống có các nghiệp vụ đăng ký sinh viên, đăng ký xe, tra cứu danh mục loại xe và bảng phí, xác nhận xe vào/ra, xem ví và lịch sử giao dịch, nạp điểm, rút điểm và quản lý trạng thái tài khoản bảo vệ.
+
+\subsection{Phạm vi dữ liệu và quy tắc nghiệp vụ}
+Theo cấu hình dữ liệu mẫu được mô tả trong tài liệu dự án, các loại phương tiện gồm xe máy, xe đạp và xe đạp điện. Tỷ lệ quy đổi mặc định là 1 đồng bằng 1 điểm. Mức phí mẫu là 3.000 điểm nếu xe ra trước 18:00 và 5.000 điểm từ 18:00 trở đi. Thời gian được lưu theo UTC và hiển thị theo múi giờ Việt Nam. Các giá trị này là cấu hình mẫu của phiên bản hiện tại; khi vận hành thực tế cần được xác nhận theo chính sách của đơn vị quản lý bãi xe.
+
+\subsection{Phạm vi triển khai}
+Backend được xây dựng bằng Java 21 và Spring Boot, cung cấp REST API; frontend sử dụng React và TypeScript; dữ liệu được lưu trong MySQL 8.4. Môi trường phát triển dùng Docker Compose để chạy cơ sở dữ liệu. Hướng dẫn cài đặt và khởi chạy được trình bày tại Chương III.
+
+\section{Mô tả khái quát quy trình hoạt động}
+
+Quy trình gửi xe bắt đầu khi sinh viên có tài khoản và phương tiện đã đăng ký. Tại cổng vào, bảo vệ tra cứu biển số và xác nhận phương tiện bắt đầu một lượt gửi. Khi phương tiện rời bãi, bảo vệ xác nhận xe ra; hệ thống tìm lượt gửi đang mở, xác định phí theo quy tắc áp dụng và thực hiện thanh toán bằng điểm. Giao dịch làm giảm số dư ví sinh viên và tăng số dư ví chủ tài khoản, đồng thời lưu thông tin giao dịch để các bên có thể tra cứu.
+
+Trước khi sử dụng dịch vụ, sinh viên cần có điểm trong ví. Quản lý thực hiện nghiệp vụ nạp điểm dựa trên khoản tiền mặt nhận được. Chủ tài khoản theo dõi các khoản phí đã nhận và có thể thực hiện nghiệp vụ rút điểm. Hệ thống yêu cầu quyền phù hợp cho từng thao tác và sử dụng khóa idempotency đối với một số giao dịch quan trọng để việc gửi lại cùng một yêu cầu không tạo thêm giao dịch thứ hai.
+
+\section{Ý nghĩa thực tiễn và học tập}
+
+Về mặt ứng dụng, đề tài mô hình hóa một quy trình gần với hoạt động thực tế, kết nối thao tác tại cổng với việc ghi nhận thanh toán và số dư. Lịch sử giao dịch giúp tăng khả năng truy vết và hỗ trợ đối soát giữa sinh viên, bảo vệ, quản lý và chủ tài khoản.
+
+Về mặt học tập, quá trình thực hiện giúp nhóm vận dụng tư duy hướng đối tượng để xác định lớp và trách nhiệm; áp dụng kiến trúc phân module; thiết kế API và cơ sở dữ liệu; xử lý xác thực, phân quyền, giao dịch và lỗi; đồng thời thực hành kiểm thử đơn vị và kiểm thử tích hợp. Qua đó, nhóm có cơ hội liên hệ kiến thức lý thuyết với quy trình phát triển một sản phẩm phần mềm có nhiều thành phần.
+
+\section{Bố cục báo cáo}
+
+Ngoài phần mở đầu, kết luận và tài liệu tham khảo, báo cáo gồm các chương sau:
+\begin{enumerate}[label=\textbf{Chương \arabic*:},leftmargin=3cm]
+    \item Giới thiệu dự án và xác định mục tiêu, phạm vi, đối tượng sử dụng.
+    \item Trình bày các công nghệ được sử dụng trong quá trình xây dựng hệ thống.
+    \item Hướng dẫn chuẩn bị môi trường, cài đặt và chạy dự án.
+    \item Phân tích thiết kế chương trình và trình bày mô hình lớp.
+    \item Mô tả các lớp nghiệp vụ và cấu trúc dữ liệu của hệ thống.
+    \item Minh họa các chức năng chính bằng giao diện và kịch bản sử dụng.
+    \item Tự đánh giá kết quả, ưu điểm, hạn chế và hướng phát triển.
+\end{enumerate}

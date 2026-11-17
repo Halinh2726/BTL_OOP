@@ -5,7 +5,7 @@ import { TransactionHistory } from '../../shared/components/TransactionHistory';
 export function OwnerPage() {
   return (
     <div className="space-y-6">
-      <BalanceCard caption="Số điểm nhận từ phí gửi xe" />
+      <BalanceCard caption="Số điểm nhận từ phí gửi xe" showDeposit={false} />
       <TransactionHistory defaultType="THANH_TOAN" types={['THANH_TOAN', 'RUT_DIEM']} />
     </div>
   );

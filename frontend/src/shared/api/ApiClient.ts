@@ -3,7 +3,9 @@ import type {
   CheckInResult,
   CheckOutPreview,
   CheckOutResult,
+  QuickCheckOutResult,
   CreateGuardRequest,
+  DepositInfo,
   DepositRequest,
   DepositResult,
   ExchangeRate,
@@ -51,6 +53,7 @@ export interface ApiClient {
   myVehicles(): Promise<Vehicle[]>;
   registerVehicle(body: RegisterVehicleRequest): Promise<Vehicle>;
   myWallet(): Promise<Wallet>;
+  getDepositInfo(amount?: number): Promise<DepositInfo>;
   myTransactions(query: TransactionQuery): Promise<TransactionPage>;
 
   // Bảo vệ
@@ -60,6 +63,10 @@ export interface ApiClient {
   checkIn(plateNumber: string): Promise<CheckInResult>;
   previewCheckOut(plate: string): Promise<CheckOutPreview>;
   checkOut(sessionId: number, idempotencyKey: string): Promise<Idempotent<CheckOutResult>>;
+  /** BV02-Quick: Quét mã QR hoặc biển số để thanh toán 1 chạm */
+  quickCheckOut(plateNumber: string, idempotencyKey: string): Promise<Idempotent<QuickCheckOutResult>>;
+  /** BV02-VietQR: Xác nhận thanh toán qua chuyển khoản VietQR khi thiếu điểm */
+  payVietQr(sessionId: number, idempotencyKey: string): Promise<Idempotent<QuickCheckOutResult>>;
 
   // Quản lý
   lookupStudent(studentCode: string): Promise<StudentSummary>;

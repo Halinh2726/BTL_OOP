@@ -1,0 +1,186 @@
+\chapter{THIẾT KẾ CHƯƠNG TRÌNH VÀ BIỂU ĐỒ LỚP}
+
+Chương này phân tích cấu trúc chương trình, cách các thành phần phối hợp và mô hình hóa những lớp nghiệp vụ tiêu biểu. Thiết kế được đối chiếu với mã nguồn backend và tài liệu ERD của dự án. Hệ thống áp dụng kiến trúc Modular Monolith, tổ chức theo các module nghiệp vụ và phân lớp theo tư tưởng Ports and Adapters.
+
+\section{Phân tích bài toán}
+
+\subsection{Bài toán nghiệp vụ}
+Bài toán đặt ra là quản lý vòng đời một lượt gửi xe, từ lúc phương tiện được xác nhận vào bãi đến khi được xác nhận ra và thanh toán. Hệ thống đồng thời quản lý danh tính người dùng, quyền thao tác, phương tiện đăng ký, số dư điểm và lịch sử biến động số dư.
+
+Một lượt thanh toán liên quan đến nhiều thành phần: phương tiện phải thuộc sinh viên đã đăng ký; lượt gửi phải đang mở; bảo vệ phải có quyền xác nhận; phí phải được xác định theo thời gian và quy tắc hiện hành; ví sinh viên cần đủ điểm; giao dịch cần ghi nhận nguồn, đích và số dư sau giao dịch. Vì vậy, không thể xem thao tác xe ra chỉ là cập nhật một trường trạng thái, mà cần phối hợp các bước trong một nghiệp vụ nhất quán.
+
+\subsection{Quy tắc và điều kiện nghiệp vụ}
+Các điều kiện chính được mô hình hóa trong chương trình và cơ sở dữ liệu gồm:
+\begin{enumerate}[label=\arabic*)]
+    \item Một phương tiện chỉ được có tối đa một lượt gửi đang mở tại một thời điểm.
+    \item Chỉ phương tiện đã đăng ký mới được xử lý trong luồng gửi xe.
+    \item Khi xe ra, hệ thống phải tìm được lượt gửi đang mở và xác định được phí áp dụng.
+    \item Số dư ví không được âm; ví sinh viên phải đủ điểm để thanh toán.
+    \item Một lượt gửi chỉ được thanh toán một lần; gửi lại yêu cầu xác nhận không được tạo giao dịch thứ hai.
+    \item Giao dịch điểm được lưu để truy vết; các giao dịch đã ghi nhận không được chỉnh sửa hoặc xóa qua API.
+    \item Thao tác chỉ được thực hiện bởi người dùng đã xác thực và có quyền tương ứng.
+\end{enumerate}
+
+\subsection{Tác nhân và chức năng}
+Sinh viên quản lý tài khoản, xe và xem ví; bảo vệ xác nhận xe vào/ra; quản lý thực hiện nạp điểm và quản lý tài khoản bảo vệ; chủ tài khoản theo dõi phí nhận được và rút điểm theo quy trình. Backend là nơi kiểm tra cuối cùng về trạng thái, quyền và điều kiện nghiệp vụ, không dựa riêng vào việc ẩn/hiện chức năng trên giao diện.
+
+\section{Kiến trúc và phân rã chương trình}
+
+\subsection{Kiến trúc Modular Monolith}
+Ứng dụng backend được triển khai như một tiến trình Spring Boot thống nhất nhưng mã nguồn được chia thành các module theo miền nghiệp vụ. Các module chính gồm \texttt{auth}, \texttt{student}, \texttt{catalog}, \texttt{parking}, \texttt{payment}, \texttt{manager}, \texttt{owner} và \texttt{shared}. Tổ chức này cho phép triển khai đơn giản như một ứng dụng, đồng thời giữ các chức năng có liên quan trong cùng một khu vực mã nguồn.
+
+\subsection{Các lớp trong một module}
+Một module thường có các phần sau:
+\begin{itemize}
+    \item \textbf{Domain}: lớp và quy tắc nghiệp vụ thuần, hạn chế phụ thuộc framework.
+    \item \textbf{Application/use case}: điều phối một hành động nghiệp vụ, xác định thứ tự kiểm tra và thay đổi trạng thái.
+    \item \textbf{Application port}: interface mô tả dịch vụ ngoài mà use case cần, chẳng hạn kho lưu trữ hoặc đồng hồ hệ thống.
+    \item \textbf{Adapter in}: tiếp nhận yêu cầu từ bên ngoài, chủ yếu là controller REST và DTO request/response.
+    \item \textbf{Adapter out}: hiện thực các port để truy cập cơ sở dữ liệu hoặc dịch vụ kỹ thuật.
+    \item \textbf{Config}: tạo và kết nối các thành phần thành ứng dụng Spring.
+\end{itemize}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[node distance=1.4cm, every node/.style={draw,rounded corners,align=center,minimum width=3.2cm,minimum height=0.9cm},>=stealth]
+\node (user) {Người dùng / trình duyệt};
+\node (in) [below=of user] {Adapter vào\\REST Controller};
+\node (app) [below=of in] {Application\\Use case};
+\node (domain) [below=of app] {Domain\\Quy tắc nghiệp vụ};
+\node (port) [below=of domain] {Port lưu trữ};
+\node (out) [below=of port] {Adapter ra\\JPA / JDBC};
+\node (db) [below=of out] {MySQL};
+\draw[->] (user)--(in); \draw[->] (in)--(app); \draw[->] (app)--(domain);
+\draw[->] (app.east) -- ++(1.1,0) |- (port.east);
+\draw[->] (port)--(out); \draw[->] (out)--(db);
+\end{tikzpicture}
+\caption{Luồng kiến trúc khái quát của backend}
+\label{fig:backend-architecture}
+\end{figure}
+
+Hình~\ref{fig:backend-architecture} mô tả hướng xử lý khái quát. Controller chuyển dữ liệu hợp lệ vào use case; use case phối hợp quy tắc domain và các port; adapter persistence hiện thực port bằng công nghệ lưu trữ. Domain không cần biết request HTTP được gửi từ trình duyệt hay dữ liệu được lưu bằng JPA.
+
+\subsection{Luồng xử lý một yêu cầu}
+Một yêu cầu nghiệp vụ điển hình được xử lý theo các bước:
+\begin{enumerate}[label=\arabic*)]
+    \item Trình duyệt gửi HTTP request đến endpoint REST.
+    \item Bộ lọc và Spring Security kiểm tra phiên, CSRF và quyền truy cập.
+    \item Controller chuyển request thành dữ liệu đầu vào của use case.
+    \item Use case kiểm tra điều kiện, gọi domain object và các port cần thiết.
+    \item Adapter persistence đọc/ghi MySQL trong ranh giới giao dịch phù hợp.
+    \item Kết quả được ánh xạ thành response DTO và trả về frontend.
+\end{enumerate}
+
+\section{Thiết kế các module nghiệp vụ}
+
+\begin{table}[htbp]
+\centering
+\caption{Trách nhiệm của các module backend}
+\label{tab:backend-modules}
+\begin{tabular}{|p{2.8cm}|p{10cm}|}
+\hline
+\textbf{Module} & \textbf{Trách nhiệm chính} \\ \hline
+\texttt{auth} & Tài khoản, vai trò, đăng nhập, phiên và thông tin người dùng hiện tại. \\ \hline
+\texttt{student} & Đăng ký sinh viên, quản lý phương tiện và biển số. \\ \hline
+\texttt{catalog} & Danh mục loại xe, quy tắc phí và cấu hình quy đổi. \\ \hline
+\texttt{parking} & Lượt gửi, xác nhận xe vào/ra và chính sách tính phí. \\ \hline
+\texttt{payment} & Ví, số dư, giao dịch điểm, nạp, thanh toán gửi xe và rút điểm. \\ \hline
+\texttt{manager} & Nghiệp vụ quản lý, nạp/rút điểm và quản lý tài khoản bảo vệ. \\ \hline
+\texttt{owner} & Truy vấn số dư và lịch sử khoản phí của chủ tài khoản. \\ \hline
+\texttt{shared} & Thành phần dùng chung như bảo mật, xử lý lỗi, trace ID và giới hạn tần suất. \\ \hline
+\end{tabular}
+\end{table}
+
+\section{Thiết kế lớp miền nghiệp vụ}
+
+\subsection{Người dùng và vai trò}
+Lớp trừu tượng \texttt{User} biểu diễn thông tin chung của tài khoản. Các lớp \texttt{Student}, \texttt{Guard}, \texttt{Manager} và \texttt{Owner} chuyên biệt hóa người dùng theo vai trò. Mô hình này gom thuộc tính dùng chung và cho phép từng loại người dùng có thêm dữ liệu hoặc hành vi phù hợp. Quyền chi tiết được kiểm soát ở tầng bảo mật và cấu hình phân quyền.
+
+\subsection{Phương tiện và biển số}
+\texttt{Vehicle} biểu diễn phương tiện thuộc về một sinh viên, gồm biển số và loại xe. \texttt{PlateNumber} đóng gói khái niệm biển số và quy tắc chuẩn hóa/kiểm tra định dạng, giúp tránh để nhiều thành phần tự xử lý chuỗi biển số theo cách không thống nhất.
+
+\subsection{Lượt gửi và chính sách tính phí}
+\texttt{ParkingSession} biểu diễn một lượt gửi với thời điểm vào, thời điểm ra và bảo vệ xác nhận. Trạng thái lượt gửi thay đổi theo hành vi nghiệp vụ thay vì cập nhật tùy ý. Chính sách phí được trừu tượng hóa qua \texttt{FeePolicy}; hiện thực theo khung giờ cho phép xác định số điểm cần thu dựa trên thời điểm xe ra. Đây là ví dụ áp dụng nguyên tắc Strategy: use case làm việc với abstraction của chính sách thay vì gắn cứng toàn bộ logic tính phí vào controller.
+
+\subsection{Ví và giao dịch điểm}
+\texttt{Wallet} đóng gói số dư và cung cấp các hành vi thay đổi số dư như ghi có hoặc ghi nợ, qua đó kiểm soát điều kiện không âm. \texttt{PointTransaction} là khái niệm giao dịch điểm; các loại cụ thể gồm \texttt{CashDeposit}, \texttt{ParkingPayment} và \texttt{CashWithdrawal}. Mỗi loại giao dịch có ý nghĩa và dữ liệu bổ sung riêng nhưng cùng chia sẻ thông tin chung như số điểm, ví nguồn/đích và người thực hiện.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[every node/.style={draw,rounded corners,align=center,minimum width=3.3cm,minimum height=0.85cm},>=stealth]
+\node (user) at (0,0) {\textit{User}\\(trừu tượng)};
+\node (student) at (-4,-1.6) {Student};
+\node (guard) at (-1.4,-1.6) {Guard};
+\node (manager) at (1.4,-1.6) {Manager};
+\node (owner) at (4,-1.6) {Owner};
+\draw[->] (student.north)--(user.south west); \draw[->] (guard.north)--(user.south west);
+\draw[->] (manager.north)--(user.south east); \draw[->] (owner.north)--(user.south east);
+\node (pt) at (0,-3.6) {\textit{PointTransaction}\\(trừu tượng, sealed)};
+\node (deposit) at (-4,-5.2) {CashDeposit};
+\node (payment) at (0,-5.2) {ParkingPayment};
+\node (withdraw) at (4,-5.2) {CashWithdrawal};
+\draw[->] (deposit.north)--(pt.south west); \draw[->] (payment.north)--(pt.south);
+\draw[->] (withdraw.north)--(pt.south east);
+\end{tikzpicture}
+\caption{Khái quát quan hệ kế thừa giữa người dùng và giao dịch}
+\label{fig:domain-inheritance}
+\end{figure}
+
+Hình~\ref{fig:domain-inheritance} minh họa hai nhóm kế thừa tiêu biểu. Các lớp chuyên biệt thể hiện những biến thể có chung bản chất nhưng khác vai trò hoặc hành vi. Khi thuyết trình, nhóm nên mở mã nguồn tương ứng để chỉ ra thuộc tính, phương thức và nơi use case sử dụng các lớp này.
+
+\section{Biểu đồ lớp tổng quan}
+
+Biểu đồ lớp khái quát ở Hình~\ref{fig:class-overview} tập trung vào các lớp nghiệp vụ cốt lõi và quan hệ giữa chúng. Một sinh viên sở hữu nhiều phương tiện; phương tiện phát sinh các lượt gửi; lượt gửi có thể liên kết với một giao dịch thanh toán; giao dịch làm thay đổi ví nguồn và ví đích.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[every node/.style={draw,rounded corners,align=center,minimum width=2.6cm,minimum height=0.85cm},>=stealth]
+\node (student) at (0,0) {Student};
+\node (vehicle) at (4,0) {Vehicle\\PlateNumber};
+\node (session) at (8,0) {ParkingSession};
+\node (fee) at (8,-2) {FeePolicy};
+\node (payment) at (4,-2) {ParkingPayment};
+\node (wallet) at (0,-2) {Wallet};
+\node (transaction) at (0,-4) {PointTransaction};
+\draw (student)--node[above,draw=none]{1 : 0..*}(vehicle);
+\draw (vehicle)--node[above,draw=none]{1 : 0..*}(session);
+\draw (session)--node[right,draw=none]{dùng}(fee);
+\draw (session)--node[below,draw=none]{được thanh toán bởi}(payment);
+\draw (payment)--node[above,draw=none]{là một loại}(transaction);
+\draw (wallet)--node[left,draw=none]{sở hữu}(student);
+\draw (wallet)--node[below,draw=none]{nguồn / đích}(transaction);
+\end{tikzpicture}
+\caption{Biểu đồ lớp khái quát các nghiệp vụ gửi xe và thanh toán}
+\label{fig:class-overview}
+\end{figure}
+
+Biểu đồ trên là sơ đồ khái niệm nhằm trình bày cấu trúc nghiệp vụ, không thay thế biểu đồ lớp chi tiết sinh trực tiếp từ toàn bộ mã nguồn. Trước khi nộp, nhóm cần đối chiếu tên lớp và bội số quan hệ với mã nguồn hiện tại; có thể bổ sung thuộc tính, phương thức và các lớp repository/use case nếu yêu cầu của giảng viên cần biểu đồ chi tiết.
+
+\section{Luồng thiết kế xác nhận xe ra và thanh toán}
+
+Luồng xe ra là nghiệp vụ kết hợp giữa module parking và payment. Ở mức thiết kế, các bước được thực hiện theo trình tự sau:
+\begin{enumerate}[label=\arabic*)]
+    \item Bảo vệ gửi yêu cầu xem trước hoặc xác nhận xe ra cùng biển số.
+    \item Backend xác thực phiên và quyền xác nhận xe ra.
+    \item Use case tìm phương tiện và lượt gửi đang mở; nếu không có lượt hợp lệ, nghiệp vụ bị từ chối.
+    \item Chính sách phí xác định số điểm phải thu theo thời điểm xe ra và quy tắc hiện hành.
+    \item Hệ thống kiểm tra số dư ví sinh viên và điều kiện giao dịch.
+    \item Trong ranh giới xử lý nhất quán, lượt gửi được đóng, ví nguồn/đích được cập nhật và giao dịch thanh toán được ghi nhận.
+    \item Kết quả trả về frontend gồm thông tin lượt gửi, khoản phí và số dư sau giao dịch.
+\end{enumerate}
+
+Các request thanh toán có khóa idempotency. Nếu client gửi lại cùng khóa do timeout hoặc thao tác lặp, hệ thống nhận diện yêu cầu đã xử lý và trả lại kết quả cũ thay vì trừ điểm lần nữa. Ràng buộc duy nhất ở cơ sở dữ liệu là lớp bảo vệ bổ sung cho điều kiện này khi có nhiều request đồng thời.
+
+\section{Áp dụng nguyên lý lập trình hướng đối tượng}
+
+\begin{itemize}
+    \item \textbf{Đóng gói}: số dư trong \texttt{Wallet} được thay đổi qua hành vi nghiệp vụ; trạng thái lượt gửi được quản lý thông qua các thao tác mở/đóng.
+    \item \textbf{Trừu tượng hóa}: use case phụ thuộc vào port lưu trữ; logic tính phí phụ thuộc vào interface chính sách phí.
+    \item \textbf{Kế thừa}: các kiểu người dùng và giao dịch chuyên biệt hóa lớp trừu tượng chứa dữ liệu/hành vi chung.
+    \item \textbf{Đa hình}: các hiện thực của chính sách phí hoặc loại giao dịch có thể được sử dụng thông qua kiểu trừu tượng chung.
+    \item \textbf{Phân chia trách nhiệm}: controller tiếp nhận HTTP, use case điều phối nghiệp vụ, domain giữ quy tắc, adapter đảm nhiệm tích hợp hạ tầng.
+\end{itemize}
+
+\section{Kết luận chương}
+
+Thiết kế của dự án kết hợp chia module theo nghiệp vụ với phân lớp Ports and Adapters. Các lớp domain mô hình hóa người dùng, phương tiện, lượt gửi, ví và giao dịch; use case phối hợp chúng thành các luồng hoàn chỉnh. Cách tổ chức này giúp quy tắc quan trọng như tính phí, số dư không âm và chống thanh toán lặp được kiểm soát ở nhiều lớp phù hợp. Chương tiếp theo trình bày chi tiết hơn các lớp và cấu trúc dữ liệu được dùng để hiện thực thiết kế.

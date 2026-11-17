@@ -8,6 +8,7 @@ export const queryKeys = {
   exchangeRate: ['exchange-rate'] as const,
   myVehicles: ['me', 'vehicles'] as const,
   myWallet: ['me', 'wallet'] as const,
+  depositInfo: (amount?: number) => ['me', 'deposit-info', amount ?? 50000] as const,
   myTransactionsAll: ['me', 'transactions'] as const,
   myTransactions: (type: TransactionType | undefined) => ['me', 'transactions', type ?? 'ALL'] as const,
   student: (studentCode: string) => ['manager', 'student', studentCode] as const,

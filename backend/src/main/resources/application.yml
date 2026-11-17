@@ -45,3 +45,10 @@ server:
 # Cấu hình nghiệp vụ của ứng dụng
 parking:
   zone-id: Asia/Ho_Chi_Minh        # R03: giờ tính phí là giờ Việt Nam theo đồng hồ máy chủ
+  vietqr:
+    bank-id: ${VIETQR_BANK_ID:MB}
+    account-no: ${VIETQR_ACCOUNT_NO:0987654321}
+    account-name: ${VIETQR_ACCOUNT_NAME:BAI XE HOC VIEN PTIT}
+    template: ${VIETQR_TEMPLATE:compact2}
+  webhook:
+    api-key: ${WEBHOOK_API_KEY:sepay_secret_key_123456}

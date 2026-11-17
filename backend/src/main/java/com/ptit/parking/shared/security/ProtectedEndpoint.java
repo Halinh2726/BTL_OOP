@@ -25,11 +25,14 @@ public enum ProtectedEndpoint {
     MY_VEHICLES        (HttpMethod.GET,   "/api/v1/me/vehicles",              VEHICLE_REGISTER),   // #5
     REGISTER_VEHICLE   (HttpMethod.POST,  "/api/v1/me/vehicles",              VEHICLE_REGISTER),   // #6
     MY_WALLET          (HttpMethod.GET,   "/api/v1/me/wallet",                WALLET_VIEW_OWN),    // #7
+    MY_DEPOSIT_INFO    (HttpMethod.GET,   "/api/v1/me/deposit-info",          WALLET_VIEW_OWN),    // Nạp điểm VietQR
     MY_TRANSACTIONS    (HttpMethod.GET,   "/api/v1/me/transactions",          WALLET_VIEW_OWN),    // #8
     CHECK_IN_PREVIEW   (HttpMethod.GET,   "/api/v1/guard/check-in/preview",   PARKING_CHECK_IN),   // #12
     CHECK_IN           (HttpMethod.POST,  "/api/v1/guard/check-in",           PARKING_CHECK_IN),   // #13
     CHECK_OUT_PREVIEW  (HttpMethod.GET,   "/api/v1/guard/check-out/preview",  PARKING_CHECK_OUT),  // #14
     CHECK_OUT          (HttpMethod.POST,  "/api/v1/guard/check-out",          PARKING_CHECK_OUT),  // #15
+    QUICK_CHECK_OUT    (HttpMethod.POST,  "/api/v1/guard/check-out/quick",    PARKING_CHECK_OUT),  // BV02-Quick: 1-scan check out
+    CHECK_OUT_VIETQR   (HttpMethod.POST,  "/api/v1/guard/check-out/vietqr",   PARKING_CHECK_OUT),  // BV02-VietQR: xác nhận chuyển khoản VietQR
     SUGGEST_PLATES     (HttpMethod.GET,   "/api/v1/guard/plates",             PARKING_CHECK_IN, PARKING_CHECK_OUT), // #24
     LOOKUP_STUDENT     (HttpMethod.GET,   "/api/v1/manager/students/*",       CASH_DEPOSIT),       // #16
     DEPOSIT            (HttpMethod.POST,  "/api/v1/manager/deposits",         CASH_DEPOSIT),       // #17

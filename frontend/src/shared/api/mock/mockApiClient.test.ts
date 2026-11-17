@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { ApiClient } from '../ApiClient';
 import { ApiError } from '../ApiError';
 import { createMockApiClient } from './mockApiClient';
-import { seedState } from './mockState';
+import { seedState, toVietnamIso } from './mockState';
 
 async function codeOf(promise: Promise<unknown>): Promise<string> {
   const failure = await promise.then(
@@ -59,6 +59,55 @@ describe('mockApiClient (dữ liệu giả lập phải theo đúng hợp đồn
     expect((await api.myWallet()).balance).toBe(4000 + fee);
     const history = await api.myTransactions({ type: 'THANH_TOAN' });
     expect(history.items[0]?.change).toBe(fee);
+  });
+
+  it('quickCheckOut: quét biển số cho ra và tự trừ điểm trong 1 chạm', async () => {
+    await api.login({ username: 'baove01', password: 'Baove@123' });
+    await api.checkIn('29A12345');
+
+    const quick = await api.quickCheckOut('29A12345', 'q-key-1');
+    expect(quick.replayed).toBe(false);
+    expect(quick.data.plateNumber).toBe('29A12345');
+    expect(quick.data.studentCode).toBe('B21DCCN001');
+    expect(quick.data.fullName).toBe('Nguyễn Văn A');
+    expect(quick.data.balanceAfter).toBe(44000 - quick.data.fee);
+
+    // Bấm lại cùng key -> replayed
+    const again = await api.quickCheckOut('29A12345', 'q-key-1');
+    expect(again.replayed).toBe(true);
+    expect(again.data.transactionId).toBe(quick.data.transactionId);
+
+    // Không có lượt đang mở nữa -> NO_OPEN_SESSION
+    expect(await codeOf(api.quickCheckOut('29A12345', 'q-key-2'))).toBe('NO_OPEN_SESSION');
+  });
+
+  it('không đủ điểm ví: previewCheckOut trả về vietQrOrder và payVietQr thanh toán thành công', async () => {
+    const state = seedState();
+    // Tạo 1 lượt gửi đang mở cho xe 30B67890 (sinh viên chỉ có 2000 điểm < phí 3000)
+    state.sessions.push({ id: 99, vehicleId: 2, enteredAt: toVietnamIso(new Date()), exitedAt: null });
+    const client = createMockApiClient({ latencyMs: 0, initialState: state });
+
+    await client.login({ username: 'baove01', password: 'Baove@123' });
+    const preview = await client.previewCheckOut('30B67890');
+    expect(preview.allowed).toBe(false);
+    expect(preview.reason).toBe('INSUFFICIENT_POINTS');
+    expect(preview.vietQrOrder).toMatchObject({
+      sessionId: 99,
+      plateNumber: '30B67890',
+      studentCode: 'B21DCCN002',
+      fullName: 'Trần Thị B',
+      transferContent: 'TTGX 99',
+    });
+    expect(preview.vietQrOrder?.qrCodeUrl).toContain('https://img.vietqr.io/image/');
+
+    const paid = await client.payVietQr(99, 'vietqr-key-1');
+    expect(paid.replayed).toBe(false);
+    expect(paid.data.sessionId).toBe(99);
+    expect(paid.data.plateNumber).toBe('30B67890');
+
+    // Sau khi thanh toán -> lượt gửi đã đóng
+    const previewAfter = await client.previewCheckOut('30B67890');
+    expect(previewAfter.reason).toBe('NO_OPEN_SESSION');
   });
 
   it('gợi ý biển số: biển kết thúc bằng số vừa gõ xếp trước; xe ra chỉ gợi ý xe trong bãi', async () => {
@@ -120,5 +169,14 @@ describe('mockApiClient (dữ liệu giả lập phải theo đúng hợp đồn
     expect(await codeOf(api.registerStudent({ studentCode: 'B21DCCN001', fullName: 'X', username: 'moi01', password: '12345678' }))).toBe(
       'STUDENT_CODE_EXISTS',
     );
+  });
+
+  it('sinh vien lay thong tin nap diem VietQR', async () => {
+    await api.login({ username: 'sv01', password: 'MatKhau@123' });
+    const info = await api.getDepositInfo(50000);
+    expect(info.studentCode).toBe('B21DCCN001');
+    expect(info.transferContent).toBe('NAP B21DCCN001');
+    expect(info.amount).toBe(50000);
+    expect(info.qrCodeUrl).toContain('NAP%20B21DCCN001');
   });
 });

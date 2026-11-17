@@ -106,6 +106,48 @@ describe('httpApiClient', () => {
     expect(result).toEqual({ data: body, replayed: true });
   });
 
+  it('quickCheckOut gửi plateNumber và Idempotency-Key tới /guard/check-out/quick', async () => {
+    const body = {
+      transactionId: 10,
+      sessionId: 7,
+      plateNumber: '29A12345',
+      studentCode: 'B21DCCN001',
+      fullName: 'Nguyễn Văn A',
+      vehicleTypeCode: 'XE_MAY',
+      fee: 3000,
+      exitedAt: 'x',
+      balanceAfter: 41000,
+    };
+    const { fn, calls } = fakeFetch(json(201, body, { 'Idempotent-Replayed': 'false' }));
+    const result = await createHttpApiClient('/api/v1', fn).quickCheckOut('29A12345', 'key-999');
+
+    expect(calls[0]?.url).toBe('/api/v1/guard/check-out/quick');
+    expect(calls[0]?.init.body).toBe(JSON.stringify({ plateNumber: '29A12345' }));
+    expect(header(calls[0], 'Idempotency-Key')).toBe('key-999');
+    expect(result).toEqual({ data: body, replayed: false });
+  });
+
+  it('payVietQr gửi sessionId và Idempotency-Key tới /guard/check-out/vietqr', async () => {
+    const body = {
+      transactionId: 11,
+      sessionId: 501,
+      plateNumber: '29A12345',
+      studentCode: 'B21DCCN001',
+      fullName: 'Nguyễn Văn A',
+      vehicleTypeCode: 'XE_MAY',
+      fee: 5000,
+      exitedAt: 'x',
+      balanceAfter: 1000,
+    };
+    const { fn, calls } = fakeFetch(json(201, body, { 'Idempotent-Replayed': 'false' }));
+    const result = await createHttpApiClient('/api/v1', fn).payVietQr(501, 'v-key-1');
+
+    expect(calls[0]?.url).toBe('/api/v1/guard/check-out/vietqr');
+    expect(calls[0]?.init.body).toBe(JSON.stringify({ sessionId: 501 }));
+    expect(header(calls[0], 'Idempotency-Key')).toBe('v-key-1');
+    expect(result).toEqual({ data: body, replayed: false });
+  });
+
   it('chuyển lỗi về ApiError, đọc Retry-After khi 429', async () => {
     const { fn } = fakeFetch(error('TOO_MANY_REQUESTS', 429, { 'Retry-After': '42' }));
     const failure = await createHttpApiClient('/api/v1', fn).login({ username: 'a', password: 'b' }).catch((e: unknown) => e);
@@ -152,6 +194,25 @@ describe('httpApiClient', () => {
 
     expect(calls[0]?.url).toBe('/api/v1/guard/plates?q=2345&parked=true');
     expect(result[0]?.parked).toBe(true);
+  });
+
+  it('goi GET /me/deposit-info kem amount', async () => {
+    const depositInfo = {
+      studentCode: 'B21DCCN001',
+      fullName: 'A',
+      bankId: 'MB',
+      accountNo: '0987654321',
+      accountName: 'BAI XE HOC VIEN PTIT',
+      transferContent: 'NAP B21DCCN001',
+      amount: 50000,
+      qrCodeUrl: 'https://img.vietqr.io/image/...',
+    };
+    const { fn, calls } = fakeFetch(json(200, depositInfo));
+    const client = createHttpApiClient('/api/v1', fn);
+
+    const result = await client.getDepositInfo(50000);
+    expect(result.transferContent).toBe('NAP B21DCCN001');
+    expect(calls[0]?.url).toBe('/api/v1/me/deposit-info?amount=50000');
   });
 
   it('lỗi mạng và response không phải JSON có thông báo tiếng Việt', async () => {

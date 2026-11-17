@@ -9,6 +9,9 @@ const PLATE = /^[A-Z0-9]{5,20}$/;
 
 interface PlateLookupFormProps {
   onLookup: (plate: string) => void;
+  /** Callback khi quét mã ở chế độ 1 chạm (tự động vào bãi hoặc tự động trừ điểm). */
+  onQuickScan?: (plate: string) => void;
+  quickScanLabel?: string;
   pending: boolean;
   disabled?: boolean;
   /** Màn hình xe ra: chỉ gợi ý xe đang trong bãi. */
@@ -18,17 +21,20 @@ interface PlateLookupFormProps {
 }
 
 /**
- * Ba cách nhập biển số cho bảo vệ: quét mã QR trên điện thoại sinh viên, gõ vài số cuối rồi chạm gợi ý,
- * hoặc gõ đủ biển. Biển số chuẩn hóa giống backend trước khi tra cứu.
+ * Các cách nhập biển số cho bảo vệ:
+ * 1. Quét mã QR 1 chạm (như vé xe bus / thẻ tàu điện)
+ * 2. Quét QR để tra cứu xem trước
+ * 3. Gõ biển số / số cuối để tra cứu gợi ý
  */
 export const PlateLookupForm = forwardRef<HTMLInputElement, PlateLookupFormProps>(function PlateLookupForm(
-  { onLookup, pending, disabled = false, parkedOnly, onEdit },
+  { onLookup, onQuickScan, quickScanLabel, pending, disabled = false, parkedOnly, onEdit },
   ref,
 ) {
   const [value, setValue] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [scanning, setScanning] = useState(false);
+  const [scanMode, setScanMode] = useState<'quick' | 'lookup'>('quick');
   const typeName = useVehicleTypeName();
   const { suggestions, settled } = usePlateSuggestions(value, parkedOnly, showSuggestions && !disabled);
 
@@ -56,33 +62,92 @@ export const PlateLookupForm = forwardRef<HTMLInputElement, PlateLookupFormProps
   }
 
   return (
-    <form onSubmit={submit} noValidate className="space-y-3">
-      <label htmlFor="plate" className="block text-base font-semibold text-slate-700">
-        Biển số xe
-      </label>
-      <div className="flex gap-3">
-        <input
-          ref={ref}
-          id="plate"
-          value={value}
-          onChange={(event) => {
-            setValue(event.target.value.toUpperCase());
-            setShowSuggestions(true);
-            setError(null);
-            onEdit();
+    <form onSubmit={submit} noValidate className="space-y-4">
+      {/* Khối nút quét mã QR 1 chạm */}
+      {onQuickScan ? (
+        <div className="space-y-2 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+          <Button
+            type="button"
+            variant="success"
+            size="xl"
+            className="w-full flex items-center justify-center gap-2 font-bold tracking-wide shadow-sm"
+            onClick={() => {
+              setScanMode('quick');
+              setScanning(true);
+            }}
+            disabled={disabled || pending}
+          >
+            <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+              <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            {quickScanLabel ?? 'Quét 1 chạm (Tự động)'}
+          </Button>
+
+          <Button
+            type="button"
+            variant="secondary"
+            size="md"
+            className="w-full text-slate-600"
+            onClick={() => {
+              setScanMode('lookup');
+              setScanning(true);
+            }}
+            disabled={disabled || pending}
+          >
+            <svg viewBox="0 0 24 24" className="mr-1.5 h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10" />
+            </svg>
+            Quét để tra cứu / xem trước
+          </Button>
+        </div>
+      ) : (
+        <Button
+          type="button"
+          variant="secondary"
+          size="lg"
+          className="w-full"
+          onClick={() => {
+            setScanMode('lookup');
+            setScanning(true);
           }}
-          placeholder="Gõ vài số cuối"
-          autoFocus
-          autoComplete="off"
-          autoCapitalize="characters"
-          spellCheck={false}
-          disabled={disabled}
-          aria-invalid={error ? true : undefined}
-          className="min-w-0 flex-1 rounded-xl border-2 border-slate-300 bg-white px-4 py-3 font-mono text-3xl font-bold uppercase tracking-widest placeholder:font-sans placeholder:text-lg placeholder:font-normal placeholder:tracking-normal focus:border-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:bg-slate-100"
-        />
-        <Button type="submit" size="xl" loading={pending} disabled={disabled}>
-          Tra cứu
+          disabled={disabled || pending}
+        >
+          <svg viewBox="0 0 24 24" className="mr-2 h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10" />
+          </svg>
+          Quét mã QR của sinh viên
         </Button>
+      )}
+
+      {/* Ô nhập biển số thủ công */}
+      <div className="space-y-1">
+        <label htmlFor="plate" className="block text-sm font-medium text-slate-600">
+          Hoặc nhập biển số thủ công
+        </label>
+        <div className="flex gap-3">
+          <input
+            ref={ref}
+            id="plate"
+            value={value}
+            onChange={(event) => {
+              setValue(event.target.value.toUpperCase());
+              setShowSuggestions(true);
+              setError(null);
+              onEdit();
+            }}
+            placeholder="Gõ vài số cuối"
+            autoFocus
+            autoComplete="off"
+            autoCapitalize="characters"
+            spellCheck={false}
+            disabled={disabled}
+            aria-invalid={error ? true : undefined}
+            className="min-w-0 flex-1 rounded-xl border-2 border-slate-300 bg-white px-4 py-3 font-mono text-3xl font-bold uppercase tracking-widest placeholder:font-sans placeholder:text-lg placeholder:font-normal placeholder:tracking-normal focus:border-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:bg-slate-100"
+          />
+          <Button type="submit" size="xl" loading={pending} disabled={disabled}>
+            Tra cứu
+          </Button>
+        </div>
       </div>
       {error && <p className="text-base text-red-600">{error}</p>}
 
@@ -112,19 +177,16 @@ export const PlateLookupForm = forwardRef<HTMLInputElement, PlateLookupFormProps
         </p>
       )}
 
-      <Button variant="secondary" size="lg" className="w-full" onClick={() => setScanning(true)} disabled={disabled || pending}>
-        <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-          <path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10" />
-        </svg>
-        Quét mã QR của sinh viên
-      </Button>
-
       {scanning && (
         <QrScannerDialog
           onClose={() => setScanning(false)}
           onResult={(plate) => {
             setScanning(false);
-            lookup(plate);
+            if (scanMode === 'quick' && onQuickScan) {
+              onQuickScan(plate);
+            } else {
+              lookup(plate);
+            }
           }}
         />
       )}

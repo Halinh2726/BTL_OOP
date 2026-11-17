@@ -1,0 +1,122 @@
+\chapter{MÔ TẢ CÁC LỚP VÀ DỮ LIỆU}
+
+Chương này mô tả các lớp miền nghiệp vụ và các bảng dữ liệu quan trọng của hệ thống. Phần lớp tập trung vào trách nhiệm và quan hệ giữa các đối tượng; phần cơ sở dữ liệu trình bày vai trò bảng, khóa và ràng buộc bảo vệ dữ liệu. Chi tiết sơ đồ quan hệ được mô tả trong tài liệu ERD của dự án và các migration Flyway.
+
+\section{Các lớp Java trong miền nghiệp vụ}
+
+\subsection{Nhóm tài khoản và xác thực}
+\texttt{User} là lớp trừu tượng chứa thông tin chung của tài khoản như định danh, tên đăng nhập, thông tin hiển thị, vai trò và trạng thái. Các lớp \texttt{Student}, \texttt{Guard}, \texttt{Manager} và \texttt{Owner} biểu diễn các vai trò cụ thể. \texttt{Role} và \texttt{AccountStatus} cung cấp kiểu dữ liệu cho vai trò và trạng thái tài khoản, giúp hạn chế việc dùng chuỗi tùy ý trong nghiệp vụ.
+
+\texttt{PasswordHasher} mô tả hành vi băm mật khẩu; hiện thực kỹ thuật sử dụng BCrypt nằm ở adapter bảo mật. \texttt{AuthenticatedUser} mang thông tin người dùng đã được xác thực vào tầng ứng dụng. Việc phân tách này giúp use case làm việc với danh tính cần thiết mà không phải tự xử lý chi tiết HTTP session.
+
+\subsection{Nhóm phương tiện}
+\texttt{Vehicle} lưu thông tin phương tiện, chủ sở hữu là sinh viên và loại phương tiện. \texttt{PlateNumber} biểu diễn biển số đã được chuẩn hóa và kiểm tra hợp lệ. \texttt{VehicleType} mô hình hóa danh mục loại xe, còn dữ liệu loại xe cụ thể được lưu trong bảng danh mục.
+
+\subsection{Nhóm lượt gửi xe}
+\texttt{ParkingSession} lưu trạng thái một lượt gửi, thời điểm vào/ra và thông tin bảo vệ thực hiện xác nhận. \texttt{SessionStatus} phân biệt lượt đang gửi và lượt đã ra. Các hành vi thay đổi trạng thái được đóng gói trong đối tượng lượt gửi để tránh cập nhật rời rạc không phù hợp.
+
+\texttt{FeePolicy} là abstraction cho chính sách tính phí; \texttt{TimeSlotFeePolicy} hiện thực cách xác định mức phí theo khung giờ. Việc tách chính sách khỏi use case giúp có thể thay đổi quy tắc hoặc bổ sung cách tính phí khác mà không đưa toàn bộ điều kiện vào controller.
+
+\subsection{Nhóm ví và giao dịch}
+\texttt{Wallet} đại diện ví điểm của một tài khoản. Số dư được thay đổi bằng các hành vi ghi có/ghi nợ, qua đó kiểm soát các điều kiện như số điểm phải dương và số dư không âm.
+
+\texttt{PointTransaction} là kiểu giao dịch cơ sở có tính trừu tượng và giới hạn các loại hiện thực. Các lớp con gồm \texttt{CashDeposit} (đổi tiền mặt lấy điểm), \texttt{ParkingPayment} (thanh toán phí gửi xe) và \texttt{CashWithdrawal} (rút điểm). \texttt{TransactionType} xác định loại giao dịch. \texttt{ExchangeRate} biểu diễn tỷ lệ quy đổi tiền và điểm được áp dụng.
+
+\subsection{Nhóm use case và adapter}
+Các lớp use case như \texttt{CheckInUseCase}, \texttt{CheckOutUseCase}, \texttt{PayParkingFeeUseCase}, \texttt{DepositCashUseCase} và \texttt{WithdrawCashUseCase} điều phối các bước nghiệp vụ. Các interface repository/directory là port để use case yêu cầu đọc hoặc ghi dữ liệu. Adapter JDBC hiện thực những port này; controller REST nhận request và trả response DTO.
+
+\begin{table}[htbp]
+\centering
+\caption{Một số lớp tiêu biểu và trách nhiệm}
+\label{tab:domain-classes}
+\begin{tabular}{|p{3.5cm}|p{9.5cm}|}
+\hline
+\textbf{Lớp} & \textbf{Trách nhiệm} \\ \hline
+\texttt{User} và lớp con & Mô hình hóa tài khoản chung và các vai trò nghiệp vụ. \\ \hline
+\texttt{Vehicle}, \texttt{PlateNumber} & Biểu diễn phương tiện và chuẩn hóa/kiểm tra biển số. \\ \hline
+\texttt{ParkingSession} & Quản lý trạng thái cùng thời điểm vào/ra của lượt gửi. \\ \hline
+\texttt{FeePolicy}, \texttt{TimeSlotFeePolicy} & Xác định phí cần thu theo thời điểm và quy tắc. \\ \hline
+\texttt{Wallet} & Quản lý số dư, kiểm soát ghi có và ghi nợ. \\ \hline
+\texttt{PointTransaction} và lớp con & Ghi nhận nạp điểm, thanh toán và rút điểm. \\ \hline
+Các lớp UseCase & Điều phối một nghiệp vụ qua domain và các port. \\ \hline
+Các lớp Adapter & Kết nối HTTP/cơ sở dữ liệu với các abstraction của ứng dụng. \\ \hline
+\end{tabular}
+\end{table}
+
+\section{Tổ chức cơ sở dữ liệu}
+
+Cơ sở dữ liệu sử dụng MySQL 8.4. Schema được tạo và nâng cấp bằng các migration có thứ tự từ \texttt{V001} đến \texttt{V010} tại \texttt{backend/src/main/resources/db/migration}. Các bảng được chia theo nhóm tài khoản và quyền, phương tiện, ví/giao dịch, cấu hình/danh mục và view đối soát.
+
+\subsection{Nhóm bảng tài khoản và phân quyền}
+\texttt{roles} lưu vai trò; \texttt{permissions} lưu quyền thao tác; \texttt{role\_permissions} liên kết vai trò với quyền. \texttt{users} lưu dữ liệu tài khoản dùng chung, bao gồm tên đăng nhập duy nhất, mã băm mật khẩu, vai trò và trạng thái. \texttt{students} và \texttt{guards} chứa dữ liệu chuyên biệt cho sinh viên và bảo vệ, tham chiếu đến tài khoản tương ứng.
+
+\subsection{Nhóm bảng phương tiện và lượt gửi}
+\texttt{vehicle\_types} lưu danh mục loại xe. \texttt{vehicles} liên kết phương tiện với sinh viên, lưu biển số duy nhất và mã loại xe. \texttt{parking\_sessions} lưu mỗi lượt vào/ra, phương tiện, trạng thái, thời điểm vào/ra và bảo vệ xác nhận.
+
+\subsection{Nhóm bảng ví và giao dịch}
+\texttt{wallets} lưu ví và số dư của người dùng. \texttt{point\_transactions} lưu loại giao dịch, số điểm, ví nguồn/đích, số dư sau giao dịch, khóa idempotency và người thực hiện. \texttt{cash\_details} lưu thông tin tiền mặt và tỷ lệ quy đổi gắn với giao dịch nạp/rút. \texttt{parking\_payment\_details} liên kết giao dịch thanh toán với lượt gửi tương ứng.
+
+\subsection{Nhóm bảng danh mục và cấu hình}
+\texttt{fee\_rules} lưu mức phí theo khung giờ. \texttt{system\_config} lưu cấu hình hệ thống, gồm tỷ lệ quy đổi và ví nhận phí. View \texttt{v\_reconciliation} hỗ trợ truy vấn phục vụ đối soát.
+
+\begin{table}[htbp]
+\centering
+\caption{Các bảng dữ liệu nghiệp vụ chính}
+\label{tab:database-tables}
+\begin{tabular}{|p{4cm}|p{3cm}|p{6cm}|}
+\hline
+\textbf{Bảng} & \textbf{Khóa chính tiêu biểu} & \textbf{Dữ liệu quản lý} \\ \hline
+\texttt{users} & \texttt{id} & Tài khoản, tên đăng nhập, vai trò, trạng thái. \\ \hline
+\texttt{students} & \texttt{user\_id} & Hồ sơ sinh viên và mã sinh viên. \\ \hline
+\texttt{guards} & \texttt{user\_id} & Hồ sơ bảo vệ và số điện thoại. \\ \hline
+\texttt{vehicles} & \texttt{id} & Chủ xe, biển số và loại phương tiện. \\ \hline
+\texttt{parking\_sessions} & \texttt{id} & Trạng thái và thông tin xác nhận vào/ra. \\ \hline
+\texttt{wallets} & \texttt{id} & Chủ ví và số dư điểm. \\ \hline
+\texttt{point\_transactions} & \texttt{id} & Loại, số điểm, nguồn/đích, số dư sau giao dịch, idempotency key. \\ \hline
+\texttt{cash\_details} & \texttt{transaction\_id} & Số tiền mặt và tỷ lệ quy đổi của giao dịch tiền mặt. \\ \hline
+\texttt{parking\_payment\_details} & \texttt{transaction\_id} & Liên kết giao dịch thanh toán với lượt gửi. \\ \hline
+\texttt{fee\_rules} & \texttt{id} & Thời điểm bắt đầu khung và mức phí. \\ \hline
+\end{tabular}
+\end{table}
+
+\section{Quan hệ và ràng buộc dữ liệu}
+
+Các quan hệ khóa ngoại bảo đảm dữ liệu tham chiếu đến tài khoản, phương tiện, ví và lượt gửi hợp lệ. Một sinh viên có thể đăng ký nhiều xe; một xe có nhiều lượt gửi theo thời gian; mỗi lượt gửi đã hoàn tất gắn với tối đa một giao dịch thanh toán. Mỗi tài khoản sở hữu ví theo quy tắc hệ thống.
+
+Những ràng buộc quan trọng gồm:
+\begin{itemize}
+    \item Tên đăng nhập, mã sinh viên và biển số có tính duy nhất.
+    \item Số dư ví không được âm; số điểm giao dịch phải lớn hơn 0.
+    \item Mỗi phương tiện chỉ có một lượt gửi đang mở. Cơ sở dữ liệu dùng cột sinh và chỉ mục duy nhất để thực hiện điều kiện này trên MySQL.
+    \item Mỗi lượt gửi chỉ có một chi tiết thanh toán; khóa idempotency giao dịch là duy nhất.
+    \item Cấu trúc ví nguồn/đích phải phù hợp với loại giao dịch.
+    \item Trigger từ chối cập nhật hoặc xóa giao dịch đã ghi nhận, bảo toàn lịch sử tài chính.
+    \item Dữ liệu thời gian lưu theo UTC; ứng dụng chuyển sang giờ Việt Nam khi hiển thị và áp dụng quy tắc phí.
+\end{itemize}
+
+Những ràng buộc này tạo lớp bảo vệ ở tầng lưu trữ bên cạnh kiểm tra trong ứng dụng. Chúng đặc biệt quan trọng khi nhiều request cùng thao tác hoặc khi lỗi xảy ra giữa quá trình cập nhật.
+
+\section{Ánh xạ giữa lớp và bảng dữ liệu}
+
+Không phải mọi lớp Java đều ánh xạ một-một thành bảng. Lớp domain thể hiện hành vi và quy tắc; adapter persistence chịu trách nhiệm chuyển đổi giữa domain và schema. Ví dụ, các kiểu giao dịch chuyên biệt được lưu chung trong \texttt{point\_transactions}, còn dữ liệu chi tiết theo từng loại được lưu tại bảng chi tiết tương ứng. Một số lớp như use case, port và DTO phục vụ điều phối hoặc giao tiếp nên không có bảng riêng.
+
+\begin{table}[htbp]
+\centering
+\caption{Liên hệ giữa một số khái niệm domain và dữ liệu lưu trữ}
+\label{tab:class-table-mapping}
+\begin{tabular}{|p{4cm}|p{4cm}|p{5cm}|}
+\hline
+\textbf{Khái niệm/lớp} & \textbf{Bảng liên quan} & \textbf{Ghi chú} \\ \hline
+\texttt{User}, \texttt{Student}, \texttt{Guard} & \texttt{users}, \texttt{students}, \texttt{guards} & Thông tin chung và phần mở rộng theo vai trò. \\ \hline
+\texttt{Vehicle} & \texttt{vehicles}, \texttt{vehicle\_types} & Phương tiện tham chiếu chủ xe và loại xe. \\ \hline
+\texttt{ParkingSession} & \texttt{parking\_sessions} & Lưu trạng thái và các mốc thời gian. \\ \hline
+\texttt{Wallet} & \texttt{wallets} & Mỗi ví gắn với một người dùng. \\ \hline
+\texttt{PointTransaction} & \texttt{point\_transactions} & Thông tin chung của giao dịch điểm. \\ \hline
+Các loại giao dịch & \texttt{cash\_details}, \texttt{parking\_payment\_details} & Lưu dữ liệu chuyên biệt của từng loại. \\ \hline
+\texttt{FeePolicy}/danh mục phí & \texttt{fee\_rules} & Lưu các khung giờ và mức phí cấu hình. \\ \hline
+\end{tabular}
+\end{table}
+
+\section{Kết luận chương}
+
+Các lớp domain mô tả những khái niệm và hành vi cốt lõi; cơ sở dữ liệu lưu trạng thái cần tồn tại lâu dài và áp đặt ràng buộc toàn vẹn. Việc tách domain khỏi adapter persistence cho phép thay đổi cách lưu trữ mà không làm thay đổi trực tiếp quy tắc nghiệp vụ. Kết hợp kiểm tra trong use case với ràng buộc MySQL giúp tăng tính nhất quán của lượt gửi và giao dịch điểm.
