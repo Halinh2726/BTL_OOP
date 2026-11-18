@@ -1,0 +1,146 @@
+\chapter{HƯỚNG DẪN CÀI ĐẶT VÀ CHẠY DỰ ÁN}
+
+Chương này hướng dẫn chuẩn bị môi trường và khởi chạy hệ thống thanh toán phí gửi xe bằng điểm trên máy phát triển. Dự án gồm ba thành phần chính: cơ sở dữ liệu MySQL, backend Spring Boot cung cấp REST API và frontend React hiển thị giao diện. Khi chạy đầy đủ, frontend gửi yêu cầu đến backend; backend xử lý nghiệp vụ và đọc/ghi dữ liệu trong MySQL.
+
+\section{Yêu cầu môi trường}
+
+\subsection{Phần cứng và phần mềm}
+Máy tính cần kết nối Internet trong lần đầu tải các image và dependency. Các công cụ cần chuẩn bị được liệt kê trong Bảng~\ref{tab:installation-requirements}.
+
+\begin{table}[htbp]
+\centering
+\caption{Yêu cầu môi trường phát triển}
+\label{tab:installation-requirements}
+\begin{tabular}{|p{3.5cm}|p{3cm}|p{6.5cm}|}
+\hline
+\textbf{Công cụ} & \textbf{Phiên bản} & \textbf{Mục đích} \\ \hline
+JDK & 21 trở lên & Biên dịch và chạy backend Java. \\ \hline
+Docker Desktop & Phiên bản hỗ trợ Docker Compose & Chạy MySQL trong container. \\ \hline
+Node.js & 20 trở lên & Cài dependency và chạy frontend Vite. \\ \hline
+Git & Khuyến nghị & Lấy mã nguồn và quản lý phiên bản. \\ \hline
+Postman & Tùy chọn & Gọi API và chạy kịch bản demo. \\ \hline
+\end{tabular}
+\end{table}
+
+Không cần cài MySQL hoặc Maven riêng trên máy: Docker cung cấp MySQL, còn Maven Wrapper có sẵn trong thư mục backend. Có thể kiểm tra các công cụ bằng các lệnh sau trong terminal:
+\begin{verbatim}
+java -version
+docker --version
+docker compose version
+node --version
+npm --version
+\end{verbatim}
+
+\subsection{Lấy mã nguồn}
+Mở terminal tại thư mục dự án. Nếu chưa có mã nguồn trên máy, clone repository theo địa chỉ do nhóm cung cấp, sau đó chuyển vào thư mục gốc. Trong cây thư mục này cần thấy các thành phần như \texttt{backend}, \texttt{frontend}, \texttt{docker-compose.yml} và \texttt{README.md}.
+
+\section{Khởi chạy cơ sở dữ liệu MySQL}
+
+Từ thư mục gốc dự án, chạy:
+\begin{verbatim}
+docker compose up -d
+\end{verbatim}
+
+Docker Compose tạo container MySQL 8.4 và volume lưu dữ liệu. Ở lần chạy đầu, Docker cần tải image MySQL nên thời gian chờ phụ thuộc vào kết nối mạng. Cấu hình mặc định của dự án tạo database \texttt{parking}, user \texttt{parking}, mật khẩu \texttt{parking} và công bố cổng \texttt{3306}. Backend mặc định kết nối đến các giá trị này.
+
+Có thể kiểm tra container bằng lệnh:
+\begin{verbatim}
+docker compose ps
+\end{verbatim}
+
+Chỉ khởi chạy backend sau khi dịch vụ MySQL ở trạng thái hoạt động. Nếu máy đã sử dụng cổng 3306 cho một dịch vụ MySQL khác, cần dừng dịch vụ đang chiếm cổng hoặc đổi cấu hình cổng theo hướng dẫn trong \texttt{.env.example} và đồng bộ biến môi trường khi khởi động backend.
+
+\section{Khởi chạy backend}
+
+Mở một terminal mới, chuyển vào thư mục \texttt{backend}. Trên Windows PowerShell chạy:
+\begin{verbatim}
+cd backend
+.\mvnw.cmd spring-boot:run
+\end{verbatim}
+
+Trên macOS hoặc Linux chạy:
+\begin{verbatim}
+cd backend
+./mvnw spring-boot:run
+\end{verbatim}
+
+Maven Wrapper tải các dependency cần thiết và khởi động ứng dụng. Khi backend kết nối thành công đến MySQL, Flyway tự áp dụng các migration chưa chạy để tạo/cập nhật schema và dữ liệu khởi tạo. Hibernate được cấu hình kiểm tra tương thích schema; việc quản lý thay đổi bảng do Flyway đảm nhiệm.
+
+Backend mặc định sử dụng cổng 8080. Khi log xuất hiện thông báo ứng dụng đã khởi động, có thể kiểm tra endpoint sức khỏe bằng trình duyệt hoặc terminal:
+\begin{verbatim}
+http://localhost:8080/api/v1/health
+\end{verbatim}
+Kết quả hoạt động bình thường có trạng thái dịch vụ và cơ sở dữ liệu ở mức UP, ví dụ:
+\begin{verbatim}
+{"status":"UP","database":"UP"}
+\end{verbatim}
+
+\subsection{Cấu hình môi trường tùy chọn}
+Các cấu hình mặc định phục vụ phát triển cục bộ được khai báo trong ứng dụng. Khi cần đổi tên database, tài khoản, cổng hoặc mật khẩu, tham khảo \texttt{.env.example}. Tệp \texttt{.env} được Docker Compose dùng để thay cấu hình container; các biến tương ứng cũng cần được cung cấp cho tiến trình backend. Không đưa mật khẩu môi trường triển khai thật vào repository.
+
+\section{Khởi chạy frontend}
+
+Giữ backend và MySQL đang chạy. Mở terminal thứ ba, chuyển vào thư mục \texttt{frontend} và cài dependency:
+\begin{verbatim}
+cd frontend
+npm install
+\end{verbatim}
+
+Sau khi cài đặt hoàn tất, khởi chạy giao diện:
+\begin{verbatim}
+npm run dev
+\end{verbatim}
+
+Vite hiển thị địa chỉ truy cập trong terminal, thông thường là \texttt{http://localhost:5173}. Mở địa chỉ đó bằng trình duyệt. Ở chế độ phát triển, frontend gọi API qua đường dẫn tương đối và Vite chuyển tiếp request đến backend theo cấu hình proxy. Nếu backend chạy ở cổng khác, xem hướng dẫn biến \texttt{BACKEND\_URL} trong tài liệu frontend.
+
+\subsection{Chạy giao diện với dữ liệu giả lập}
+Để xem giao diện mà không cần backend, trong thư mục \texttt{frontend} chạy:
+\begin{verbatim}
+npm run dev:mock
+\end{verbatim}
+Chế độ này sử dụng dữ liệu giả lập, không phản ánh các giao dịch được lưu trong MySQL. Cần phân biệt chế độ mock với chế độ kết nối backend thật khi chụp ảnh và trình bày kết quả.
+
+\section{Đăng nhập và sử dụng hệ thống}
+
+README của dự án cung cấp tài khoản mẫu quản lý \texttt{quanly01} và chủ tài khoản \texttt{chutk01}; mật khẩu mẫu lần lượt là \texttt{Quanly@123} và \texttt{Chutk@123}. Sinh viên có thể tự đăng ký trên giao diện. Tài khoản bảo vệ được quản lý tạo từ chức năng quản lý bảo vệ.
+
+Sau khi đăng nhập, người dùng được đưa đến giao diện tương ứng với vai trò. Để trình diễn quy trình tổng thể, nhóm có thể lần lượt đăng ký sinh viên và phương tiện, nạp điểm, xác nhận xe vào, xác nhận xe ra, rồi kiểm tra số dư và lịch sử của sinh viên cũng như chủ tài khoản. Kịch bản API chi tiết nằm trong Postman collection tại \texttt{docs/postman/parking-payment.postman\_collection.json}.
+
+\section{Dừng ứng dụng và quản lý dữ liệu}
+
+Để dừng frontend hoặc backend đang chạy trong terminal, nhấn \texttt{Ctrl+C} tại terminal tương ứng. Để dừng container MySQL nhưng giữ dữ liệu, từ thư mục gốc chạy:
+\begin{verbatim}
+docker compose down
+\end{verbatim}
+
+Để khởi động lại, chạy lại \texttt{docker compose up -d}. Dữ liệu được lưu trong Docker volume nên vẫn còn sau khi container dừng. Lệnh \texttt{docker compose down -v} xóa cả volume và toàn bộ dữ liệu demo; chỉ sử dụng khi thực sự muốn tạo lại cơ sở dữ liệu từ đầu.
+
+\section{Một số lỗi thường gặp}
+
+\begin{table}[htbp]
+\centering
+\caption{Lỗi thường gặp khi cài đặt và cách xử lý}
+\label{tab:installation-troubleshooting}
+\begin{tabular}{|p{4cm}|p{9cm}|}
+\hline
+\textbf{Hiện tượng} & \textbf{Nguyên nhân và cách xử lý} \\ \hline
+Docker không khởi động được & Mở Docker Desktop, chờ dịch vụ sẵn sàng rồi kiểm tra lại bằng \texttt{docker compose ps}. \\ \hline
+Không kết nối được MySQL & Kiểm tra container, cổng 3306 và thông tin kết nối; xem log bằng \texttt{docker compose logs mysql}. \\ \hline
+Backend báo lỗi kết nối database & Đảm bảo MySQL đã sẵn sàng, thông tin môi trường trùng với cấu hình backend rồi khởi động lại ứng dụng. \\ \hline
+Không truy cập được frontend & Kiểm tra terminal Vite để biết cổng thực tế; xác nhận backend đang chạy nếu dùng chế độ thật. \\ \hline
+Lệnh Maven Wrapper không chạy trên macOS/Linux & Cấp quyền thực thi cho wrapper bằng \texttt{chmod +x mvnw}, sau đó chạy lại. \\ \hline
+Lỗi thiếu dependency frontend & Kiểm tra Node.js/npm, kết nối mạng và chạy lại \texttt{npm install} trong thư mục frontend. \\ \hline
+\end{tabular}
+\end{table}
+
+\section{Tóm tắt quy trình khởi chạy}
+
+Thứ tự khởi chạy đầy đủ được tổng hợp như sau:
+\begin{enumerate}[label=\arabic*)]
+    \item Bật Docker Desktop.
+    \item Tại thư mục gốc, chạy \texttt{docker compose up -d} và xác nhận MySQL hoạt động.
+    \item Trong terminal backend, chạy Maven Wrapper và chờ ứng dụng khởi động thành công.
+    \item Kiểm tra \texttt{/api/v1/health} để xác nhận backend kết nối cơ sở dữ liệu.
+    \item Trong terminal frontend, chạy \texttt{npm install} (lần đầu) và \texttt{npm run dev}.
+    \item Mở địa chỉ Vite cung cấp và đăng nhập bằng tài khoản phù hợp.
+\end{enumerate}

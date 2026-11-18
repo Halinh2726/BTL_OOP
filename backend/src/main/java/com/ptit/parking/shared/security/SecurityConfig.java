@@ -31,14 +31,15 @@ public class SecurityConfig {
     public static final String LOGOUT_URL = "/api/v1/auth/logout";
     public static final String REGISTER_URL = "/api/v1/students/register";
     public static final String HEALTH_URL = "/api/v1/health";
+    public static final String WEBHOOK_URL = "/api/v1/webhooks/**";
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, JsonSecurityErrorHandler errors,
                                             AccountStatusLookup accounts, Clock clock) throws Exception {
         http
-                .csrf(csrf -> csrf.spa().ignoringRequestMatchers(LOGIN_URL, REGISTER_URL))
+                .csrf(csrf -> csrf.spa().ignoringRequestMatchers(LOGIN_URL, REGISTER_URL, WEBHOOK_URL))
                 .authorizeHttpRequests(auth -> {
-                    auth.requestMatchers(LOGIN_URL, REGISTER_URL, HEALTH_URL).permitAll();
+                    auth.requestMatchers(LOGIN_URL, REGISTER_URL, HEALTH_URL, WEBHOOK_URL).permitAll();
                     for (ProtectedEndpoint endpoint : ProtectedEndpoint.values()) {
                         auth.requestMatchers(endpoint.method(), endpoint.pathPattern())
                                 .hasAnyAuthority(endpoint.authorities());

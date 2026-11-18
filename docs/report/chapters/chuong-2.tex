@@ -1,0 +1,97 @@
+\chapter{CÁC CÔNG NGHỆ SỬ DỤNG}
+
+Chương này giới thiệu các công nghệ được sử dụng để xây dựng hệ thống thanh toán phí gửi xe bằng điểm. Việc lựa chọn công nghệ hướng đến các mục tiêu: tổ chức ứng dụng theo hướng đối tượng, phân tách giao diện và nghiệp vụ, lưu trữ dữ liệu có cấu trúc, kiểm soát truy cập và hỗ trợ kiểm thử.
+
+\section{Ngôn ngữ lập trình Java}
+
+\subsection{Giới thiệu}
+Java là ngôn ngữ lập trình hướng đối tượng, có hệ sinh thái thư viện phong phú và khả năng chạy trên nhiều hệ điều hành thông qua Java Virtual Machine (JVM). Mã nguồn Java được biên dịch thành bytecode; JVM thực thi bytecode trên môi trường tương ứng. Cơ chế này giúp ứng dụng ít phụ thuộc vào nền tảng phần cứng hơn so với chương trình biên dịch trực tiếp cho một hệ điều hành cụ thể.
+
+\subsection{Vai trò trong dự án}
+Backend của dự án sử dụng Java 21. Java được dùng để xây dựng các lớp miền nghiệp vụ, use case, controller REST, adapter truy cập dữ liệu và các thành phần bảo mật. Các khái niệm hướng đối tượng được vận dụng để biểu diễn những thực thể và quy tắc như người dùng, phương tiện, lượt gửi, ví, giao dịch điểm và chính sách tính phí.
+
+Việc tổ chức lớp theo trách nhiệm giúp các quy tắc nghiệp vụ không bị đặt trực tiếp trong giao diện hoặc phụ thuộc hoàn toàn vào cơ sở dữ liệu. Chẳng hạn, logic tính phí được biểu diễn qua chính sách phí; luồng xác nhận xe ra điều phối việc kiểm tra lượt gửi, tính phí và ghi nhận thanh toán.
+
+\subsection{Lý do lựa chọn}
+Java phù hợp với yêu cầu của học phần vì hỗ trợ đầy đủ các đặc trưng lập trình hướng đối tượng, có công cụ phát triển phổ biến và tích hợp tốt với Spring. Phiên bản Java 21 là phiên bản dự án cấu hình trong Maven, đồng thời cung cấp các khả năng ngôn ngữ hiện đại có thể dùng để biểu diễn mô hình miền rõ ràng.
+
+\section{Spring Boot và các thành phần Spring}
+
+\subsection{Spring Boot và REST API}
+Spring Boot cung cấp cơ chế cấu hình ứng dụng và quản lý các thành phần cần thiết để xây dựng dịch vụ Java. Dự án dùng Spring Boot 4.1.2 theo cấu hình trong \texttt{backend/pom.xml}. Thành phần Web MVC tiếp nhận HTTP request, chuyển dữ liệu đến controller và trả HTTP response theo định dạng JSON.
+
+Backend công bố các REST API theo tiền tố \texttt{/api/v1}. Frontend gọi các API này để đăng nhập, đọc dữ liệu ví, quản lý phương tiện và thực hiện các nghiệp vụ theo quyền của người dùng. Việc dùng giao diện HTTP giúp hai phần frontend và backend phát triển tương đối độc lập.
+
+\subsection{Spring Security}
+Spring Security đảm nhiệm xác thực và phân quyền. Theo thiết kế dự án, ứng dụng sử dụng phiên đăng nhập do máy chủ quản lý, thay vì dùng JWT làm cơ chế phiên chính. Quyền truy cập được giới hạn dựa trên vai trò và quyền nghiệp vụ; các request ghi dữ liệu được bảo vệ bằng CSRF. Mật khẩu được xử lý bằng cơ chế băm an toàn thay vì lưu dạng văn bản thuần.
+
+\subsection{Validation và xử lý lỗi}
+Thành phần validation hỗ trợ kiểm tra dữ liệu đầu vào trước khi thực hiện nghiệp vụ, ví dụ trường bắt buộc, định dạng và giới hạn giá trị. Backend chuẩn hóa phản hồi lỗi với mã lỗi, thông báo, trạng thái HTTP, mã truy vết và thông tin trường khi phù hợp. Cách xử lý này giúp frontend hiển thị lỗi nhất quán và người vận hành có thêm dữ liệu hỗ trợ tra cứu.
+
+\section{React, TypeScript và các thư viện giao diện}
+
+\subsection{React và TypeScript}
+Frontend sử dụng React 18.3.1 để xây dựng giao diện theo các thành phần (component). Mỗi component phụ trách một phần giao diện hoặc một chức năng, ví dụ biểu mẫu đăng nhập, thông tin ví hay màn hình thao tác của bảo vệ.
+
+TypeScript bổ sung hệ thống kiểu tĩnh cho JavaScript. Việc khai báo kiểu dữ liệu cho request, response và trạng thái giao diện giúp phát hiện một số lỗi ngay trong quá trình phát triển, đồng thời làm rõ cấu trúc dữ liệu trao đổi với backend.
+
+\subsection{Vite và định tuyến}
+Vite là công cụ phục vụ phát triển và đóng gói frontend. Dự án dùng React Router để tổ chức các đường dẫn giao diện theo chức năng, đồng thời hỗ trợ kiểm soát trang phù hợp với trạng thái đăng nhập và vai trò người dùng.
+
+\subsection{Quản lý dữ liệu và biểu mẫu}
+TanStack Query được dùng để quản lý dữ liệu lấy từ API, trạng thái tải và làm mới dữ liệu sau thao tác. React Hook Form kết hợp Zod và bộ chuyển đổi tương ứng để quản lý biểu mẫu và xác thực dữ liệu phía giao diện. Các kiểm tra phía frontend giúp trải nghiệm nhập liệu thuận tiện hơn; backend vẫn phải kiểm tra lại dữ liệu vì client không phải ranh giới bảo mật.
+
+\subsection{Giao diện và tiện ích}
+Tailwind CSS hỗ trợ xây dựng kiểu hiển thị bằng các lớp tiện ích. Dự án còn khai báo thư viện tạo và đọc mã QR; các thư viện này phục vụ các chức năng liên quan mã QR nếu được bật trong giao diện tương ứng.
+
+\section{MySQL và thiết kế lưu trữ dữ liệu}
+
+\subsection{MySQL}
+MySQL 8.4 là hệ quản trị cơ sở dữ liệu quan hệ được dùng để lưu tài khoản, phương tiện, lượt gửi, ví và giao dịch. Cơ sở dữ liệu quan hệ hỗ trợ mô hình hóa dữ liệu bằng bảng, khóa chính, khóa ngoại và các ràng buộc cần thiết để duy trì tính hợp lệ giữa những bản ghi liên quan.
+
+\subsection{Giao dịch và toàn vẹn dữ liệu}
+Các thao tác làm thay đổi số dư cần được thực hiện nhất quán. Luồng thanh toán phải liên kết việc kết thúc lượt gửi, trừ điểm của sinh viên, cộng điểm cho chủ tài khoản và ghi lịch sử giao dịch. Việc phối hợp các cập nhật trong một ranh giới giao dịch giúp tránh trạng thái chỉ một phần nghiệp vụ được ghi nhận khi có lỗi.
+
+\subsection{Flyway và quản lý phiên bản schema}
+Flyway quản lý thay đổi cấu trúc cơ sở dữ liệu bằng các tệp migration có thứ tự trong \texttt{backend/src/main/resources/db/migration}. Khi ứng dụng khởi động, các migration chưa áp dụng được chạy để đưa schema đến phiên bản cần thiết. Cách làm này giúp các thành viên trong nhóm và môi trường triển khai sử dụng cấu trúc dữ liệu đồng bộ, có thể xem lại lịch sử thay đổi.
+
+\section{JPA, Hibernate và JDBC}
+
+JPA là đặc tả ánh xạ đối tượng Java với dữ liệu quan hệ; Hibernate là một hiện thực JPA phổ biến. Dự án khai báo Spring Data JPA để hỗ trợ tầng persistence. Theo nguyên tắc kiến trúc của dự án, JPA/Hibernate nằm trong adapter lưu trữ, còn domain không phụ thuộc trực tiếp vào các thư viện này.
+
+JDBC là giao diện chuẩn của Java để kết nối và trao đổi dữ liệu với cơ sở dữ liệu quan hệ. Ứng dụng sử dụng MySQL Connector/J làm JDBC driver. Driver chuyển các thao tác kết nối từ ứng dụng Java thành giao thức mà máy chủ MySQL hiểu được. Do dự án sử dụng JPA ở tầng persistence, phần lớn thao tác truy xuất dữ liệu được thực hiện thông qua abstraction của JPA; JDBC driver vẫn là thành phần kết nối nền tảng.
+
+\section{Maven Wrapper và Docker Compose}
+
+\subsection{Maven Wrapper}
+Maven quản lý cấu hình build, dependencies và các tác vụ biên dịch/kiểm thử của backend. Maven Wrapper đi kèm dự án giúp thành viên gọi Maven bằng script trong repository mà không cần tự cài một bản Maven toàn cục tương ứng. Các dependency và phiên bản Java được khai báo trong \texttt{backend/pom.xml}.
+
+\subsection{Docker Compose}
+Docker Compose khai báo dịch vụ MySQL trong \texttt{docker-compose.yml}, bao gồm image MySQL 8.4, cổng kết nối, cơ sở dữ liệu, tài khoản và volume lưu dữ liệu. Nhờ vậy, nhóm có thể khởi chạy môi trường cơ sở dữ liệu phát triển bằng một cấu hình dùng chung, thay vì mỗi máy tự thiết lập thủ công theo cách khác nhau.
+
+\section{Công nghệ kiểm thử}
+
+Backend sử dụng JUnit 5, Mockito và AssertJ để kiểm thử các lớp và use case. Các kiểm thử web xác minh hành vi controller và cấu hình bảo mật. Testcontainers cho phép chạy kiểm thử tích hợp với MySQL 8.4 trong Docker, qua đó kiểm tra luồng ứng dụng trên cơ sở dữ liệu thực thay vì chỉ dựa trên dữ liệu giả lập.
+
+Frontend sử dụng Vitest cho kiểm thử. Các script trong \texttt{frontend/package.json} còn cung cấp lệnh kiểm tra kiểu TypeScript và lint mã nguồn. Kết quả và phạm vi kiểm thử chi tiết được trình bày ở chương triển khai, kiểm thử và đánh giá.
+
+\section{Tóm tắt lựa chọn công nghệ}
+
+\begin{table}[htbp]
+\centering
+\caption{Vai trò của các công nghệ trong dự án}
+\label{tab:technology-summary}
+\begin{tabular}{|p{3.2cm}|p{4cm}|p{5.8cm}|}
+\hline
+\textbf{Thành phần} & \textbf{Công nghệ} & \textbf{Vai trò} \\ \hline
+Backend & Java 21, Spring Boot & Xử lý nghiệp vụ và cung cấp REST API. \\ \hline
+Bảo mật & Spring Security & Xác thực phiên, CSRF và phân quyền. \\ \hline
+Frontend & React, TypeScript, Vite & Xây dựng giao diện web và kiểm tra kiểu dữ liệu. \\ \hline
+Cơ sở dữ liệu & MySQL 8.4, Flyway & Lưu trữ dữ liệu quan hệ và quản lý thay đổi schema. \\ \hline
+Persistence & Spring Data JPA, Hibernate, JDBC driver & Ánh xạ dữ liệu và kết nối backend với MySQL. \\ \hline
+Môi trường & Maven Wrapper, Docker Compose & Build backend và khởi chạy cơ sở dữ liệu đồng nhất. \\ \hline
+Kiểm thử & JUnit, Mockito, Testcontainers, Vitest & Kiểm tra backend, frontend và luồng tích hợp. \\ \hline
+\end{tabular}
+\end{table}
+
+Nhìn chung, bộ công nghệ được lựa chọn tạo thành một ứng dụng web phân tách frontend, backend và cơ sở dữ liệu. Các phiên bản nêu trong chương được đối chiếu từ cấu hình hiện tại của dự án; khi chuẩn bị bản nộp, nhóm cần kiểm tra lại nếu có thay đổi dependency hoặc cấu hình triển khai.

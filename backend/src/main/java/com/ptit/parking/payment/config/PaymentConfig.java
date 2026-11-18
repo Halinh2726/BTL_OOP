@@ -1,10 +1,14 @@
 package com.ptit.parking.payment.config;
 
+import com.ptit.parking.auth.application.port.out.UserRepository;
+import com.ptit.parking.manager.application.usecase.DepositCashUseCase;
+import com.ptit.parking.parking.application.usecase.PayParkingFeeByVietQrUseCase;
 import com.ptit.parking.payment.application.IdempotencyGuard;
 import com.ptit.parking.payment.application.port.out.PointTransactionRepository;
 import com.ptit.parking.payment.application.port.out.WalletRepository;
 import com.ptit.parking.payment.application.usecase.GetMyTransactionsUseCase;
 import com.ptit.parking.payment.application.usecase.GetMyWalletUseCase;
+import com.ptit.parking.payment.application.usecase.ProcessBankWebhookUseCase;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -33,5 +37,12 @@ public class PaymentConfig {
     @Bean
     PayParkingFeeUseCase payParkingFeeUseCase(WalletRepository wallets, ReceivingWalletProvider receivingWallet) {
         return new PayParkingFeeUseCase(wallets, receivingWallet);
+    }
+
+    @Bean
+    ProcessBankWebhookUseCase processBankWebhookUseCase(DepositCashUseCase depositCash,
+                                                        PayParkingFeeByVietQrUseCase payParkingFeeByVietQr,
+                                                        UserRepository users) {
+        return new ProcessBankWebhookUseCase(depositCash, payParkingFeeByVietQr, users);
     }
 }

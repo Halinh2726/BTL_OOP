@@ -7,9 +7,11 @@ import com.ptit.parking.catalog.domain.FeeRule;
 import com.ptit.parking.parking.application.port.out.InMemoryParkingSessionRepository;
 import com.ptit.parking.parking.application.port.out.InMemoryVehicleOwnerDirectory;
 import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory.VehicleOwner;
+import com.ptit.parking.parking.application.port.out.VietQrGenerator;
 import com.ptit.parking.parking.application.usecase.PreviewCheckOutUseCase.Preview;
 import com.ptit.parking.parking.domain.ParkingSession;
 import com.ptit.parking.parking.domain.TimeSlotFeePolicy;
+import com.ptit.parking.parking.domain.VietQrOrder;
 import com.ptit.parking.payment.application.port.out.InMemoryWalletRepository;
 import com.ptit.parking.payment.domain.Wallet;
 import com.ptit.parking.shared.domain.DomainException;
@@ -125,5 +127,24 @@ class PreviewCheckOutUseCaseTest {
         assertThatThrownBy(() -> at(AT_18_30).preview("29-A1"))
                 .isInstanceOfSatisfying(DomainException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
+    }
+
+    @Test
+    void khongDuDiem_sinhVietQrOrder() {
+        wallets.insert(new Wallet(null, STUDENT, 1_000));
+        ParkingSession open = sessions.markOpen(VEHICLE, ENTERED);
+
+        VietQrGenerator generator = (sessionId, plate, studentCode, fullName, fee) ->
+                VietQrOrder.create(sessionId, plate, studentCode, fullName, fee, "MB", "0987654321", "BAI XE PTIT", "compact2");
+        PreviewCheckOutUseCase useCase = new PreviewCheckOutUseCase(vehicles, sessions, wallets, feePolicy, generator, Clock.fixed(AT_18_30, VN));
+
+        Preview preview = useCase.preview("29A12345");
+
+        assertThat(preview.allowed()).isFalse();
+        assertThat(preview.reason()).isEqualTo(ErrorCode.INSUFFICIENT_POINTS);
+        assertThat(preview.vietQrOrder()).isNotNull();
+        assertThat(preview.vietQrOrder().fee()).isEqualTo(5_000);
+        assertThat(preview.vietQrOrder().transferContent()).isEqualTo("TTGX " + open.id());
+        assertThat(preview.vietQrOrder().qrCodeUrl()).contains("https://img.vietqr.io/image/MB-0987654321-compact2.png");
     }
 }

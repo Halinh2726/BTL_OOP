@@ -4,8 +4,14 @@ import java.time.Clock;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import com.ptit.parking.parking.adapter.out.vietqr.DefaultVietQrGenerator;
+import com.ptit.parking.parking.application.port.out.VietQrGenerator;
 import com.ptit.parking.parking.application.usecase.CheckOutUseCase;
+import com.ptit.parking.parking.application.usecase.PayParkingFeeByVietQrUseCase;
+import com.ptit.parking.parking.application.usecase.QuickCheckOutUseCase;
 import com.ptit.parking.payment.application.IdempotencyGuard;
+import com.ptit.parking.payment.application.port.out.ReceivingWalletProvider;
+import org.springframework.beans.factory.annotation.Value;
 import com.ptit.parking.payment.application.usecase.PayParkingFeeUseCase;
 import com.ptit.parking.parking.application.usecase.SuggestPlatesUseCase;
 
@@ -43,9 +49,19 @@ public class ParkingUseCaseConfig {
 
     
     @Bean
+    VietQrGenerator vietQrGenerator(
+            @Value("${parking.vietqr.bank-id:MB}") String bankId,
+            @Value("${parking.vietqr.account-no:0987654321}") String accountNo,
+            @Value("${parking.vietqr.account-name:BAI XE HOC VIEN PTIT}") String accountName,
+            @Value("${parking.vietqr.template:compact2}") String template) {
+        return new DefaultVietQrGenerator(bankId, accountNo, accountName, template);
+    }
+
+    @Bean
     PreviewCheckOutUseCase previewCheckOutUseCase(VehicleOwnerDirectory vehicles, ParkingSessionRepository sessions,
-                                                  WalletRepository wallets, FeePolicy feePolicy, Clock clock) {
-        return new PreviewCheckOutUseCase(vehicles, sessions, wallets, feePolicy, clock);
+                                                  WalletRepository wallets, FeePolicy feePolicy,
+                                                  VietQrGenerator vietQrGenerator, Clock clock) {
+        return new PreviewCheckOutUseCase(vehicles, sessions, wallets, feePolicy, vietQrGenerator, clock);
     }
 
         @Bean
@@ -67,4 +83,18 @@ public class ParkingUseCaseConfig {
         return new CheckOutUseCase(sessions, vehicles, payParkingFee, idempotency, feePolicy, clock);
     }
 
+    @Bean
+    QuickCheckOutUseCase quickCheckOutUseCase(ParkingSessionRepository sessions, VehicleOwnerDirectory vehicles,
+                                              PayParkingFeeUseCase payParkingFee, IdempotencyGuard idempotency,
+                                              FeePolicy feePolicy, Clock clock) {
+        return new QuickCheckOutUseCase(sessions, vehicles, payParkingFee, idempotency, feePolicy, clock);
+    }
+
+    @Bean
+    PayParkingFeeByVietQrUseCase payParkingFeeByVietQrUseCase(
+            ParkingSessionRepository sessions, VehicleOwnerDirectory vehicles,
+            WalletRepository wallets, ReceivingWalletProvider receivingWallet,
+            IdempotencyGuard idempotency, FeePolicy feePolicy, Clock clock) {
+        return new PayParkingFeeByVietQrUseCase(sessions, vehicles, wallets, receivingWallet, idempotency, feePolicy, clock);
+    }
 }

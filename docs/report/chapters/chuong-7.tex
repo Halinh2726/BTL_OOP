@@ -1,0 +1,61 @@
+\chapter{TỰ ĐÁNH GIÁ KẾT QUẢ VÀ HẠN CHẾ}
+
+Chương này tổng kết kết quả của nhóm dựa trên phạm vi chức năng, thiết kế và tài liệu dự án hiện có. Việc đánh giá tập trung vào mức độ hoàn thành nghiệp vụ, chất lượng tổ chức phần mềm, kiểm thử và những điểm cần tiếp tục cải thiện. Các nhận xét về kiểm thử dưới đây phản ánh số liệu được ghi trong README; nhóm nên chạy lại trên đúng phiên bản bàn giao và lưu kết quả làm minh chứng.
+
+\section{Kết quả đạt được}
+
+\subsection{Kết quả về chức năng}
+Nhóm đã xây dựng hệ thống web phục vụ bốn vai trò: sinh viên, bảo vệ, quản lý và chủ tài khoản. Các luồng chính đã được mô hình hóa gồm đăng ký sinh viên và phương tiện, xác nhận xe vào/ra, tính phí gửi xe, thanh toán bằng điểm, nạp điểm, rút điểm, tra cứu ví và lịch sử giao dịch, quản lý trạng thái tài khoản bảo vệ.
+
+Quy trình thanh toán kết nối dữ liệu lượt gửi với giao dịch điểm: khi xác nhận xe ra hợp lệ, hệ thống xác định phí, kiểm tra điều kiện số dư, ghi nhận thay đổi ở ví sinh viên và ví nhận phí, đồng thời lưu lịch sử. Nhờ đó, các vai trò có thể tra cứu kết quả nghiệp vụ theo quyền được cấp.
+
+\subsection{Kết quả về thiết kế và kiến trúc}
+Backend được tổ chức theo Modular Monolith và chia thành các module theo miền nghiệp vụ. Cấu trúc domain, application, port và adapter làm rõ trách nhiệm giữa quy tắc nghiệp vụ, điều phối use case, giao tiếp HTTP và lưu trữ dữ liệu. Các lớp như \texttt{Wallet}, \texttt{ParkingSession}, \texttt{FeePolicy} và \texttt{PointTransaction} biểu diễn những khái niệm nghiệp vụ thay vì dồn logic vào controller.
+
+Frontend tách màn hình theo vai trò và tính năng. Backend sử dụng phiên máy chủ, CSRF, kiểm tra quyền, giới hạn tần suất và cấu trúc lỗi thống nhất. Schema cơ sở dữ liệu được quản lý bằng Flyway, các migration và ràng buộc dữ liệu giúp các môi trường phát triển có cấu trúc nhất quán.
+
+\subsection{Kết quả về kiểm thử và trình diễn}
+Theo README của dự án, bộ kiểm thử backend có 300 test: 294 test không cần MySQL và 6 test tích hợp chạy với MySQL 8.4 qua Testcontainers khi Docker sẵn sàng. Dự án cũng cung cấp Postman collection để chạy kịch bản API xuyên suốt. Frontend có cấu hình Vitest, kiểm tra kiểu TypeScript và lint trong các script của dự án. Nhóm cần ghi nhận kết quả chạy thực tế của từng phần ở bản nộp cuối, không suy diễn trạng thái frontend từ số liệu backend.
+
+\section{Ưu điểm}
+
+\begin{enumerate}[label=\arabic*)]
+    \item \textbf{Bao phủ luồng nghiệp vụ đầu-cuối}: hệ thống kết nối đăng ký xe, lượt gửi, thanh toán, nạp/rút điểm và tra cứu lịch sử.
+    \item \textbf{Phân quyền theo vai trò}: chức năng được giới hạn cho đúng đối tượng; backend là nơi thực thi kiểm tra quyền.
+    \item \textbf{Bảo vệ giao dịch quan trọng}: khóa idempotency và ràng buộc dữ liệu giúp tránh ghi nhận lặp khi request được gửi lại; số dư được kiểm soát không âm.
+    \item \textbf{Có khả năng truy vết}: giao dịch lưu người thực hiện, ví nguồn/đích và số dư sau giao dịch; dữ liệu giao dịch được bảo vệ khỏi sửa/xóa theo thiết kế hiện tại.
+    \item \textbf{Tách biệt trách nhiệm}: module và port/adapter giúp quy tắc nghiệp vụ ít phụ thuộc vào framework và công nghệ lưu trữ.
+    \item \textbf{Có hướng dẫn phát triển và demo}: Docker Compose, Maven Wrapper, tài liệu README và Postman collection hỗ trợ thành viên thiết lập môi trường và trình diễn.
+\end{enumerate}
+
+\section{Hạn chế}
+
+\subsection{Hạn chế về phạm vi triển khai}
+Phiên bản hiện tại hướng đến môi trường học tập và demo. Hệ thống chưa được đánh giá trong điều kiện vận hành bãi xe thực tế với lưu lượng lớn, nhiều cổng ra/vào hoặc yêu cầu sẵn sàng cao. Các mức phí và tỷ lệ quy đổi mẫu cần được đơn vị vận hành xác nhận trước khi áp dụng thực tế.
+
+\subsection{Hạn chế về tích hợp và vận hành}
+Quy trình ghi nhận tiền mặt và rút tiền vẫn có phần phụ thuộc vào thao tác của quản lý; hệ thống chưa tích hợp cổng thanh toán hoặc thiết bị kiểm soát cổng. Việc triển khai hiện được mô tả cho môi trường phát triển; cần hoàn thiện thêm giám sát, sao lưu, khôi phục, quản lý bí mật và quy trình phát hành nếu đưa lên môi trường vận hành.
+
+\subsection{Hạn chế về đánh giá định lượng}
+Báo cáo hiện chưa đưa ra kết quả đo tải, độ trễ API, mức sử dụng tài nguyên hoặc đánh giá khả năng chịu lỗi. Số liệu kiểm thử trong README cần được chạy lại trên commit bàn giao, lưu log hoặc ảnh chụp để chứng minh. Giao diện và biểu đồ trong báo cáo cũng cần được bổ sung ảnh chụp thật, sơ đồ khớp mã nguồn và kết quả demo.
+
+\section{Hướng phát triển}
+
+\begin{enumerate}[label=\arabic*)]
+    \item \textbf{Hoàn thiện triển khai}: đóng gói backend/frontend, cấu hình môi trường tách biệt, HTTPS, quản lý bí mật, sao lưu và giám sát.
+    \item \textbf{Bổ sung báo cáo quản trị}: thống kê lượt gửi, doanh thu theo ngày/khung giờ, tổng điểm đã nạp/rút và công cụ đối soát.
+    \item \textbf{Tăng cường trải nghiệm tại cổng}: hoàn thiện luồng quét QR, hỗ trợ thiết bị di động/máy tính bảng và cải thiện xử lý khi mất kết nối.
+    \item \textbf{Mở rộng chính sách}: cho phép quản trị cấu hình loại xe, mức phí và khung giờ có kiểm soát, đồng thời lưu dấu vết thay đổi cấu hình.
+    \item \textbf{Tăng cường kiểm thử}: bổ sung kiểm thử giao diện đầu-cuối, kiểm thử đồng thời cho thanh toán, kiểm thử hiệu năng và kiểm thử khôi phục sau lỗi.
+    \item \textbf{Tích hợp dịch vụ ngoài}: nghiên cứu kết nối thanh toán điện tử hoặc hệ thống cổng tự động nếu phù hợp với yêu cầu vận hành và bảo mật.
+\end{enumerate}
+
+\section{Tự đánh giá của nhóm}
+
+Qua quá trình thực hiện, nhóm đã vận dụng kiến thức lập trình hướng đối tượng để mô hình hóa các thực thể, phân chia trách nhiệm giữa các lớp và tổ chức ứng dụng theo module. Nhóm cũng tiếp cận quy trình phát triển phần mềm gồm phân tích yêu cầu, thiết kế, triển khai, quản lý schema và kiểm thử. Những nội dung còn hạn chế cho thấy nhóm cần tiếp tục nâng cao kỹ năng đánh giá định lượng, triển khai an toàn và chuẩn bị minh chứng kỹ thuật.
+
+Nhóm tự đánh giá sản phẩm đã đáp ứng các luồng cốt lõi trong phạm vi bài tập lớn theo tài liệu hiện có. Để báo cáo phản ánh chính xác chất lượng bản bàn giao, nhóm cần chạy lại toàn bộ hướng dẫn, kiểm thử backend/frontend, thực hiện kịch bản demo, cập nhật ảnh/sơ đồ và ghi nhận rõ các lỗi còn tồn tại trước khi nộp.
+
+\section{Kết luận chương}
+
+Hệ thống đạt được mục tiêu xây dựng một ứng dụng quản lý gửi xe có luồng thanh toán bằng điểm và phân quyền nhiều vai trò. Điểm mạnh nằm ở phạm vi nghiệp vụ xuyên suốt, tổ chức mã nguồn theo module, kiểm soát giao dịch và có bộ kiểm thử backend được tài liệu hóa. Các bước tiếp theo nên ưu tiên xác minh kết quả trên phiên bản bàn giao, bổ sung minh chứng, đo hiệu năng và hoàn thiện yêu cầu vận hành thực tế.

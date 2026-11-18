@@ -67,6 +67,17 @@ export interface Wallet {
   balance: number;
 }
 
+export interface DepositInfo {
+  studentCode: string;
+  fullName: string;
+  bankId: string;
+  accountNo: string;
+  accountName: string;
+  transferContent: string;
+  amount: number;
+  qrCodeUrl: string;
+}
+
 export type TransactionType = 'DOI_DIEM' | 'THANH_TOAN' | 'RUT_DIEM';
 
 /** Một dòng lịch sử, nhìn từ góc ví của người đang xem: change có dấu. */
@@ -113,6 +124,20 @@ export interface CheckInResult {
 
 export type CheckOutReason = 'PLATE_NOT_FOUND' | 'NO_OPEN_SESSION' | 'INSUFFICIENT_POINTS';
 
+/** Đơn thanh toán chuyển khoản VietQR Napas247 khi sinh viên không đủ điểm ví. */
+export interface VietQrOrder {
+  sessionId: number;
+  plateNumber: string;
+  studentCode: string;
+  fullName: string;
+  fee: number;
+  bankId: string;
+  accountNo: string;
+  accountName: string;
+  transferContent: string;
+  qrCodeUrl: string;
+}
+
 /** GET /guard/check-out/preview — trường nào không có (chưa đăng ký, không có lượt mở) thì null. */
 export interface CheckOutPreview {
   sessionId: number | null;
@@ -125,6 +150,7 @@ export interface CheckOutPreview {
   fee: number | null;
   allowed: boolean;
   reason: CheckOutReason | null;
+  vietQrOrder?: VietQrOrder | null;
 }
 
 export interface CheckOutResult {
@@ -133,6 +159,19 @@ export interface CheckOutResult {
   fee: number;
   exitedAt: string;
   /** Số điểm còn lại của SINH VIÊN. */
+  balanceAfter: number;
+}
+
+/** POST /guard/check-out/quick — kết quả thanh toán 1 chạm kèm thông tin xe và chủ xe. */
+export interface QuickCheckOutResult {
+  transactionId: number;
+  sessionId: number;
+  plateNumber: string;
+  studentCode: string;
+  fullName: string;
+  vehicleTypeCode: string;
+  fee: number;
+  exitedAt: string;
   balanceAfter: number;
 }
 

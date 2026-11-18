@@ -1,4 +1,5 @@
 import type {
+  DepositInfo,
   FeeRule,
   FieldViolation,
   Guard,
@@ -320,6 +321,26 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         return { balance: balanceOf(user.id) };
       }),
 
+    getDepositInfo: (amount = 50000): Promise<DepositInfo> =>
+      call(() => {
+        const user = requireRole('SINH_VIEN', 'CHU_TAI_KHOAN');
+        const studentCode = user.studentCode ?? user.username;
+        const transferContent = `NAP ${studentCode}`;
+        const encodedContent = encodeURIComponent(transferContent);
+        const encodedName = encodeURIComponent('BAI XE HOC VIEN PTIT');
+        const qrCodeUrl = `https://img.vietqr.io/image/MB-0987654321-compact2.png?amount=${amount}&addInfo=${encodedContent}&accountName=${encodedName}`;
+        return {
+          studentCode,
+          fullName: user.fullName,
+          bankId: 'MB',
+          accountNo: '0987654321',
+          accountName: 'BAI XE HOC VIEN PTIT',
+          transferContent,
+          amount,
+          qrCodeUrl,
+        };
+      }),
+
     myTransactions: (query) =>
       call(() => {
         const user = requireRole('SINH_VIEN', 'CHU_TAI_KHOAN');
@@ -419,8 +440,32 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           };
         }
         const fee = feeAt(new Date());
-        const reason = balance < fee ? ('INSUFFICIENT_POINTS' as const) : null;
-        return { ...owner, sessionId: session.id, enteredAt: session.enteredAt, balance, fee, allowed: reason === null, reason };
+        const insufficient = balance < fee;
+        const reason = insufficient ? ('INSUFFICIENT_POINTS' as const) : null;
+        const vietQrOrder = insufficient
+          ? {
+            sessionId: session.id,
+            plateNumber: plate,
+            studentCode: found.owner.studentCode ?? '',
+            fullName: found.owner.fullName,
+            fee,
+            bankId: 'MB',
+            accountNo: '0987654321',
+            accountName: 'BAI XE HOC VIEN PTIT',
+            transferContent: `TTGX ${session.id}`,
+            qrCodeUrl: `https://img.vietqr.io/image/MB-0987654321-compact2.png?amount=${fee}&addInfo=TTGX%20${session.id}&accountName=BAI%20XE%20PTIT`,
+          }
+          : null;
+        return {
+          ...owner,
+          sessionId: session.id,
+          enteredAt: session.enteredAt,
+          balance,
+          fee,
+          allowed: !insufficient,
+          reason,
+          vietQrOrder,
+        };
       }),
 
     checkOut: (sessionId, key) =>
@@ -439,6 +484,63 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           const transaction = record('THANH_TOAN', [[vehicle.userId, -fee], [OWNER_ID, fee]], now);
           return {
             transactionId: transaction.id, sessionId, fee, exitedAt: transaction.createdAt,
+            balanceAfter: balanceOf(vehicle.userId),
+          };
+        });
+      }),
+
+    quickCheckOut: (rawPlate, key) =>
+      call(() => {
+        const guard = requireRole('BAO_VE');
+        const plate = parsePlate(rawPlate);
+        return idempotent(key, `THANH_TOAN|${guard.id}|${plate}`, () => {
+          const found = findOwnerByPlate(plate);
+          if (!found) return fail('PLATE_NOT_FOUND');
+          const session = openSessionOf(found.vehicle.id);
+          if (!session) return fail('NO_OPEN_SESSION');
+          if (session.exitedAt !== null) fail('SESSION_ALREADY_PAID');
+          const now = new Date();
+          const fee = feeAt(now);
+          if (balanceOf(found.owner.id) < fee) fail('INSUFFICIENT_POINTS');
+          session.exitedAt = toVietnamIso(now);
+          const transaction = record('THANH_TOAN', [[found.owner.id, -fee], [OWNER_ID, fee]], now);
+          return {
+            transactionId: transaction.id,
+            sessionId: session.id,
+            plateNumber: plate,
+            studentCode: found.owner.studentCode ?? '',
+            fullName: found.owner.fullName,
+            vehicleTypeCode: found.vehicle.vehicleTypeCode,
+            fee,
+            exitedAt: transaction.createdAt,
+            balanceAfter: balanceOf(found.owner.id),
+          };
+        });
+      }),
+
+    payVietQr: (sessionId, key) =>
+      call(() => {
+        const guard = requireRole('BAO_VE');
+        return idempotent(key, `THANH_TOAN|${guard.id}|VIETQR|${sessionId}`, () => {
+          const session = state.sessions.find((candidate) => candidate.id === sessionId);
+          if (!session) return fail('NO_OPEN_SESSION');
+          if (session.exitedAt !== null) fail('SESSION_ALREADY_PAID');
+          const vehicle = state.vehicles.find((candidate) => candidate.id === session.vehicleId);
+          if (!vehicle) return fail('NO_OPEN_SESSION');
+          const owner = state.users.find((candidate) => candidate.id === vehicle.userId);
+          const now = new Date();
+          const fee = feeAt(now);
+          session.exitedAt = toVietnamIso(now);
+          const transaction = record('THANH_TOAN', [[vehicle.userId, 0], [OWNER_ID, fee]], now);
+          return {
+            transactionId: transaction.id,
+            sessionId,
+            plateNumber: vehicle.plateNumber,
+            studentCode: owner?.studentCode ?? '',
+            fullName: owner?.fullName ?? '',
+            vehicleTypeCode: vehicle.vehicleTypeCode,
+            fee,
+            exitedAt: transaction.createdAt,
             balanceAfter: balanceOf(vehicle.userId),
           };
         });

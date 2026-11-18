@@ -122,13 +122,19 @@ Collection **ghi dữ liệu thật** (tạo sinh viên, bảo vệ, giao dịch
 | 22 | PATCH | `/manager/guards/{id}/status` | GUARD_LOCK | Khóa / mở khóa bảo vệ |
 | 23 | GET | `/health` | Công khai | Kiểm tra tình trạng dịch vụ |
 | 24 | GET | `/guard/plates?q=&parked=` | PARKING_CHECK_IN hoặc PARKING_CHECK_OUT | Gợi ý biển số khi bảo vệ gõ vài ký tự |
+| 25 | POST | `/guard/check-out/quick` | PARKING_CHECK_OUT | Cho xe ra và thanh toán 1 chạm (One-Scan Flow bằng mã QR) |
+| 26 | POST | `/guard/check-out/vietqr` | PARKING_CHECK_OUT | Xác nhận thanh toán qua chuyển khoản VietQR khi thiếu điểm |
+| 27 | GET | `/me/deposit-info?amount=` | WALLET_VIEW_OWN | Lấy thông tin & mã VietQR cá nhân để sinh viên tự chuyển khoản nạp điểm |
+| 28 | POST | `/webhooks/sepay` | Webhook API Key | Webhook SePay: tự động nạp điểm (`NAP <MSSV>`) hoặc thanh toán vé (`TTGX <SESSION_ID>`) |
+| 29 | POST | `/webhooks/casso` | Webhook API Key | Webhook Casso: tự động xử lý biến động số dư ngân hàng |
+| 30 | POST | `/webhooks/payment` | Webhook API Key | Webhook ngân hàng tổng quát (Batch / Single) |
 
 ### Quy ước khi gọi API
 
 - **Phiên đăng nhập:** cookie `SESSION` (HttpOnly) do máy chủ cấp khi đăng nhập; hết hạn sau 30 phút không hoạt động
   hoặc 12 giờ kể từ lúc đăng nhập. Không dùng JWT.
 - **CSRF:** mọi request ghi dữ liệu (trừ đăng nhập, đăng ký) phải gửi header `X-XSRF-TOKEN` bằng giá trị cookie `XSRF-TOKEN`.
-- **Idempotency-Key:** bắt buộc (một UUID) với `POST /manager/deposits`, `/manager/withdrawals`, `/guard/check-out`.
+- **Idempotency-Key:** bắt buộc (một UUID) với `POST /manager/deposits`, `/manager/withdrawals`, `/guard/check-out`, `/guard/check-out/quick`, `/guard/check-out/vietqr`.
   Gửi lại cùng key → trả lại đúng giao dịch cũ kèm header `Idempotent-Replayed: true`, không cộng / trừ điểm lần hai.
 - **Lỗi:** luôn có dạng `{"code","message","status","traceId","fields"}`; `fields` chỉ có với `VALIDATION_ERROR`.
 - **Giới hạn tần suất:** đăng nhập sai 5 lần / phút cho mỗi IP + tên đăng nhập; đăng ký 10 lần / giờ / IP;

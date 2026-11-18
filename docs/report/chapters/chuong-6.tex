@@ -1,0 +1,126 @@
+\chapter{MINH HỌA ỨNG DỤNG}
+
+Chương này trình bày các màn hình và kịch bản sử dụng tiêu biểu của hệ thống. Giao diện được xây dựng bằng React và thay đổi theo vai trò người dùng. Ảnh minh họa trong chương cần được chụp từ phiên bản chạy thực tế, ưu tiên dùng dữ liệu demo và che thông tin cá nhân trước khi đưa vào báo cáo.
+
+\section{Tổng quan giao diện và điều hướng}
+
+Người dùng truy cập hệ thống qua trình duyệt. Sau khi đăng nhập thành công, ứng dụng điều hướng đến khu vực phù hợp với vai trò: sinh viên, bảo vệ, quản lý hoặc chủ tài khoản. Frontend hỗ trợ điều hướng và phản hồi thân thiện, còn backend vẫn kiểm tra quyền trên từng API để bảo đảm an toàn.
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{figures/giao-dien-dang-nhap.png}{\includegraphics[width=0.82\textwidth]{figures/giao-dien-dang-nhap.png}}{\fbox{\parbox[c][5cm][c]{0.82\textwidth}{\centering Chèn ảnh chụp màn hình đăng nhập tại\\\texttt{figures/giao-dien-dang-nhap.png}}}}
+\caption{Màn hình đăng nhập hệ thống}
+\label{fig:login-screen}
+\end{figure}
+
+Màn hình đăng nhập tiếp nhận tên đăng nhập và mật khẩu, hiển thị lỗi khi thông tin không hợp lệ và thông báo phù hợp khi đăng ký thành công. Sinh viên chưa có tài khoản có thể chuyển đến màn hình đăng ký. Phiên đăng nhập được backend quản lý; khi tải lại trang, frontend khôi phục trạng thái thông qua API lấy thông tin người dùng hiện tại.
+
+\section{Đăng ký tài khoản sinh viên}
+
+Sinh viên mở chức năng đăng ký, nhập thông tin theo biểu mẫu và gửi yêu cầu. Frontend kiểm tra dữ liệu cơ bản để hướng dẫn người dùng; backend xác thực lại các trường và áp dụng quy tắc nghiệp vụ. Khi đăng ký thành công, giao diện thông báo kết quả và hỗ trợ chuyển sang đăng nhập. Tên đăng nhập và mã sinh viên phải duy nhất theo ràng buộc hệ thống.
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{figures/dang-ky-sinh-vien.png}{\includegraphics[width=0.82\textwidth]{figures/dang-ky-sinh-vien.png}}{\fbox{\parbox[c][5cm][c]{0.82\textwidth}{\centering Chèn ảnh màn hình đăng ký sinh viên tại\\\texttt{figures/dang-ky-sinh-vien.png}}}}
+\caption{Màn hình đăng ký tài khoản sinh viên}
+\label{fig:student-registration}
+\end{figure}
+
+\section{Màn hình sinh viên}
+
+Trang sinh viên tổng hợp số dư ví, bảng phí, danh sách phương tiện và lịch sử giao dịch. Thành phần ví hiển thị số điểm hiện có; bảng phí giúp người dùng biết mức phí được cấu hình trước khi gửi xe. Khu vực phương tiện cho phép xem xe đã đăng ký và mở biểu mẫu đăng ký xe mới.
+
+Mỗi xe có thể hiển thị mã QR chứa định danh biển số theo định dạng ứng dụng sử dụng. Mã QR hỗ trợ bảo vệ tra cứu nhanh; bảo vệ vẫn cần đối chiếu biển số hiện trên màn hình với phương tiện thực tế. Lịch sử giao dịch giúp sinh viên kiểm tra các khoản nạp điểm và thanh toán.
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{figures/trang-sinh-vien.png}{\includegraphics[width=0.95\textwidth]{figures/trang-sinh-vien.png}}{\fbox{\parbox[c][5cm][c]{0.95\textwidth}{\centering Chèn ảnh trang sinh viên, gồm ví, bảng phí, xe và lịch sử\\\texttt{figures/trang-sinh-vien.png}}}}
+\caption{Trang tổng quan của sinh viên}
+\label{fig:student-screen}
+\end{figure}
+
+\subsection{Đăng ký phương tiện}
+Tại khu vực phương tiện, sinh viên chọn chức năng thêm xe, nhập biển số và chọn loại xe. Nếu dữ liệu không hợp lệ hoặc biển số đã được sử dụng, hệ thống hiển thị lỗi tương ứng. Khi thành công, danh sách phương tiện được cập nhật và xe có thể tham gia quy trình gửi.
+
+\section{Màn hình bảo vệ: xác nhận xe vào và xe ra}
+
+Giao diện bảo vệ được thiết kế tập trung vào thao tác tại cổng, với hai chế độ \textit{Xe vào} và \textit{Xe ra}. Bảo vệ nhập một phần hoặc toàn bộ biển số, chọn kết quả gợi ý, hoặc quét mã QR nếu thiết bị và trình duyệt cho phép sử dụng camera. Hệ thống hiển thị kết quả tra cứu trước khi bảo vệ xác nhận.
+
+\subsection{Xác nhận xe vào}
+Bảo vệ chọn tab \textit{Xe vào}, tra cứu biển số và xem thông tin phương tiện được hệ thống tìm thấy. Sau khi đối chiếu với xe thực tế, bảo vệ xác nhận cho xe vào. Hệ thống tạo lượt gửi mới và ghi nhận thời điểm vào cùng tài khoản bảo vệ. Nếu xe không đăng ký hoặc đã có lượt gửi đang mở, hệ thống từ chối thao tác và hiển thị lý do.
+
+\subsection{Xác nhận xe ra và thanh toán}
+Bảo vệ chuyển sang tab \textit{Xe ra}, tìm xe đang gửi và xem thông tin lượt gửi cùng mức phí dự kiến. Khi xác nhận, backend kiểm tra lại lượt gửi và quyền thao tác, tính phí theo quy tắc, kiểm tra số dư rồi xử lý thanh toán. Kết quả thành công cho biết khoản điểm đã thu và trạng thái hoàn tất. Nếu số dư không đủ hoặc lượt gửi không còn hợp lệ, giao diện hiển thị lỗi để bảo vệ xử lý theo quy trình.
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{figures/trang-bao-ve.png}{\includegraphics[width=0.95\textwidth]{figures/trang-bao-ve.png}}{\fbox{\parbox[c][5cm][c]{0.95\textwidth}{\centering Chèn ảnh màn hình bảo vệ: tra cứu, xem trước và xác nhận\\\texttt{figures/trang-bao-ve.png}}}}
+\caption{Giao diện xác nhận xe vào và xe ra}
+\label{fig:guard-screen}
+\end{figure}
+
+Khóa idempotency giúp thao tác gửi lại do mạng chậm không tạo thêm khoản trừ điểm. Đây là lớp bảo vệ ở backend; thông báo trên giao diện giúp người dùng nhận biết kết quả đã được ghi nhận.
+
+\section{Màn hình quản lý}
+
+Trang quản lý có các tab đổi điểm, rút điểm và quản lý bảo vệ. Các thao tác này ảnh hưởng đến tài khoản hoặc số dư nên chỉ người dùng được phân quyền mới có thể gọi API tương ứng.
+
+\subsection{Đổi tiền mặt sang điểm}
+Quản lý tra cứu sinh viên theo mã sinh viên, nhập số tiền nhận và xác nhận giao dịch. Hệ thống áp dụng tỷ lệ quy đổi hiện hành, ghi nhận số tiền, số điểm, tỷ lệ đã dùng và người thực hiện. Sau khi thành công, giao diện hiển thị biên nhận cùng kết quả cập nhật số dư. Nếu cùng một yêu cầu được gửi lại với idempotency key cũ, hệ thống không cộng điểm lần thứ hai.
+
+\subsection{Rút điểm cho chủ tài khoản}
+Quản lý xem ví chủ tài khoản, nhập số điểm cần rút và xác nhận. Backend kiểm tra số dư và điều kiện nghiệp vụ trước khi ghi nhận giao dịch. Kết quả được phản ánh vào số dư và lịch sử giao dịch.
+
+\subsection{Quản lý tài khoản bảo vệ}
+Quản lý có thể tạo tài khoản bảo vệ và thay đổi trạng thái hoạt động/khóa. Khóa tài khoản ngăn bảo vệ tiếp tục đăng nhập hoặc sử dụng các chức năng được bảo vệ; dữ liệu lịch sử lượt gửi vẫn được giữ để phục vụ tra cứu.
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{figures/trang-quan-ly.png}{\includegraphics[width=0.95\textwidth]{figures/trang-quan-ly.png}}{\fbox{\parbox[c][5cm][c]{0.95\textwidth}{\centering Chèn ảnh trang quản lý với các tab đổi điểm, rút điểm, bảo vệ\\\texttt{figures/trang-quan-ly.png}}}}
+\caption{Giao diện các nghiệp vụ dành cho quản lý}
+\label{fig:manager-screen}
+\end{figure}
+
+\section{Màn hình chủ tài khoản}
+
+Trang chủ tài khoản hiển thị số điểm nhận được từ phí gửi xe và lịch sử giao dịch liên quan, mặc định tập trung vào các khoản thanh toán. Người dùng có thể theo dõi dòng điểm nhận được và khoản rút điểm. Dữ liệu được lấy từ backend theo quyền của chủ tài khoản.
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{figures/trang-chu-tai-khoan.png}{\includegraphics[width=0.9\textwidth]{figures/trang-chu-tai-khoan.png}}{\fbox{\parbox[c][5cm][c]{0.9\textwidth}{\centering Chèn ảnh trang chủ tài khoản, gồm số dư và lịch sử\\\texttt{figures/trang-chu-tai-khoan.png}}}}
+\caption{Trang theo dõi điểm và lịch sử của chủ tài khoản}
+\label{fig:owner-screen}
+\end{figure}
+
+\section{Kịch bản minh họa xuyên suốt}
+
+Để trình bày hệ thống một cách liền mạch, nhóm có thể thực hiện kịch bản sau trên môi trường demo:
+\begin{enumerate}[label=\arabic*)]
+    \item Sinh viên đăng ký tài khoản, đăng nhập và đăng ký một phương tiện.
+    \item Quản lý tra cứu sinh viên, nhận tiền mặt và nạp điểm vào ví.
+    \item Bảo vệ tra cứu phương tiện, xác nhận xe vào bãi.
+    \item Bảo vệ tra cứu xe đang gửi, xem phí dự kiến và xác nhận xe ra.
+    \item Sinh viên kiểm tra số dư đã trừ phí và lịch sử giao dịch.
+    \item Chủ tài khoản kiểm tra số điểm đã nhận từ khoản thanh toán.
+    \item Quản lý thực hiện rút điểm theo kịch bản được cấp quyền và xem kết quả.
+\end{enumerate}
+
+Ở từng bước, người trình bày nên nêu rõ vai trò hiện tại, dữ liệu đầu vào, kết quả mong đợi và nơi kiểm tra kết quả. Ví dụ, sau khi xe ra thành công cần đối chiếu phí trong biên nhận, số dư ví sinh viên, số dư chủ tài khoản và bản ghi lịch sử tương ứng.
+
+\section{Hướng dẫn chụp và chèn ảnh vào báo cáo}
+
+Các vị trí hình trong chương tự hiển thị khung nhắc chèn ảnh nếu file chưa tồn tại. Để thay bằng ảnh thật, chụp giao diện khi ứng dụng chạy, lưu ảnh PNG theo đúng tên sau trong thư mục \texttt{docs/report/figures/}:
+\begin{itemize}
+    \item \texttt{giao-dien-dang-nhap.png}
+    \item \texttt{dang-ky-sinh-vien.png}
+    \item \texttt{trang-sinh-vien.png}
+    \item \texttt{trang-bao-ve.png}
+    \item \texttt{trang-quan-ly.png}
+    \item \texttt{trang-chu-tai-khoan.png}
+\end{itemize}
+
+Nên chụp ảnh ở kích thước đủ lớn, cắt bỏ phần desktop không liên quan, dùng dữ liệu demo nhất quán và không để lộ mật khẩu, thông tin cá nhân hoặc dữ liệu thật. Mỗi ảnh cần có chú thích và được nhắc đến trong phần mô tả. Không nên nộp báo cáo còn các khung placeholder thay cho ảnh chụp thực tế.
+
+\section{Kết luận chương}
+
+Các màn hình minh họa bao phủ những vai trò và luồng nghiệp vụ chính của hệ thống: đăng ký, quản lý phương tiện, xác nhận lượt gửi, thanh toán bằng điểm và theo dõi giao dịch. Kịch bản xuyên suốt giúp kiểm tra tính nhất quán giữa thao tác người dùng, phản hồi giao diện và số liệu được backend ghi nhận. Nhóm cần bổ sung ảnh chụp thật và đối chiếu kết quả với bản chạy cuối cùng trước khi nộp.

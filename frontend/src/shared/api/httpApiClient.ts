@@ -111,6 +111,7 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
     myVehicles: () => json('/me/vehicles'),
     registerVehicle: (body) => json('/me/vehicles', { method: 'POST', body }),
     myWallet: () => json('/me/wallet'),
+    getDepositInfo: (amount) => json('/me/deposit-info', { query: { amount } }),
     myTransactions: (query) =>
       json('/me/transactions', { query: { type: query.type, limit: query.limit, before: query.before } }),
 
@@ -119,6 +120,8 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
     checkIn: (plateNumber) => json('/guard/check-in', { method: 'POST', body: { plateNumber } }),
     previewCheckOut: (plate) => json('/guard/check-out/preview', { query: { plate } }),
     checkOut: (sessionId, key) => idempotent('/guard/check-out', { sessionId }, key),
+    quickCheckOut: (plateNumber, key) => idempotent('/guard/check-out/quick', { plateNumber }, key),
+    payVietQr: (sessionId, key) => idempotent('/guard/check-out/vietqr', { sessionId }, key),
 
     lookupStudent: (studentCode) => json(`/manager/students/${encodeURIComponent(studentCode.trim())}`),
     deposit: (body, key) => idempotent('/manager/deposits', body, key),

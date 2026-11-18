@@ -10,6 +10,10 @@ public interface StudentDirectory {
 
     Optional<StudentAccount> findByStudentCode(String studentCode);
 
+    default Optional<StudentAccount> findByUserId(long userId) {
+        return Optional.empty();
+    }
+
     /** MSSV lưu viết hoa (SV01); quản lý gõ chữ thường hay thừa khoảng trắng vẫn tìm được. */
     static String normalize(String studentCode) {
         return studentCode == null ? "" : studentCode.strip().toUpperCase(Locale.ROOT);
