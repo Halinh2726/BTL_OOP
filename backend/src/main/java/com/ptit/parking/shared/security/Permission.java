@@ -13,5 +13,6 @@ public enum Permission {
     CASH_DEPOSIT,
     CASH_WITHDRAWAL,
     GUARD_CREATE,
-    GUARD_LOCK
+    GUARD_LOCK,
+    ACCOUNT_MANAGE
 }

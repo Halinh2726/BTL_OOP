@@ -12,7 +12,7 @@ import com.ptit.parking.shared.web.TraceIdFilter;
 
 /**
  * Bộ cấu hình dùng chung cho mọi test tầng web (@WebMvcTest): bảo mật thật, xử lý lỗi thật,
- * đồng hồ thật — chỉ thay việc tra trạng thái tài khoản bằng một lớp giả "luôn hoạt động"
+ * đồng hồ thật — chỉ thay việc tra trạng thái tài khoản / mật khẩu bằng lớp giả "luôn hoạt động"
  * để test không cần CSDL. Test nào cần tình huống khác thì ghi đè bằng @MockitoBean.
  */
 @TestConfiguration
@@ -23,5 +23,11 @@ public class WebSecurityTestConfig {
     @Bean
     AccountStatusLookup alwaysActiveAccounts() {
         return userId -> AccountState.ACTIVE;
+    }
+
+    /** Đợt 1: chưa ai đổi mật khẩu, không ai dùng mật khẩu tạm. Test cần tình huống khác thì @MockitoBean. */
+    @Bean
+    CredentialStateLookup unchangedCredentials() {
+        return userId -> CredentialStateLookup.CredentialState.UNCHANGED;
     }
 }

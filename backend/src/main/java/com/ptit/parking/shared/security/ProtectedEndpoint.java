@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.http.HttpMethod;
 
+import static com.ptit.parking.shared.security.Permission.ACCOUNT_MANAGE;
 import static com.ptit.parking.shared.security.Permission.CASH_DEPOSIT;
 import static com.ptit.parking.shared.security.Permission.CASH_WITHDRAWAL;
 import static com.ptit.parking.shared.security.Permission.GUARD_CREATE;
@@ -24,6 +25,8 @@ public enum ProtectedEndpoint {
 
     MY_VEHICLES        (HttpMethod.GET,   "/api/v1/me/vehicles",              VEHICLE_REGISTER),   // #5
     REGISTER_VEHICLE   (HttpMethod.POST,  "/api/v1/me/vehicles",              VEHICLE_REGISTER),   // #6
+    UPDATE_VEHICLE     (HttpMethod.PATCH, "/api/v1/me/vehicles/*",            VEHICLE_REGISTER),   // Đợt 1: sửa loại xe
+    DEACTIVATE_VEHICLE (HttpMethod.POST,  "/api/v1/me/vehicles/*/deactivate", VEHICLE_REGISTER),   // Đợt 1: ngừng sử dụng xe
     MY_WALLET          (HttpMethod.GET,   "/api/v1/me/wallet",                WALLET_VIEW_OWN),    // #7
     MY_TRANSACTIONS    (HttpMethod.GET,   "/api/v1/me/transactions",          WALLET_VIEW_OWN),    // #8
     CHECK_IN_PREVIEW   (HttpMethod.GET,   "/api/v1/guard/check-in/preview",   PARKING_CHECK_IN),   // #12
@@ -37,7 +40,11 @@ public enum ProtectedEndpoint {
     WITHDRAW           (HttpMethod.POST,  "/api/v1/manager/withdrawals",      CASH_WITHDRAWAL),    // #19
     LIST_GUARDS        (HttpMethod.GET,   "/api/v1/manager/guards",           GUARD_CREATE, GUARD_LOCK), // #20
     CREATE_GUARD       (HttpMethod.POST,  "/api/v1/manager/guards",           GUARD_CREATE),       // #21
-    CHANGE_GUARD_STATUS(HttpMethod.PATCH, "/api/v1/manager/guards/*/status",  GUARD_LOCK);         // #22
+    CHANGE_GUARD_STATUS(HttpMethod.PATCH, "/api/v1/manager/guards/*/status",  GUARD_LOCK),         // #22
+    UPDATE_GUARD       (HttpMethod.PATCH, "/api/v1/manager/guards/*",         ACCOUNT_MANAGE),     // Đợt 1
+    RESET_GUARD_PASSWORD  (HttpMethod.POST, "/api/v1/manager/guards/*/password-reset",   ACCOUNT_MANAGE), // Đợt 1
+    RESET_STUDENT_PASSWORD(HttpMethod.POST, "/api/v1/manager/students/*/password-reset", ACCOUNT_MANAGE), // Đợt 1
+    AUDIT_LOGS         (HttpMethod.GET,   "/api/v1/manager/audit-logs",       ACCOUNT_MANAGE);     // Đợt 1
 
     private final HttpMethod method;
     private final String pathPattern;

@@ -5,11 +5,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import com.ptit.parking.student.application.usecase.ListMyVehiclesUseCase;
+import com.ptit.parking.student.application.usecase.ManageMyVehicleUseCase;
+import com.ptit.parking.student.domain.VehicleStatus;
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
 import com.ptit.parking.shared.security.SessionUser;
@@ -47,6 +50,46 @@ class MyVehicleControllerTest {
     
     @MockitoBean
     private ListMyVehiclesUseCase listMyVehicles;
+
+    @MockitoBean
+    private ManageMyVehicleUseCase manageVehicle;
+
+    @Test
+    void danhSachXe_coBienSoHienThiVaTrangThai() throws Exception {
+        when(listMyVehicles.list(7L)).thenReturn(List.of(
+                new Vehicle(100L, 7L, PlateNumber.of("29A1514"), "XE_MAY", Instant.parse("2026-10-01T01:00:00Z"),
+                        VehicleStatus.NGUNG_SU_DUNG, Instant.parse("2026-10-05T01:00:00Z"))));
+
+        mvc.perform(get(URL).with(authentication(student(7L))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].plateDisplay").value("29A-1514"))
+                .andExpect(jsonPath("$[0].status").value("NGUNG_SU_DUNG"))
+                .andExpect(jsonPath("$[0].deactivatedAt").value("2026-10-05T08:00:00+07:00"));
+    }
+
+    @Test
+    void suaLoaiXe_nguoiGoiLayTuPhien() throws Exception {
+        when(manageVehicle.changeType(new ManageMyVehicleUseCase.ChangeTypeCommand(7L, 100L, "XE_DAP_DIEN")))
+                .thenReturn(new Vehicle(100L, 7L, PlateNumber.of("29A12345"), "XE_DAP_DIEN",
+                        Instant.parse("2026-10-01T01:00:00Z")));
+
+        mvc.perform(patch(URL + "/100").with(csrf()).with(authentication(student(7L)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"vehicleTypeCode":"XE_DAP_DIEN"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.vehicleTypeCode").value("XE_DAP_DIEN"));
+    }
+
+    @Test
+    void ngungSuDung_xeDangTrongBai_409() throws Exception {
+        when(manageVehicle.deactivate(any())).thenThrow(new DomainException(ErrorCode.VEHICLE_PARKED));
+
+        mvc.perform(post(URL + "/100/deactivate").with(csrf()).with(authentication(student(7L))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("VEHICLE_PARKED"));
+    }
 
     @Test
     void danhSachXe_layTheoNguoiDangNhap_gioVietNam() throws Exception {

@@ -1,8 +1,10 @@
 import type {
+  AuditItem,
   FeeRule,
   FieldViolation,
   Guard,
   MeResponse,
+  Profile,
   Role,
   TransactionItem,
   Vehicle,
@@ -12,13 +14,16 @@ import type { ApiClient, Idempotent } from '../ApiClient';
 import { ApiError } from '../ApiError';
 import { endsSession, notifySessionEnded } from '../sessionEvents';
 import {
+  MOCK_OTP,
   OWNER_ID,
   seedState,
   toVietnamIso,
   vietnamClock,
+  type MockAuditEntry,
   type MockEntry,
   type MockState,
   type MockUser,
+  type MockVehicle,
 } from './mockState';
 
 /** Cùng mã lỗi, HTTP status và lời nhắn với ErrorCode của backend. */
@@ -29,6 +34,19 @@ const ERRORS = {
   INVALID_CREDENTIALS: [401, 'Sai tên đăng nhập hoặc mật khẩu'],
   ACCOUNT_LOCKED: [403, 'Tài khoản đã bị khóa. Vui lòng liên hệ quản lý.'],
   FORBIDDEN: [403, 'Bạn không có quyền thực hiện thao tác này.'],
+  PASSWORD_CHANGE_REQUIRED: [403, 'Bạn cần đổi mật khẩu tạm trước khi tiếp tục.'],
+  VEHICLE_NOT_FOUND: [404, 'Không tìm thấy xe.'],
+  EMAIL_EXISTS: [409, 'Email đã được dùng cho tài khoản khác'],
+  VEHICLE_PARKED: [409, 'Xe đang trong bãi. Lấy xe ra trước khi sửa hoặc ngừng sử dụng.'],
+  VEHICLE_INACTIVE: [409, 'Xe đã ngừng sử dụng.'],
+  PASSWORD_POLICY: [422, 'Mật khẩu phải dài 8–72 ký tự.'],
+  PASSWORD_REUSED: [422, 'Mật khẩu mới phải khác mật khẩu hiện tại.'],
+  CURRENT_PASSWORD_INCORRECT: [422, 'Mật khẩu hiện tại không đúng.'],
+  RESET_CODE_INVALID: [422, 'Mã xác nhận không đúng.'],
+  RESET_CODE_EXPIRED: [422, 'Mã xác nhận đã hết hạn hoặc đã được dùng. Vui lòng yêu cầu mã mới.'],
+  RESET_CODE_LOCKED: [422, 'Nhập sai mã quá 5 lần. Vui lòng yêu cầu mã mới.'],
+  PLATE_REQUIRED: [422, 'Vui lòng nhập biển số. Chỉ xe đạp không có biển mới được bãi cấp mã.'],
+  VEHICLE_LIMIT_REACHED: [422, 'Mỗi sinh viên được tối đa 3 xe đang sử dụng.'],
   PLATE_NOT_FOUND: [404, 'Biển số chưa được đăng ký.'],
   NO_OPEN_SESSION: [404, 'Xe không có lượt gửi đang mở.'],
   STUDENT_NOT_FOUND: [404, 'MSSV không tồn tại'],
@@ -49,7 +67,7 @@ type ErrorCode = keyof typeof ERRORS;
 const PERMISSIONS: Record<Role, string[]> = {
   SINH_VIEN: ['VEHICLE_REGISTER', 'WALLET_VIEW_OWN'],
   BAO_VE: ['PARKING_CHECK_IN', 'PARKING_CHECK_OUT'],
-  QUAN_LY: ['CASH_DEPOSIT', 'CASH_WITHDRAWAL', 'GUARD_CREATE', 'GUARD_LOCK'],
+  QUAN_LY: ['ACCOUNT_MANAGE', 'CASH_DEPOSIT', 'CASH_WITHDRAWAL', 'GUARD_CREATE', 'GUARD_LOCK'],
   CHU_TAI_KHOAN: ['WALLET_VIEW_OWN'],
 };
 
@@ -72,6 +90,11 @@ const USERNAME = /^[a-z0-9._]{4,50}$/;
 const PLATE = /^[A-Z0-9]{5,20}$/;
 const STUDENT_CODE = /^[A-Z0-9]{1,20}$/;
 const PHONE = /^0[0-9]{9,10}$/;
+const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const STANDARD_PLATE = /^([0-9]{2}[A-Z]{1,2}[0-9]{4,6}|XD[0-9]{5})$/;
+const MAX_ACTIVE_VEHICLES = 3;
+const RESET_CODE_TTL_MS = 10 * 60_000;
+const TEMPORARY_PASSWORD = 'TamThoi2345';
 const STORAGE_KEY = 'parking-mock-state';
 
 function fail(code: ErrorCode, retryAfterSeconds: number | null = null): never {
@@ -97,6 +120,37 @@ function feeAt(time: Date): number {
 }
 
 const MIN_FEE = Math.min(...FEE_RULES.map((rule) => rule.feePoints));
+
+/** Cùng quy tắc PlateNumber.display() của backend. */
+function displayPlate(plate: string): string {
+  const bicycle = /^XD([0-9]{5})$/.exec(plate);
+  if (bicycle) return `XD-${bicycle[1]}`;
+  const parts = /^([0-9]{2}[A-Z]{1,2})([0-9]{4,6})$/.exec(plate);
+  if (!parts) return plate;
+  let series = parts[1] ?? '';
+  let digits = parts[2] ?? '';
+  if (digits.length === 6) {
+    series += digits.charAt(0);
+    digits = digits.slice(1);
+  }
+  return digits.length === 5 ? `${series}-${digits.slice(0, 3)}.${digits.slice(3)}` : `${series}-${digits}`;
+}
+
+function isActive(vehicle: MockVehicle): boolean {
+  return (vehicle.status ?? 'DANG_DUNG') === 'DANG_DUNG';
+}
+
+function toVehicle(vehicle: MockVehicle): Vehicle {
+  return {
+    id: vehicle.id,
+    plateNumber: vehicle.plateNumber,
+    plateDisplay: displayPlate(vehicle.plateNumber),
+    vehicleTypeCode: vehicle.vehicleTypeCode,
+    status: vehicle.status ?? 'DANG_DUNG',
+    registeredAt: vehicle.registeredAt,
+    deactivatedAt: vehicle.deactivatedAt ?? null,
+  };
+}
 
 function loadState(): MockState {
   try {
@@ -154,8 +208,10 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
     return user;
   }
 
+  /** Như CredentialFreshnessFilter của backend: đang dùng mật khẩu tạm thì chỉ được đổi mật khẩu. */
   function requireRole(...roles: Role[]): MockUser {
     const user = currentUser();
+    if (user.mustChangePassword) fail('PASSWORD_CHANGE_REQUIRED');
     if (!roles.includes(user.role)) fail('FORBIDDEN');
     return user;
   }
@@ -164,7 +220,47 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
     return {
       user: { id: user.id, username: user.username, fullName: user.fullName, role: user.role },
       permissions: PERMISSIONS[user.role],
+      mustChangePassword: user.mustChangePassword ?? false,
     };
+  }
+
+  function audit(actorId: number, action: MockAuditEntry['action'], targetUserId: number | null, detail: string) {
+    state.auditLogs = state.auditLogs ?? [];
+    state.auditLogs.push({ id: nextId(), actorId, action, targetUserId, detail, createdAt: toVietnamIso(new Date()) });
+  }
+
+  function profileOf(user: MockUser): Profile {
+    return {
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+      fullName: user.fullName,
+      email: user.email ?? null,
+      phone: user.role === 'SINH_VIEN' || user.role === 'BAO_VE' ? (user.phone ?? null) : null,
+      studentCode: user.studentCode ?? null,
+      phoneEditable: user.role === 'SINH_VIEN' || user.role === 'BAO_VE',
+      phoneRequired: user.role === 'BAO_VE',
+    };
+  }
+
+  function checkNewPassword(user: MockUser, newPassword: string): void {
+    if (newPassword.length < 8 || newPassword.length > 72) fail('PASSWORD_POLICY');
+    if (newPassword === user.password) fail('PASSWORD_REUSED');
+  }
+
+  function ownedIdleVehicle(user: MockUser, vehicleId: number): MockVehicle {
+    const vehicle = state.vehicles.find((candidate) => candidate.id === vehicleId && candidate.userId === user.id);
+    if (!vehicle) return fail('VEHICLE_NOT_FOUND');
+    if (!isActive(vehicle)) fail('VEHICLE_INACTIVE');
+    if (openSessionOf(vehicle.id)) fail('VEHICLE_PARKED');
+    return vehicle;
+  }
+
+  function issueTemporary(managerId: number, user: MockUser) {
+    user.password = TEMPORARY_PASSWORD;
+    user.mustChangePassword = true;
+    audit(managerId, 'CAP_MAT_KHAU_TAM', user.id, `Cấp mật khẩu tạm cho ${user.username}`);
+    return { userId: user.id, username: user.username, fullName: user.fullName, temporaryPassword: TEMPORARY_PASSWORD };
   }
 
   function balanceOf(userId: number): number {
@@ -198,7 +294,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
   }
 
   function findOwnerByPlate(plate: string) {
-    const vehicle = state.vehicles.find((candidate) => candidate.plateNumber === plate);
+    const vehicle = state.vehicles.find((candidate) => candidate.plateNumber === plate && isActive(candidate));
     const owner = vehicle ? state.users.find((user) => user.id === vehicle.userId) : undefined;
     return vehicle && owner ? { vehicle, owner } : null;
   }
@@ -290,28 +386,39 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         const user = requireRole('SINH_VIEN');
         return state.vehicles
           .filter((vehicle) => vehicle.userId === user.id)
-          .map(({ id, plateNumber, vehicleTypeCode, registeredAt }): Vehicle => ({ id, plateNumber, vehicleTypeCode, registeredAt }));
+          .sort((a, b) => Number(isActive(b)) - Number(isActive(a)) || b.registeredAt.localeCompare(a.registeredAt) || b.id - a.id)
+          .map(toVehicle);
       }),
 
     registerVehicle: (body) =>
       call(() => {
         const user = requireRole('SINH_VIEN');
-        const plateNumber = normalizePlate(body.plateNumber);
+        let plateNumber = normalizePlate(body.plateNumber);
         const fields: FieldViolation[] = [];
-        if (!PLATE.test(plateNumber)) {
-          fields.push({ field: 'plateNumber', code: 'PATTERN', message: 'Biển số 5–20 ký tự, chỉ gồm chữ và số' });
+        if (plateNumber !== '' && !STANDARD_PLATE.test(plateNumber)) {
+          fields.push({
+            field: 'plateNumber', code: 'PATTERN',
+            message: 'Biển số theo dạng 29A-1514 hoặc 29A-123.45 (tối đa 5 số cuối)',
+          });
         }
         if (!VEHICLE_TYPES.some((type) => type.code === body.vehicleTypeCode)) {
           fields.push({ field: 'vehicleTypeCode', code: 'NOT_FOUND', message: 'Loại xe không tồn tại' });
         }
         invalid(fields);
-        if (state.vehicles.some((vehicle) => vehicle.plateNumber === plateNumber)) fail('PLATE_EXISTS');
-        const vehicle = {
+        if (plateNumber === '' && body.vehicleTypeCode !== 'XE_DAP') fail('PLATE_REQUIRED');
+        const active = state.vehicles.filter((vehicle) => vehicle.userId === user.id && isActive(vehicle)).length;
+        if (active >= MAX_ACTIVE_VEHICLES) fail('VEHICLE_LIMIT_REACHED');
+        if (plateNumber === '') {
+          state.bicycleSeq = (state.bicycleSeq ?? 0) + 1;
+          plateNumber = `XD${String(state.bicycleSeq).padStart(5, '0')}`;
+        }
+        if (state.vehicles.some((vehicle) => vehicle.plateNumber === plateNumber && isActive(vehicle))) fail('PLATE_EXISTS');
+        const vehicle: MockVehicle = {
           id: nextId(), userId: user.id, plateNumber, vehicleTypeCode: body.vehicleTypeCode,
-          registeredAt: toVietnamIso(new Date()),
+          registeredAt: toVietnamIso(new Date()), status: 'DANG_DUNG', deactivatedAt: null,
         };
         state.vehicles.push(vehicle);
-        return { id: vehicle.id, plateNumber, vehicleTypeCode: vehicle.vehicleTypeCode, registeredAt: vehicle.registeredAt };
+        return toVehicle(vehicle);
       }),
 
     myWallet: () =>
@@ -348,7 +455,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         if (!/^[A-Z0-9]{2,20}$/.test(fragment)) fail('VALIDATION_ERROR');
         const parked = (vehicleId: number) => openSessionOf(vehicleId) !== undefined;
         return state.vehicles
-          .filter((vehicle) => vehicle.plateNumber.includes(fragment))
+          .filter((vehicle) => isActive(vehicle) && vehicle.plateNumber.includes(fragment))
           .filter((vehicle) => !parkedOnly || parked(vehicle.id))
           .sort(
             (a, b) =>
@@ -548,6 +655,146 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         if (!guard) return fail('GUARD_NOT_FOUND');
         guard.status = status;
         return toGuard(guard);
+      }),
+
+    // ===== Đợt 1 =====
+
+    myProfile: () => call(() => profileOf(currentUser())),
+
+    updateMyProfile: (body) =>
+      call(() => {
+        const user = requireRole('SINH_VIEN', 'BAO_VE', 'QUAN_LY', 'CHU_TAI_KHOAN');
+        const fullName = body.fullName.trim().replace(/\s+/g, ' ');
+        const email = body.email.trim().toLowerCase();
+        const phone = body.phone.replace(/[\s.-]/g, '');
+        const fields: FieldViolation[] = [];
+        if (!fullName || fullName.length > 100) fields.push({ field: 'fullName', code: 'LENGTH', message: 'Họ tên tối đa 100 ký tự' });
+        if (email && !EMAIL.test(email)) fields.push({ field: 'email', code: 'PATTERN', message: 'Email không đúng định dạng' });
+        if (phone && !PHONE.test(phone)) {
+          fields.push({ field: 'phone', code: 'PATTERN', message: 'Số điện thoại gồm 10–11 chữ số, bắt đầu bằng 0' });
+        }
+        if (user.role === 'BAO_VE' && !phone) fields.push({ field: 'phone', code: 'REQUIRED', message: 'Bảo vệ bắt buộc có số điện thoại' });
+        invalid(fields);
+        if (email && state.users.some((other) => other.id !== user.id && other.email === email)) fail('EMAIL_EXISTS');
+        user.fullName = fullName;
+        user.email = email || undefined;
+        if (user.role === 'SINH_VIEN' || user.role === 'BAO_VE') user.phone = phone || undefined;
+        audit(user.id, 'CAP_NHAT_THONG_TIN', user.id, 'Tự cập nhật thông tin cá nhân');
+        return profileOf(user);
+      }),
+
+    changePassword: (body) =>
+      call(() => {
+        const user = currentUser();
+        if (body.currentPassword !== user.password) fail('CURRENT_PASSWORD_INCORRECT');
+        checkNewPassword(user, body.newPassword);
+        user.password = body.newPassword;
+        user.mustChangePassword = false;
+        audit(user.id, 'DOI_MAT_KHAU', user.id, 'Tự đổi mật khẩu');
+      }),
+
+    requestPasswordReset: (rawEmail) =>
+      call(() => {
+        const email = rawEmail.trim().toLowerCase();
+        const user = state.users.find((candidate) => candidate.email === email && candidate.status === 'HOAT_DONG');
+        if (user) {
+          state.resetCodes = [
+            ...(state.resetCodes ?? []).filter((code) => code.userId !== user.id),
+            { userId: user.id, expiresAt: Date.now() + RESET_CODE_TTL_MS, failed: 0, used: false },
+          ];
+          audit(user.id, 'YEU_CAU_KHOI_PHUC_MAT_KHAU', user.id, 'Gửi mã khôi phục (chế độ mock: mã luôn là 123456)');
+        }
+        return { message: 'Nếu email đã được đăng ký, mã xác nhận đã được gửi tới email đó. Mã có hiệu lực 10 phút.' };
+      }),
+
+    confirmPasswordReset: (body) =>
+      call(() => {
+        const user = state.users.find((candidate) => candidate.email === body.email.trim().toLowerCase());
+        if (body.newPassword.length < 8 || body.newPassword.length > 72) fail('PASSWORD_POLICY');
+        const code = user ? (state.resetCodes ?? []).find((candidate) => candidate.userId === user.id) : undefined;
+        if (!user || !code) return fail('RESET_CODE_INVALID');
+        if (code.used || Date.now() >= code.expiresAt) fail('RESET_CODE_EXPIRED');
+        if (code.failed >= 5) fail('RESET_CODE_LOCKED');
+        if (body.code !== MOCK_OTP) {
+          code.failed += 1;
+          return fail('RESET_CODE_INVALID');
+        }
+        checkNewPassword(user, body.newPassword);
+        code.used = true;
+        user.password = body.newPassword;
+        user.mustChangePassword = false;
+        audit(user.id, 'KHOI_PHUC_MAT_KHAU', user.id, 'Đặt lại mật khẩu bằng mã gửi qua email');
+      }),
+
+    changeVehicleType: (vehicleId, vehicleTypeCode) =>
+      call(() => {
+        const vehicle = ownedIdleVehicle(requireRole('SINH_VIEN'), vehicleId);
+        if (!VEHICLE_TYPES.some((type) => type.code === vehicleTypeCode)) {
+          invalid([{ field: 'vehicleTypeCode', code: 'NOT_FOUND', message: 'Loại xe không tồn tại' }]);
+        }
+        vehicle.vehicleTypeCode = vehicleTypeCode;
+        return toVehicle(vehicle);
+      }),
+
+    deactivateVehicle: (vehicleId) =>
+      call(() => {
+        const vehicle = ownedIdleVehicle(requireRole('SINH_VIEN'), vehicleId);
+        vehicle.status = 'NGUNG_SU_DUNG';
+        vehicle.deactivatedAt = toVietnamIso(new Date());
+        return toVehicle(vehicle);
+      }),
+
+    resetStudentPassword: (rawCode) =>
+      call(() => {
+        const manager = requireRole('QUAN_LY');
+        const student = state.users.find((user) => user.studentCode === rawCode.trim().toUpperCase());
+        if (!student) return fail('STUDENT_NOT_FOUND');
+        return issueTemporary(manager.id, student);
+      }),
+
+    resetGuardPassword: (guardId) =>
+      call(() => {
+        const manager = requireRole('QUAN_LY');
+        const guard = state.users.find((user) => user.id === guardId && user.role === 'BAO_VE');
+        if (!guard) return fail('GUARD_NOT_FOUND');
+        return issueTemporary(manager.id, guard);
+      }),
+
+    updateGuard: (guardId, body) =>
+      call(() => {
+        const manager = requireRole('QUAN_LY');
+        const guard = state.users.find((user) => user.id === guardId && user.role === 'BAO_VE');
+        if (!guard) return fail('GUARD_NOT_FOUND');
+        const fullName = body.fullName.trim();
+        const phone = body.phone.replace(/[\s.-]/g, '');
+        const fields: FieldViolation[] = [];
+        if (!fullName || fullName.length > 100) fields.push({ field: 'fullName', code: 'LENGTH', message: 'Họ tên tối đa 100 ký tự' });
+        if (!PHONE.test(phone)) {
+          fields.push({ field: 'phone', code: 'PATTERN', message: 'Số điện thoại gồm 10–11 chữ số, bắt đầu bằng 0' });
+        }
+        invalid(fields);
+        guard.fullName = fullName;
+        guard.phone = phone;
+        audit(manager.id, 'CAP_NHAT_BAO_VE', guard.id, `Cập nhật thông tin của ${guard.username}`);
+        return { id: guard.id, username: guard.username, fullName, phone };
+      }),
+
+    auditLogs: (query) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        const limit = query.limit ?? 20;
+        const nameOf = (id: number | null) => state.users.find((user) => user.id === id)?.fullName ?? null;
+        const rows = [...(state.auditLogs ?? [])]
+          .filter((entry) => query.targetUserId === undefined || entry.targetUserId === query.targetUserId)
+          .filter((entry) => query.before === undefined || entry.id < query.before)
+          .sort((a, b) => b.id - a.id);
+        const items: AuditItem[] = rows.slice(0, limit).map((entry) => ({
+          ...entry,
+          actorName: nameOf(entry.actorId) ?? '',
+          targetName: nameOf(entry.targetUserId),
+        }));
+        const hasMore = rows.length > limit;
+        return { items, hasMore, nextBefore: hasMore ? (items[items.length - 1]?.id ?? null) : null };
       }),
   };
 }

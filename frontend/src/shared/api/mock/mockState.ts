@@ -1,4 +1,4 @@
-import type { GuardStatus, Role, TransactionType } from '../../types/api';
+import type { AuditAction, GuardStatus, Role, TransactionType, VehicleStatus } from '../../types/api';
 
 /** Dữ liệu giả lập — chỉ dùng khi VITE_API_MODE=mock, để bấm thử giao diện khi không có backend. */
 export interface MockUser {
@@ -10,6 +10,9 @@ export interface MockUser {
   status: GuardStatus;
   studentCode?: string;
   phone?: string;
+  /** Đợt 1 */
+  email?: string;
+  mustChangePassword?: boolean;
 }
 
 export interface MockVehicle {
@@ -18,7 +21,29 @@ export interface MockVehicle {
   plateNumber: string;
   vehicleTypeCode: string;
   registeredAt: string;
+  /** Đợt 1 — thiếu = đang dùng (dữ liệu cũ trong sessionStorage). */
+  status?: VehicleStatus;
+  deactivatedAt?: string | null;
 }
+
+/** Đợt 1 — mã OTP khôi phục mật khẩu: chế độ mock luôn dùng mã {@link MOCK_OTP}. */
+export interface MockResetCode {
+  userId: number;
+  expiresAt: number;
+  failed: number;
+  used: boolean;
+}
+
+export interface MockAuditEntry {
+  id: number;
+  actorId: number;
+  action: AuditAction;
+  targetUserId: number | null;
+  detail: string;
+  createdAt: string;
+}
+
+export const MOCK_OTP = '123456';
 
 export interface MockParkingSession {
   id: number;
@@ -57,6 +82,10 @@ export interface MockState {
   idempotency: Record<string, MockIdempotencyRecord>;
   currentUserId: number | null;
   loginFailures: Record<string, number[]>;
+  /** Đợt 1 — có thể thiếu với dữ liệu cũ trong sessionStorage. */
+  resetCodes?: MockResetCode[];
+  auditLogs?: MockAuditEntry[];
+  bicycleSeq?: number;
 }
 
 const HOUR = 60 * 60 * 1000;
@@ -87,7 +116,7 @@ export function seedState(now = new Date()): MockState {
       { id: OWNER_ID, username: 'chutk01', password: 'Chutk@123', fullName: 'Lê Văn C', role: 'CHU_TAI_KHOAN', status: 'HOAT_DONG' },
       {
         id: STUDENT_ID, username: 'sv01', password: 'MatKhau@123', fullName: 'Nguyễn Văn A', role: 'SINH_VIEN',
-        status: 'HOAT_DONG', studentCode: 'B21DCCN001',
+        status: 'HOAT_DONG', studentCode: 'B21DCCN001', email: 'sv01@ptit.edu.vn',
       },
       {
         id: GUARD_ID, username: 'baove01', password: 'Baove@123', fullName: 'Trần Văn Bảo', role: 'BAO_VE',
@@ -127,5 +156,8 @@ export function seedState(now = new Date()): MockState {
     idempotency: {},
     currentUserId: null,
     loginFailures: {},
+    resetCodes: [],
+    auditLogs: [],
+    bicycleSeq: 0,
   };
 }

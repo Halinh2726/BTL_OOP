@@ -13,4 +13,6 @@ export const queryKeys = {
   student: (studentCode: string) => ['manager', 'student', studentCode] as const,
   ownerWallet: ['manager', 'owner-wallet'] as const,
   guards: ['manager', 'guards'] as const,
+  myProfile: ['me', 'profile'] as const,
+  auditLogs: ['manager', 'audit-logs'] as const,
 };

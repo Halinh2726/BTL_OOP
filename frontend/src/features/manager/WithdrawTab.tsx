@@ -71,7 +71,7 @@ export function WithdrawTab() {
         {owner.isError && <QueryError error={owner.error} onRetry={() => void owner.refetch()} />}
         {owner.data && (
           <dl>
-            <InfoRow label="Chủ tài khoản" value={owner.data.fullName} />
+            <InfoRow label="Chủ bãi xe" value={owner.data.fullName} />
             <InfoRow label="Số điểm hiện có" value={<span className="text-2xl font-bold">{formatPoints(owner.data.balance)}</span>} />
           </dl>
         )}
@@ -110,7 +110,7 @@ export function WithdrawTab() {
           error={withdraw.isError && <Alert tone="error">{errorMessage(withdraw.error)}</Alert>}
         >
           <dl>
-            <InfoRow label="Chủ tài khoản" value={owner.data?.fullName ?? '—'} />
+            <InfoRow label="Chủ bãi xe" value={owner.data?.fullName ?? '—'} />
             <InfoRow label="Số điểm rút" value={<span className="text-lg font-bold">{formatPoints(points)}</span>} />
             {owner.data && <InfoRow label="Số điểm hiện có" value={formatPoints(owner.data.balance)} />}
           </dl>

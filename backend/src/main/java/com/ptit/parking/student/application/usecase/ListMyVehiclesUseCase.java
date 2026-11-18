@@ -6,6 +6,7 @@ import java.util.List;
 
 /**
  * SV02 — xem danh sách xe của tôi (Đặc tả API #5): chỉ xe của người đang đăng nhập, mới đăng ký lên đầu.
+ * Đợt 1: xe đang dùng lên trước, xe đã ngừng sử dụng xuống cuối.
  */
 public class ListMyVehiclesUseCase {
 
@@ -16,6 +17,6 @@ public class ListMyVehiclesUseCase {
     }
 
     public List<Vehicle> list(long studentId) {
-        return vehicles.findByStudentId(studentId).stream().sorted(Vehicle.NEWEST_FIRST).toList();
+        return vehicles.findByStudentId(studentId).stream().sorted(Vehicle.ACTIVE_FIRST).toList();
     }
 }

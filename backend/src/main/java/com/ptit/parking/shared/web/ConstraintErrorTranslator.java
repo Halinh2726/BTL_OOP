@@ -22,6 +22,8 @@ public class ConstraintErrorTranslator {
             "uq_users_username",          new ConstraintError(ErrorCode.USERNAME_EXISTS, null),
             "uq_students_code",           new ConstraintError(ErrorCode.STUDENT_CODE_EXISTS, null),
             "uq_vehicles_plate",          new ConstraintError(ErrorCode.PLATE_EXISTS, null),
+            "uq_vehicles_active_plate",   new ConstraintError(ErrorCode.PLATE_EXISTS, null),
+            "uq_users_email",             new ConstraintError(ErrorCode.EMAIL_EXISTS, null),
             "fk_vehicles_type",           new ConstraintError(ErrorCode.VALIDATION_ERROR, "vehicleTypeCode"),
             "uq_parking_sessions_open",   new ConstraintError(ErrorCode.SESSION_ALREADY_OPEN, null),
             "uq_payment_details_session", new ConstraintError(ErrorCode.SESSION_ALREADY_PAID, null),

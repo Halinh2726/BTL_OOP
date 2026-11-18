@@ -20,6 +20,8 @@ type LoginForm = z.infer<typeof schema>;
 export interface LoginLocationState {
   from?: string;
   registered?: string;
+  /** Đợt 1: vừa đặt lại mật khẩu bằng mã email. */
+  passwordReset?: boolean;
 }
 
 export function LoginPage() {
@@ -44,6 +46,9 @@ export function LoginPage() {
         {navigationState.registered && !login.isError && (
           <Alert tone="success">Đăng ký thành công. Mời bạn đăng nhập.</Alert>
         )}
+        {navigationState.passwordReset && !login.isError && (
+          <Alert tone="success">Đã đặt lại mật khẩu. Mời bạn đăng nhập bằng mật khẩu mới.</Alert>
+        )}
         {notice && !login.isError && <Alert tone="warning">{notice}</Alert>}
         {login.isError && <Alert tone="error">{errorMessage(login.error)}</Alert>}
 
@@ -61,6 +66,11 @@ export function LoginPage() {
           error={errors.password?.message}
           {...form.register('password')}
         />
+        <div className="-mt-2 text-right">
+          <Link to="/forgot-password" className="text-sm font-semibold text-blue-700 hover:underline">
+            Quên mật khẩu?
+          </Link>
+        </div>
         <Button type="submit" size="lg" className="w-full" loading={login.isPending}>
           Đăng nhập
         </Button>

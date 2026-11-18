@@ -14,7 +14,7 @@ interface RequestOptions {
 
 const LOGIN_PATH = '/auth/login';
 /** Đặc tả API mục 3: login và register không cần CSRF vì lúc đó chưa có phiên. */
-const CSRF_EXEMPT = new Set([LOGIN_PATH, '/students/register']);
+const CSRF_EXEMPT = new Set([LOGIN_PATH, '/students/register', '/auth/password-reset', '/auth/password-reset/confirm']);
 const CSRF_COOKIE = 'XSRF-TOKEN';
 const CSRF_HEADER = 'X-XSRF-TOKEN';
 
@@ -128,6 +128,29 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
     createGuard: (body) => json('/manager/guards', { method: 'POST', body }),
     changeGuardStatus: (guardId, status) =>
       json(`/manager/guards/${guardId}/status`, { method: 'PATCH', body: { status } }),
+
+    myProfile: () => json('/me/profile'),
+    updateMyProfile: (body) => json('/me/profile', { method: 'PATCH', body }),
+    changePassword: async (body) => {
+      await send('/me/password', { method: 'POST', body });
+    },
+    requestPasswordReset: (email) => json('/auth/password-reset', { method: 'POST', body: { email } }),
+    confirmPasswordReset: async (body) => {
+      await send('/auth/password-reset/confirm', { method: 'POST', body });
+    },
+
+    changeVehicleType: (vehicleId, vehicleTypeCode) =>
+      json(`/me/vehicles/${vehicleId}`, { method: 'PATCH', body: { vehicleTypeCode } }),
+    deactivateVehicle: (vehicleId) => json(`/me/vehicles/${vehicleId}/deactivate`, { method: 'POST' }),
+
+    resetStudentPassword: (studentCode) =>
+      json(`/manager/students/${encodeURIComponent(studentCode.trim())}/password-reset`, { method: 'POST' }),
+    resetGuardPassword: (guardId) => json(`/manager/guards/${guardId}/password-reset`, { method: 'POST' }),
+    updateGuard: (guardId, body) => json(`/manager/guards/${guardId}`, { method: 'PATCH', body }),
+    auditLogs: (query) =>
+      json('/manager/audit-logs', {
+        query: { before: query.before, limit: query.limit, targetUserId: query.targetUserId },
+      }),
   };
 }
 

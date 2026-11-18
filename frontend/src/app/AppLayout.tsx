@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Link, Outlet } from 'react-router-dom';
 import { useCurrentUser, useSession } from '../features/auth/session';
 import { Button } from '../shared/components/Button';
 import { Logo } from '../shared/components/Logo';
@@ -31,10 +31,17 @@ export function AppLayout() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="hidden text-right sm:block">
+            <Link
+              to="/account"
+              title="Thông tin cá nhân, đổi mật khẩu"
+              className="hidden rounded-lg px-2 py-1 text-right hover:bg-slate-100 sm:block"
+            >
               <p className="text-sm font-semibold text-slate-900">{user.fullName}</p>
-              <p className="text-xs text-slate-500">{ROLE_LABELS[user.role]}</p>
-            </div>
+              <p className="text-xs text-slate-500">{ROLE_LABELS[user.role]} · Tài khoản</p>
+            </Link>
+            <Link to="/account" className="text-sm font-semibold text-blue-700 hover:underline sm:hidden">
+              Tài khoản
+            </Link>
             <Button variant="secondary" size="sm" onClick={() => void handleSignOut()} loading={signingOut}>
               Đăng xuất
             </Button>

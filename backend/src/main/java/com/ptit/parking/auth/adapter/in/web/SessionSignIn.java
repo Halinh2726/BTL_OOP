@@ -1,6 +1,7 @@
 package com.ptit.parking.auth.adapter.in.web;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -13,6 +14,7 @@ import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Component;
 
 import com.ptit.parking.auth.application.AuthenticatedUser;
+import com.ptit.parking.shared.security.CredentialFreshnessFilter;
 import com.ptit.parking.shared.security.SessionLifetimeFilter;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -49,6 +51,9 @@ class SessionSignIn {
         contextRepository.saveContext(context, request, response);
 
         // Mốc tính giới hạn 12 giờ của phiên (SessionLifetimeFilter)
-        request.getSession().setAttribute(SessionLifetimeFilter.SIGNED_IN_AT, clock.instant());
+        Instant now = clock.instant();
+        request.getSession().setAttribute(SessionLifetimeFilter.SIGNED_IN_AT, now);
+        // Mốc "đã chứng minh biết mật khẩu": đổi mật khẩu sau mốc này thì phiên bị đăng xuất (CredentialFreshnessFilter)
+        request.getSession().setAttribute(CredentialFreshnessFilter.CREDENTIALS_VERIFIED_AT, now);
     }
 }
