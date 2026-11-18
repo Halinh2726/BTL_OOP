@@ -17,6 +17,7 @@ public enum ErrorCode {
     ACCOUNT_LOCKED(403, "Tài khoản đã bị khóa. Vui lòng liên hệ quản lý."),
     FORBIDDEN(403, "Bạn không có quyền thực hiện thao tác này."),
     CSRF_INVALID(403, "Phiên làm việc không hợp lệ. Vui lòng tải lại trang."),
+    PASSWORD_CHANGE_REQUIRED(403, "Bạn cần đổi mật khẩu tạm trước khi tiếp tục."),
 
     // 404 — không tìm thấy
     NOT_FOUND(404, "Không tìm thấy tài nguyên."),
@@ -24,6 +25,7 @@ public enum ErrorCode {
     NO_OPEN_SESSION(404, "Xe không có lượt gửi đang mở."),
     STUDENT_NOT_FOUND(404, "MSSV không tồn tại"),
     GUARD_NOT_FOUND(404, "Không tìm thấy tài khoản bảo vệ."),
+    VEHICLE_NOT_FOUND(404, "Không tìm thấy xe."),
 
     // 409 — xung đột dữ liệu
     STUDENT_CODE_EXISTS(409, "MSSV đã tồn tại"),
@@ -32,11 +34,22 @@ public enum ErrorCode {
     SESSION_ALREADY_OPEN(409, "Xe đang có lượt gửi chưa kết thúc. Không cho xe vào."),
     SESSION_ALREADY_PAID(409, "Lượt gửi này đã được thanh toán. Không trừ điểm lần hai."),
     CONCURRENT_UPDATE(409, "Hệ thống đang bận. Vui lòng thử lại."),
+    EMAIL_EXISTS(409, "Email đã được dùng cho tài khoản khác"),
+    VEHICLE_PARKED(409, "Xe đang trong bãi. Lấy xe ra trước khi sửa hoặc ngừng sử dụng."),
+    VEHICLE_INACTIVE(409, "Xe đã ngừng sử dụng."),
 
     // 422 — vi phạm quy tắc nghiệp vụ
     INSUFFICIENT_POINTS(422, "Không đủ điểm."),
     INVALID_AMOUNT(422, "Số tiền hoặc số điểm không hợp lệ."),
     IDEMPOTENCY_KEY_REUSED(422, "Khóa chống xử lý trùng đã được dùng cho yêu cầu khác."),
+    PASSWORD_POLICY(422, "Mật khẩu phải dài 8–72 ký tự."),
+    PASSWORD_REUSED(422, "Mật khẩu mới phải khác mật khẩu hiện tại."),
+    CURRENT_PASSWORD_INCORRECT(422, "Mật khẩu hiện tại không đúng."),
+    RESET_CODE_INVALID(422, "Mã xác nhận không đúng."),
+    RESET_CODE_EXPIRED(422, "Mã xác nhận đã hết hạn hoặc đã được dùng. Vui lòng yêu cầu mã mới."),
+    RESET_CODE_LOCKED(422, "Nhập sai mã quá 5 lần. Vui lòng yêu cầu mã mới."),
+    PLATE_REQUIRED(422, "Vui lòng nhập biển số. Chỉ xe đạp không có biển mới được bãi cấp mã."),
+    VEHICLE_LIMIT_REACHED(422, "Mỗi sinh viên được tối đa 3 xe đang sử dụng."),
 
     // 429 / 500
     TOO_MANY_REQUESTS(429, "Thao tác quá nhiều lần. Vui lòng thử lại sau ít phút."),

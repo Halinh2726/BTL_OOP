@@ -1,6 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom';
+import { AccountPage } from '../features/account/AccountPage';
+import { ForcedPasswordChangePage } from '../features/account/ForcedPasswordChangePage';
+import { ForgotPasswordPage } from '../features/auth/ForgotPasswordPage';
 import { LoginPage } from '../features/auth/LoginPage';
 import { RegisterPage } from '../features/auth/RegisterPage';
 import { HOME_BY_ROLE, SessionProvider, useSession } from '../features/auth/session';
@@ -61,10 +64,16 @@ function AppRoutes() {
     );
   }
 
+  // Mật khẩu tạm do quản lý cấp: chưa đổi thì không vào được trang nào khác (backend cũng chặn API)
+  if (state.status === 'authenticated' && state.me.mustChangePassword) {
+    return <ForcedPasswordChangePage />;
+  }
+
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route
         path="/"
         element={
@@ -77,6 +86,7 @@ function AppRoutes() {
           <Route path="/guard" element={<RequireRole role="BAO_VE"><GuardPage /></RequireRole>} />
           <Route path="/manager" element={<RequireRole role="QUAN_LY"><ManagerPage /></RequireRole>} />
           <Route path="/owner" element={<RequireRole role="CHU_TAI_KHOAN"><OwnerPage /></RequireRole>} />
+          <Route path="/account" element={<AccountPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       ) : (

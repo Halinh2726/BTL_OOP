@@ -3,6 +3,7 @@ package com.ptit.parking.auth.adapter.in.web;
 import com.ptit.parking.auth.application.AuthenticatedUser;
 import com.ptit.parking.auth.application.usecase.GetCurrentUserUseCase;
 import com.ptit.parking.auth.application.usecase.LoginUseCase;
+import com.ptit.parking.shared.security.CredentialStateLookup;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -25,13 +26,15 @@ class AuthController {
     private final GetCurrentUserUseCase getCurrentUser;
     private final SessionSignIn sessionSignIn;
     private final LoginThrottle loginThrottle;
+    private final CredentialStateLookup credentials;
 
     AuthController(LoginUseCase loginUseCase, GetCurrentUserUseCase getCurrentUser, SessionSignIn sessionSignIn,
-                   LoginThrottle loginThrottle) {
+                   LoginThrottle loginThrottle, CredentialStateLookup credentials) {
         this.loginUseCase = loginUseCase;
         this.getCurrentUser = getCurrentUser;
         this.sessionSignIn = sessionSignIn;
         this.loginThrottle = loginThrottle;
+        this.credentials = credentials;
     }
 
     @PostMapping("/auth/login")
@@ -41,12 +44,13 @@ class AuthController {
         AuthenticatedUser user = loginUseCase.login(body.username(), body.password());
         loginThrottle.succeeded(throttleKey);
         sessionSignIn.signIn(user, request, response);
-        return MeResponse.from(user);
+        return MeResponse.from(user, credentials.stateOf(user.id()).mustChangePassword());
     }
 
     /** Dùng để khôi phục phiên khi tải lại trang. Đọc lại từ CSDL để bắt kịp trạng thái bị khóa. */
     @GetMapping("/me")
     MeResponse me(@AuthenticationPrincipal AuthenticatedUser principal) {
-        return MeResponse.from(getCurrentUser.get(principal.id()));
+        return MeResponse.from(getCurrentUser.get(principal.id()),
+                credentials.stateOf(principal.id()).mustChangePassword());
     }
 }

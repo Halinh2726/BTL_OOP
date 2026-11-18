@@ -16,6 +16,8 @@ export interface SessionUser {
 export interface MeResponse {
   user: SessionUser;
   permissions: string[];
+  /** Đợt 1: đang dùng mật khẩu tạm do quản lý cấp — phải đổi trước khi làm việc khác. */
+  mustChangePassword: boolean;
 }
 
 export interface LoginRequest {
@@ -51,16 +53,97 @@ export interface ExchangeRate {
   cashPerPoint: number;
 }
 
+export type VehicleStatus = 'DANG_DUNG' | 'NGUNG_SU_DUNG';
+
 export interface Vehicle {
   id: number;
+  /** Dạng chuẩn hóa (chỉ chữ và số) — dùng cho mã QR, tra cứu. */
   plateNumber: string;
+  /** Dạng hiển thị theo quy định: "29A-123.45", "XD-00001". */
+  plateDisplay: string;
   vehicleTypeCode: string;
+  status: VehicleStatus;
   registeredAt: string;
+  deactivatedAt: string | null;
 }
 
 export interface RegisterVehicleRequest {
+  /** Để trống với xe đạp không có biển: bãi tự cấp mã XD-xxxxx. */
   plateNumber: string;
   vehicleTypeCode: string;
+}
+
+// ===== Đợt 1: tài khoản =====
+
+/** GET/PATCH /me/profile */
+export interface Profile {
+  userId: number;
+  username: string;
+  role: Role;
+  fullName: string;
+  email: string | null;
+  phone: string | null;
+  studentCode: string | null;
+  phoneEditable: boolean;
+  phoneRequired: boolean;
+}
+
+export interface UpdateProfileRequest {
+  fullName: string;
+  email: string;
+  phone: string;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface ConfirmPasswordResetRequest {
+  email: string;
+  code: string;
+  newPassword: string;
+}
+
+/** POST /manager/students/{mssv}/password-reset, /manager/guards/{id}/password-reset — chỉ hiện MỘT lần. */
+export interface TemporaryPasswordResult {
+  userId: number;
+  username: string;
+  fullName: string;
+  temporaryPassword: string;
+}
+
+export interface UpdateGuardRequest {
+  fullName: string;
+  phone: string;
+}
+
+export type AuditAction =
+  | 'CAP_NHAT_THONG_TIN'
+  | 'DOI_MAT_KHAU'
+  | 'YEU_CAU_KHOI_PHUC_MAT_KHAU'
+  | 'KHOI_PHUC_MAT_KHAU'
+  | 'CAP_MAT_KHAU_TAM'
+  | 'TAO_BAO_VE'
+  | 'CAP_NHAT_BAO_VE'
+  | 'KHOA_TAI_KHOAN'
+  | 'MO_KHOA_TAI_KHOAN';
+
+export interface AuditItem {
+  id: number;
+  actorId: number;
+  actorName: string;
+  action: AuditAction;
+  targetUserId: number | null;
+  targetName: string | null;
+  detail: string;
+  createdAt: string;
+}
+
+export interface AuditPage {
+  items: AuditItem[];
+  hasMore: boolean;
+  nextBefore: number | null;
 }
 
 export interface Wallet {

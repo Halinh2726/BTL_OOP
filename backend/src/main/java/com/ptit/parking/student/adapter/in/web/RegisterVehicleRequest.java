@@ -9,10 +9,12 @@ import jakarta.validation.constraints.Size;
 /**
  * Body của POST /me/vehicles (Đặc tả API #6). KHÔNG có trường studentId: chủ xe luôn là người đang đăng nhập;
  * client có gửi kèm studentId thì cũng bị bỏ qua.
+ * <p>Đợt 1: biển số theo quy định (29A-1514, 29A-123.45, 29A1-123.45). Để trống chỉ hợp lệ với xe đạp —
+ * bãi tự cấp mã XD-xxxxx (use case kiểm tra, vì cần biết loại xe).
  */
 record RegisterVehicleRequest(
-        @NotBlank(message = "Vui lòng nhập biển số")
-        @Pattern(regexp = PlateNumber.PATTERN, message = "Biển số 5–20 ký tự, chỉ gồm chữ và số")
+        @Pattern(regexp = "^$|" + PlateNumber.STANDARD_PATTERN,
+                message = "Biển số theo dạng 29A-1514 hoặc 29A-123.45 (tối đa 5 số cuối)")
         String plateNumber,
 
         @NotBlank(message = "Vui lòng chọn loại xe")

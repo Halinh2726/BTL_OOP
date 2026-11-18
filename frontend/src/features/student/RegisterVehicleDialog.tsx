@@ -10,16 +10,29 @@ import { Dialog } from '../../shared/components/Dialog';
 import { SelectField, TextField } from '../../shared/components/Field';
 import { useFieldErrors } from '../../shared/hooks/useFieldErrors';
 import type { VehicleType } from '../../shared/types/api';
-import { normalizePlate } from '../../shared/utils/format';
+import { STANDARD_PLATE, formatPlate, normalizePlate } from '../../shared/utils/format';
 
-const schema = z.object({
-  plateNumber: z
-    .string()
-    .min(1, 'Vui lòng nhập biển số')
-    .transform(normalizePlate)
-    .pipe(z.string().regex(/^[A-Z0-9]{5,20}$/, 'Biển số 5–20 ký tự, chỉ gồm chữ và số')),
-  vehicleTypeCode: z.string().min(1, 'Vui lòng chọn loại xe'),
-});
+/** Xe đạp không có biển được để trống: bãi cấp mã XD-xxxxx (cùng RegisterVehicleUseCase.BICYCLE_TYPE). */
+const BICYCLE_TYPE = 'XE_DAP';
+
+const schema = z
+  .object({
+    plateNumber: z.string().transform(normalizePlate),
+    vehicleTypeCode: z.string().min(1, 'Vui lòng chọn loại xe'),
+  })
+  .superRefine((values, ctx) => {
+    if (values.plateNumber === '') {
+      if (values.vehicleTypeCode !== BICYCLE_TYPE) {
+        ctx.addIssue({ code: 'custom', path: ['plateNumber'], message: 'Vui lòng nhập biển số' });
+      }
+    } else if (!STANDARD_PLATE.test(values.plateNumber)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['plateNumber'],
+        message: 'Biển số theo dạng 29A-1514 hoặc 29A-123.45 (tối đa 5 số cuối)',
+      });
+    }
+  });
 
 type Input = z.input<typeof schema>;
 type Output = z.output<typeof schema>;
@@ -32,6 +45,8 @@ export function RegisterVehicleDialog({ types, onClose }: { types: VehicleType[]
     defaultValues: { plateNumber: '', vehicleTypeCode: types[0]?.code ?? '' },
   });
   const applyFieldErrors = useFieldErrors(form.setError, FIELDS);
+  const typed = normalizePlate(form.watch('plateNumber') ?? '');
+  const isBicycle = form.watch('vehicleTypeCode') === BICYCLE_TYPE;
 
   const register = useMutation({
     mutationFn: api.registerVehicle,
@@ -41,7 +56,7 @@ export function RegisterVehicleDialog({ types, onClose }: { types: VehicleType[]
     },
     onError: (error) => {
       applyFieldErrors(error);
-      if (isApiError(error) && error.code === 'PLATE_EXISTS') {
+      if (isApiError(error) && ['PLATE_EXISTS', 'PLATE_REQUIRED'].includes(error.code)) {
         form.setError('plateNumber', { type: 'server', message: error.message });
       }
     },
@@ -49,7 +64,15 @@ export function RegisterVehicleDialog({ types, onClose }: { types: VehicleType[]
 
   const { errors } = form.formState;
   const showGeneral =
-    register.isError && !(isApiError(register.error) && ['VALIDATION_ERROR', 'PLATE_EXISTS'].includes(register.error.code));
+    register.isError &&
+    !(isApiError(register.error) && ['VALIDATION_ERROR', 'PLATE_EXISTS', 'PLATE_REQUIRED'].includes(register.error.code));
+
+  const hint =
+    typed && STANDARD_PLATE.test(typed)
+      ? `Sẽ lưu là ${formatPlate(typed)}`
+      : isBicycle
+        ? 'Xe đạp không có biển: để trống, bãi sẽ cấp mã dạng XD-00001'
+        : 'Gõ có hoặc không có dấu chấm, gạch ngang đều được';
 
   return (
     <Dialog
@@ -69,15 +92,6 @@ export function RegisterVehicleDialog({ types, onClose }: { types: VehicleType[]
     >
       <form id="register-vehicle" className="space-y-4" noValidate onSubmit={form.handleSubmit((values) => register.mutate(values))}>
         {showGeneral && <Alert tone="error">{errorMessage(register.error)}</Alert>}
-        <TextField
-          label="Biển số"
-          placeholder="29A-123.45"
-          autoFocus
-          className="font-mono uppercase"
-          hint="Có thể gõ kèm dấu chấm, gạch ngang — hệ thống tự bỏ đi"
-          error={errors.plateNumber?.message}
-          {...form.register('plateNumber')}
-        />
         <SelectField label="Loại xe" error={errors.vehicleTypeCode?.message} {...form.register('vehicleTypeCode')}>
           {types.map((type) => (
             <option key={type.code} value={type.code}>
@@ -85,6 +99,15 @@ export function RegisterVehicleDialog({ types, onClose }: { types: VehicleType[]
             </option>
           ))}
         </SelectField>
+        <TextField
+          label={isBicycle ? 'Biển số (không bắt buộc với xe đạp)' : 'Biển số'}
+          placeholder="29A-123.45"
+          autoFocus
+          className="font-mono uppercase"
+          hint={hint}
+          error={errors.plateNumber?.message}
+          {...form.register('plateNumber')}
+        />
       </form>
     </Dialog>
   );

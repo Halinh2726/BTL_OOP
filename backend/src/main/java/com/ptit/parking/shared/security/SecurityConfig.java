@@ -31,14 +31,20 @@ public class SecurityConfig {
     public static final String LOGOUT_URL = "/api/v1/auth/logout";
     public static final String REGISTER_URL = "/api/v1/students/register";
     public static final String HEALTH_URL = "/api/v1/health";
+    /** Quên mật khẩu (yêu cầu mã + đặt lại): chưa đăng nhập nên không có phiên, không có CSRF token. */
+    public static final String PASSWORD_RESET_URL = "/api/v1/auth/password-reset";
+    public static final String PASSWORD_RESET_CONFIRM_URL = "/api/v1/auth/password-reset/confirm";
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, JsonSecurityErrorHandler errors,
-                                            AccountStatusLookup accounts, Clock clock) throws Exception {
+                                            AccountStatusLookup accounts, CredentialStateLookup credentials,
+                                            Clock clock) throws Exception {
         http
-                .csrf(csrf -> csrf.spa().ignoringRequestMatchers(LOGIN_URL, REGISTER_URL))
+                .csrf(csrf -> csrf.spa().ignoringRequestMatchers(LOGIN_URL, REGISTER_URL,
+                        PASSWORD_RESET_URL, PASSWORD_RESET_CONFIRM_URL))
                 .authorizeHttpRequests(auth -> {
-                    auth.requestMatchers(LOGIN_URL, REGISTER_URL, HEALTH_URL).permitAll();
+                    auth.requestMatchers(LOGIN_URL, REGISTER_URL, HEALTH_URL,
+                            PASSWORD_RESET_URL, PASSWORD_RESET_CONFIRM_URL).permitAll();
                     for (ProtectedEndpoint endpoint : ProtectedEndpoint.values()) {
                         auth.requestMatchers(endpoint.method(), endpoint.pathPattern())
                                 .hasAnyAuthority(endpoint.authorities());
@@ -51,6 +57,8 @@ public class SecurityConfig {
                 // Thứ tự kiểm tra (Đặc tả API mục 4): phiên hợp lệ -> tài khoản không bị khóa -> có quyền
                 .addFilterBefore(new SessionLifetimeFilter(clock, errors), AuthorizationFilter.class)
                 .addFilterBefore(new ActiveAccountFilter(accounts, errors), AuthorizationFilter.class)
+                // Đổi mật khẩu -> phiên cũ hết hiệu lực; mật khẩu tạm -> phải đổi trước khi làm việc khác
+                .addFilterBefore(new CredentialFreshnessFilter(credentials, errors), AuthorizationFilter.class)
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(errors)
                         .accessDeniedHandler(errors))

@@ -1,8 +1,11 @@
 import type {
+  AuditPage,
+  ChangePasswordRequest,
   CheckInPreview,
   CheckInResult,
   CheckOutPreview,
   CheckOutResult,
+  ConfirmPasswordResetRequest,
   CreateGuardRequest,
   DepositRequest,
   DepositResult,
@@ -14,12 +17,16 @@ import type {
   MeResponse,
   OwnerWallet,
   PlateSuggestion,
+  Profile,
   RegisteredStudent,
   RegisterStudentRequest,
   RegisterVehicleRequest,
   StudentSummary,
+  TemporaryPasswordResult,
   TransactionPage,
   TransactionQuery,
+  UpdateGuardRequest,
+  UpdateProfileRequest,
   Vehicle,
   VehicleType,
   Wallet,
@@ -69,4 +76,22 @@ export interface ApiClient {
   guards(): Promise<Guard[]>;
   createGuard(body: CreateGuardRequest): Promise<Guard>;
   changeGuardStatus(guardId: number, status: GuardStatus): Promise<Guard>;
+
+  // Đợt 1 — tài khoản của tôi (mọi vai trò)
+  myProfile(): Promise<Profile>;
+  updateMyProfile(body: UpdateProfileRequest): Promise<Profile>;
+  changePassword(body: ChangePasswordRequest): Promise<void>;
+  /** Quên mật khẩu bước 1 — luôn "thành công", không cho biết email có tồn tại không. */
+  requestPasswordReset(email: string): Promise<{ message: string }>;
+  confirmPasswordReset(body: ConfirmPasswordResetRequest): Promise<void>;
+
+  // Đợt 1 — xe của tôi
+  changeVehicleType(vehicleId: number, vehicleTypeCode: string): Promise<Vehicle>;
+  deactivateVehicle(vehicleId: number): Promise<Vehicle>;
+
+  // Đợt 1 — quản lý tài khoản
+  resetStudentPassword(studentCode: string): Promise<TemporaryPasswordResult>;
+  resetGuardPassword(guardId: number): Promise<TemporaryPasswordResult>;
+  updateGuard(guardId: number, body: UpdateGuardRequest): Promise<Pick<Guard, 'id' | 'username' | 'fullName' | 'phone'>>;
+  auditLogs(query: { before?: number; limit?: number; targetUserId?: number }): Promise<AuditPage>;
 }

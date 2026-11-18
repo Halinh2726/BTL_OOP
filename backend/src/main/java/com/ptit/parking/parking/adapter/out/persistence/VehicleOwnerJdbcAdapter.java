@@ -8,7 +8,10 @@ import java.util.Optional;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 import java.util.List;
-/** Cài đặt {@link VehicleOwnerDirectory}: ghép vehicles + students + users theo biển số (đã chuẩn hóa) hoặc id xe. */
+/**
+ * Cài đặt {@link VehicleOwnerDirectory}: ghép vehicles + students + users theo biển số (đã chuẩn hóa) hoặc id xe.
+ * Đợt 1: tra theo biển số chỉ tìm xe ĐANG DÙNG (cột active_plate, V011) — xe đã ngừng sử dụng coi như chưa đăng ký.
+ */
 @Component
 class VehicleOwnerJdbcAdapter implements VehicleOwnerDirectory {
 
@@ -27,7 +30,7 @@ class VehicleOwnerJdbcAdapter implements VehicleOwnerDirectory {
 
     @Override
     public Optional<VehicleOwner> findByPlate(PlateNumber plate) {
-        return jdbc.sql(SELECT_OWNER + "WHERE v.plate_number = :plate")
+        return jdbc.sql(SELECT_OWNER + "WHERE v.active_plate = :plate")
                 .param("plate", plate.value())
                 .query(VehicleOwnerJdbcAdapter::map)
                 .optional();
@@ -36,7 +39,7 @@ class VehicleOwnerJdbcAdapter implements VehicleOwnerDirectory {
     /** "FOR UPDATE OF v": chỉ khóa dòng vehicles (Đặc tả API mục 8), không khóa dòng sinh viên/người dùng. */
     @Override
     public Optional<VehicleOwner> lockByPlate(PlateNumber plate) {
-        return jdbc.sql(SELECT_OWNER + "WHERE v.plate_number = :plate FOR UPDATE OF v")
+        return jdbc.sql(SELECT_OWNER + "WHERE v.active_plate = :plate FOR UPDATE OF v")
                 .param("plate", plate.value())
                 .query(VehicleOwnerJdbcAdapter::map)
                 .optional();
@@ -60,7 +63,7 @@ class VehicleOwnerJdbcAdapter implements VehicleOwnerDirectory {
                         SELECT v.plate_number, v.vehicle_type_code, ps.id IS NOT NULL AS parked
                         FROM vehicles v
                         LEFT JOIN parking_sessions ps ON ps.open_vehicle_id = v.id
-                        WHERE v.plate_number LIKE :contains
+                        WHERE v.status = 'DANG_DUNG' AND v.plate_number LIKE :contains
                           AND (:parkedOnly = FALSE OR ps.id IS NOT NULL)
                         ORDER BY v.plate_number LIKE :endsWith DESC, v.plate_number
                         LIMIT :limit

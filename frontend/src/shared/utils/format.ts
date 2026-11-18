@@ -1,4 +1,4 @@
-import type { GuardStatus, Role, TransactionType } from '../types/api';
+import type { AuditAction, GuardStatus, Role, TransactionType, VehicleStatus } from '../types/api';
 
 const NUMBER = new Intl.NumberFormat('vi-VN');
 
@@ -37,7 +37,24 @@ export const ROLE_LABELS: Record<Role, string> = {
   SINH_VIEN: 'Sinh viên',
   BAO_VE: 'Bảo vệ',
   QUAN_LY: 'Quản lý',
-  CHU_TAI_KHOAN: 'Chủ tài khoản',
+  CHU_TAI_KHOAN: 'Chủ bãi xe',
+};
+
+export const VEHICLE_STATUS_LABELS: Record<VehicleStatus, string> = {
+  DANG_DUNG: 'Đang dùng',
+  NGUNG_SU_DUNG: 'Ngừng sử dụng',
+};
+
+export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
+  CAP_NHAT_THONG_TIN: 'Cập nhật thông tin cá nhân',
+  DOI_MAT_KHAU: 'Đổi mật khẩu',
+  YEU_CAU_KHOI_PHUC_MAT_KHAU: 'Yêu cầu mã khôi phục mật khẩu',
+  KHOI_PHUC_MAT_KHAU: 'Đặt lại mật khẩu bằng mã email',
+  CAP_MAT_KHAU_TAM: 'Cấp mật khẩu tạm',
+  TAO_BAO_VE: 'Tạo tài khoản bảo vệ',
+  CAP_NHAT_BAO_VE: 'Cập nhật thông tin bảo vệ',
+  KHOA_TAI_KHOAN: 'Khóa tài khoản',
+  MO_KHOA_TAI_KHOAN: 'Mở khóa tài khoản',
 };
 
 export const TRANSACTION_LABELS: Record<TransactionType, string> = {
@@ -62,4 +79,25 @@ export const REASON_LABELS: Record<string, string> = {
 /** Bỏ khoảng trắng, dấu chấm, gạch ngang và viết hoa — cùng quy tắc chuẩn hóa biển số với backend. */
 export function normalizePlate(raw: string): string {
   return raw.replace(/[\s.-]/g, '').toUpperCase();
+}
+
+/** Đợt 1 — biển số theo quy định SAU chuẩn hóa (khớp PlateNumber.STANDARD_PATTERN của backend). */
+export const STANDARD_PLATE = /^([0-9]{2}[A-Z]{1,2}[0-9]{4,6}|XD[0-9]{5})$/;
+
+/**
+ * Dạng hiển thị có dấu, cùng quy tắc PlateNumber.display() của backend:
+ * "29A1514" → "29A-1514", "29A12345" → "29A-123.45", "29A112345" → "29A1-123.45", "XD00001" → "XD-00001".
+ */
+export function formatPlate(normalized: string): string {
+  const bicycle = /^XD([0-9]{5})$/.exec(normalized);
+  if (bicycle) return `XD-${bicycle[1]}`;
+  const parts = /^([0-9]{2}[A-Z]{1,2})([0-9]{4,6})$/.exec(normalized);
+  if (!parts) return normalized;
+  let series = parts[1] ?? '';
+  let digits = parts[2] ?? '';
+  if (digits.length === 6) {
+    series += digits.charAt(0);
+    digits = digits.slice(1);
+  }
+  return digits.length === 5 ? `${series}-${digits.slice(0, 3)}.${digits.slice(3)}` : `${series}-${digits}`;
 }
