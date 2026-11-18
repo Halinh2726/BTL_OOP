@@ -117,7 +117,7 @@ public class ProcessBankWebhookUseCase {
             try {
                 PayParkingFeeByVietQrUseCase.Result res = payParkingFeeByVietQr.payByVietQr(
                         new PayParkingFeeByVietQrUseCase.Command(performerId, idempotencyKey, sessionId));
-                String plate = res.vehicleOwner() != null ? res.vehicleOwner().plateNumber().value() : "";
+                String plate = res.vehicleOwner() != null ? res.vehicleOwner().plate().value() : "";
                 String student = res.vehicleOwner() != null ? res.vehicleOwner().studentCode() : "";
                 log.info("Webhook thanh toán gửi xe thành công: sessionId={}, plate={}, fee={}, replayed={}",
                         sessionId, plate, res.payment().points(), res.replayed());
