@@ -1,5 +1,7 @@
 import type {
   AuditItem,
+  RevenueDay,
+  WithdrawalView,
   IncidentItem,
   ParkedVehicleItem,
   ShiftSummary,
@@ -26,6 +28,7 @@ import {
   type MockAuditEntry,
   type MockIncident,
   type MockShift,
+  type MockWithdrawal,
   type MockEntry,
   type MockState,
   type MockUser,
@@ -57,6 +60,12 @@ const ERRORS = {
   HANDOVER_PENDING: [409, 'Có biên bản bàn giao ca chưa được xác nhận. Xem lại rồi bấm Nhận ca.'],
   INCIDENT_NOT_FOUND: [404, 'Không tìm thấy sự cố.'],
   PHOTO_INVALID: [422, 'Ảnh phải là JPG, PNG hoặc WEBP và không quá 2 MB.'],
+  SELF_PROCESSING_FORBIDDEN: [403, 'Người tạo yêu cầu không được tự xử lý yêu cầu của mình.'],
+  WITHDRAWAL_NOT_FOUND: [404, 'Không tìm thấy yêu cầu rút điểm.'],
+  TRANSACTION_NOT_FOUND: [404, 'Không tìm thấy giao dịch gốc.'],
+  WITHDRAWAL_STATUS_CONFLICT: [409, 'Yêu cầu rút điểm không ở trạng thái cho phép thao tác này.'],
+  WITHDRAWAL_EXCEEDS_AVAILABLE: [422, 'Số điểm yêu cầu vượt số điểm còn có thể rút (đã trừ các yêu cầu đang chờ).'],
+  CASH_FUND_INSUFFICIENT: [422, 'Quỹ tiền mặt hiện không đủ để trả yêu cầu này.'],
   PLATE_NOT_FOUND: [404, 'Biển số chưa được đăng ký.'],
   NO_OPEN_SESSION: [404, 'Xe không có lượt gửi đang mở.'],
   STUDENT_NOT_FOUND: [404, 'MSSV không tồn tại'],
@@ -77,8 +86,8 @@ type ErrorCode = keyof typeof ERRORS;
 const PERMISSIONS: Record<Role, string[]> = {
   SINH_VIEN: ['VEHICLE_REGISTER', 'WALLET_VIEW_OWN'],
   BAO_VE: ['INCIDENT_REPORT', 'PARKING_CHECK_IN', 'PARKING_CHECK_OUT'],
-  QUAN_LY: ['ACCOUNT_MANAGE', 'CASH_DEPOSIT', 'CASH_WITHDRAWAL', 'GUARD_CREATE', 'GUARD_LOCK'],
-  CHU_TAI_KHOAN: ['WALLET_VIEW_OWN'],
+  QUAN_LY: ['ACCOUNT_MANAGE', 'CASH_DEPOSIT', 'CASH_WITHDRAWAL', 'GUARD_CREATE', 'GUARD_LOCK', 'POINT_ADJUST'],
+  CHU_TAI_KHOAN: ['OWNER_FINANCE', 'WALLET_VIEW_OWN'],
 };
 
 const VEHICLE_TYPES: VehicleType[] = [
@@ -315,6 +324,69 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
       description: incident.description, status: incident.status, createdAt: incident.createdAt,
       reporterName: nameOf(incident.reporterId), hasPhoto: incident.photo !== null, resolution: incident.resolution,
     };
+  }
+
+  // ===== Đợt 3: tài chính chủ bãi xe =====
+
+  /** R13: tiền mặt quản lý đang giữ = tiền nhận khi đổi điểm − tiền trả khi rút (tỷ lệ 1 đ = 1 điểm). */
+  function cashHeld(): number {
+    return state.transactions.reduce((sum, t) => {
+      if (t.type === 'DOI_DIEM') return sum + (t.entries[0]?.change ?? 0) * CASH_PER_POINT;
+      if (t.type === 'RUT_DIEM') return sum + (t.entries[0]?.change ?? 0) * CASH_PER_POINT;
+      return sum;
+    }, 0);
+  }
+
+  function pendingPoints(): number {
+    return (state.withdrawals ?? []).filter((w) => w.status === 'CHO_XU_LY').reduce((sum, w) => sum + w.points, 0);
+  }
+
+  function toWithdrawal(w: MockWithdrawal): WithdrawalView {
+    return {
+      ...w, cashPerPoint: CASH_PER_POINT, cashAmount: w.points * CASH_PER_POINT, method: 'TIEN_MAT',
+      processedByName: w.processedBy ? nameOf(w.processedBy) : null,
+      resolvedByName: w.resolvedBy ? nameOf(w.resolvedBy) : null,
+    };
+  }
+
+  function withdrawalOf(id: number): MockWithdrawal {
+    const found = (state.withdrawals ?? []).find((w) => w.id === id);
+    if (!found) return fail('WITHDRAWAL_NOT_FOUND');
+    return found;
+  }
+
+  function moveWithdrawal(w: MockWithdrawal, from: MockWithdrawal['status'][], to: MockWithdrawal['status']): void {
+    if (!from.includes(w.status)) fail('WITHDRAWAL_STATUS_CONFLICT');
+    w.status = to;
+  }
+
+  function requireNote(note: string, field = 'note'): string {
+    const text = note.trim();
+    if (!text || text.length > 500) invalid([{ field, code: 'LENGTH', message: 'Vui lòng ghi lý do (tối đa 500 ký tự)' }]);
+    return text;
+  }
+
+  function dailyRevenue(from: string, to: string): RevenueDay[] {
+    const days = new Map<string, RevenueDay>();
+    state.transactions
+      .filter((t) => t.createdAt.slice(0, 10) >= from && t.createdAt.slice(0, 10) <= to)
+      .forEach((t) => {
+        const date = t.createdAt.slice(0, 10);
+        const day = days.get(date) ?? { date, payments: 0, revenue: 0, adjustments: 0, cashIn: 0, cashOut: 0 };
+        const ownerChange = t.entries.find((entry) => entry.userId === OWNER_ID)?.change ?? 0;
+        if (t.type === 'THANH_TOAN') {
+          day.payments += 1;
+          day.revenue += ownerChange;
+        } else if (t.type === 'DIEU_CHINH') {
+          day.adjustments += ownerChange;
+        } else if (t.type === 'DOI_DIEM') {
+          day.cashIn += (t.entries[0]?.change ?? 0) * CASH_PER_POINT;
+        } else if (t.type === 'RUT_DIEM') {
+          day.cashOut += -(t.entries[0]?.change ?? 0) * CASH_PER_POINT;
+        }
+        days.set(date, day);
+      });
+    return [...days.values()].sort((a, b) => a.date.localeCompare(b.date));
   }
 
   function issueTemporary(managerId: number, user: MockUser) {
@@ -653,25 +725,6 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         requireRole('QUAN_LY');
         const owner = state.users.find((user) => user.id === OWNER_ID);
         return { fullName: owner?.fullName ?? '', balance: balanceOf(OWNER_ID) };
-      }),
-
-    withdraw: (points, key) =>
-      call(() => {
-        const manager = requireRole('QUAN_LY');
-        if (points > MAX_AMOUNT) {
-          invalid([{ field: 'points', code: 'RANGE', message: 'Tối đa 10.000.000 điểm mỗi lần' }]);
-        }
-        return idempotent(key, `RUT_DIEM|${manager.id}|${points}`, () => {
-          if (points <= 0) fail('INVALID_AMOUNT');
-          if (balanceOf(OWNER_ID) < points) fail('INSUFFICIENT_POINTS');
-          const transaction = record('RUT_DIEM', [[OWNER_ID, -points]], new Date());
-          const entry = transaction.entries[0];
-          return {
-            transactionId: transaction.id, points, cashPerPoint: CASH_PER_POINT, cashAmount: points * CASH_PER_POINT,
-            balanceBefore: entry?.balanceBefore ?? 0, balanceAfter: entry?.balanceAfter ?? 0,
-            createdAt: transaction.createdAt,
-          };
-        });
       }),
 
     guards: () =>
@@ -1030,6 +1083,157 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
       call(() => {
         const guard = requireRole('BAO_VE');
         return (state.incidents ?? []).filter((incident) => incident.reporterId === guard.id).sort((a, b) => b.id - a.id).map(toIncident);
+      }),
+
+    // ===== Đợt 3 =====
+
+    ownerOverview: () =>
+      call(() => {
+        const owner = requireRole('CHU_TAI_KHOAN');
+        const today = toVietnamIso(new Date()).slice(0, 10);
+        const month = dailyRevenue(`${today.slice(0, 8)}01`, today);
+        const todayRow = month.find((day) => day.date === today);
+        const balance = balanceOf(owner.id);
+        return {
+          ownerName: owner.fullName, balance, pendingPoints: pendingPoints(),
+          available: Math.max(0, balance - pendingPoints()),
+          revenueToday: todayRow?.revenue ?? 0, paymentsToday: todayRow?.payments ?? 0,
+          revenueMonth: month.reduce((sum, day) => sum + day.revenue, 0), cashHeld: cashHeld(), cashPerPoint: CASH_PER_POINT,
+        };
+      }),
+
+    ownerRevenue: (from, to) =>
+      call(() => {
+        requireRole('CHU_TAI_KHOAN');
+        if (to < from) fail('VALIDATION_ERROR');
+        const days = dailyRevenue(from, to);
+        const total = (key: keyof Omit<RevenueDay, 'date'>) => days.reduce((sum, day) => sum + day[key], 0);
+        return {
+          from, to, days, totalPayments: total('payments'), totalRevenue: total('revenue'),
+          totalAdjustments: total('adjustments'), totalCashIn: total('cashIn'), totalCashOut: total('cashOut'),
+        };
+      }),
+
+    myWithdrawalRequests: () =>
+      call(() => {
+        requireRole('CHU_TAI_KHOAN');
+        return [...(state.withdrawals ?? [])].sort((a, b) => b.id - a.id).map(toWithdrawal);
+      }),
+
+    createWithdrawalRequest: (points) =>
+      call(() => {
+        const owner = requireRole('CHU_TAI_KHOAN');
+        if (!Number.isSafeInteger(points) || points <= 0) fail('INVALID_AMOUNT');
+        if (pendingPoints() + points > balanceOf(owner.id)) fail('WITHDRAWAL_EXCEEDS_AVAILABLE');      // R15
+        const request: MockWithdrawal = {
+          id: nextId(), points, status: 'CHO_XU_LY', createdAt: toVietnamIso(new Date()), cancelledAt: null,
+          processedBy: null, processedAt: null, rejectReason: null, transactionId: null, confirmedAt: null,
+          complaintNote: null, complainedAt: null, resolutionNote: null, resolvedBy: null, resolvedAt: null,
+        };
+        state.withdrawals = [...(state.withdrawals ?? []), request];
+        return toWithdrawal(request);
+      }),
+
+    cancelWithdrawalRequest: (id) =>
+      call(() => {
+        requireRole('CHU_TAI_KHOAN');
+        const request = withdrawalOf(id);
+        moveWithdrawal(request, ['CHO_XU_LY'], 'DA_HUY');
+        request.cancelledAt = toVietnamIso(new Date());
+        return toWithdrawal(request);
+      }),
+
+    confirmWithdrawalRequest: (id) =>
+      call(() => {
+        requireRole('CHU_TAI_KHOAN');
+        const request = withdrawalOf(id);
+        moveWithdrawal(request, ['DA_TRA'], 'DA_XAC_NHAN');
+        request.confirmedAt = toVietnamIso(new Date());
+        return toWithdrawal(request);
+      }),
+
+    complainWithdrawalRequest: (id, note) =>
+      call(() => {
+        requireRole('CHU_TAI_KHOAN');
+        const text = requireNote(note);
+        const request = withdrawalOf(id);
+        moveWithdrawal(request, ['DA_TRA'], 'KHIEU_NAI');
+        request.complaintNote = text;
+        request.complainedAt = toVietnamIso(new Date());
+        return toWithdrawal(request);
+      }),
+
+    withdrawalQueue: (status) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        const owner = state.users.find((user) => user.id === OWNER_ID);
+        return {
+          ownerName: owner?.fullName ?? '', cashHeld: cashHeld(),
+          items: [...(state.withdrawals ?? [])].filter((w) => !status || w.status === status).sort((a, b) => b.id - a.id)
+            .map(toWithdrawal),
+        };
+      }),
+
+    payWithdrawalRequest: (id) =>
+      call(() => {
+        const manager = requireRole('QUAN_LY');
+        const request = withdrawalOf(id);
+        if (['DA_TRA', 'DA_XAC_NHAN', 'KHIEU_NAI'].includes(request.status)) return { request: toWithdrawal(request), replayed: true };
+        if (request.points * CASH_PER_POINT > cashHeld()) fail('CASH_FUND_INSUFFICIENT');                // R16
+        if (balanceOf(OWNER_ID) < request.points) fail('INSUFFICIENT_POINTS');
+        moveWithdrawal(request, ['CHO_XU_LY'], 'DA_TRA');
+        const transaction = record('RUT_DIEM', [[OWNER_ID, -request.points]], new Date());
+        request.transactionId = transaction.id;
+        request.processedBy = manager.id;
+        request.processedAt = transaction.createdAt;
+        return { request: toWithdrawal(request), replayed: false };
+      }),
+
+    rejectWithdrawalRequest: (id, note) =>
+      call(() => {
+        const manager = requireRole('QUAN_LY');
+        const text = requireNote(note);
+        const request = withdrawalOf(id);
+        moveWithdrawal(request, ['CHO_XU_LY'], 'TU_CHOI');
+        request.rejectReason = text;
+        request.processedBy = manager.id;
+        request.processedAt = toVietnamIso(new Date());
+        return toWithdrawal(request);
+      }),
+
+    resolveWithdrawalRequest: (id, note) =>
+      call(() => {
+        const manager = requireRole('QUAN_LY');
+        const text = requireNote(note);
+        const request = withdrawalOf(id);
+        moveWithdrawal(request, ['KHIEU_NAI'], 'DA_XAC_NHAN');
+        request.resolutionNote = text;
+        request.resolvedBy = manager.id;
+        request.resolvedAt = toVietnamIso(new Date());
+        return toWithdrawal(request);
+      }),
+
+    adjustPoints: (body, key) =>
+      call(() => {
+        const manager = requireRole('QUAN_LY');
+        const reason = requireNote(body.reason, 'reason');
+        const student = state.users.find((user) => user.studentCode === body.studentCode.trim().toUpperCase());
+        if (!student) return fail('STUDENT_NOT_FOUND');
+        if (!Number.isSafeInteger(body.points) || body.points <= 0) fail('INVALID_AMOUNT');
+        if (body.originalTransactionId && !state.transactions.some((t) => t.id === body.originalTransactionId)) {
+          fail('TRANSACTION_NOT_FOUND');
+        }
+        const refund = body.direction === 'HOAN_DIEM';
+        const [from, to] = refund ? [OWNER_ID, student.id] : [student.id, OWNER_ID];
+        return idempotent(key, `DIEU_CHINH|${manager.id}|${JSON.stringify(body)}`, () => {
+          if (balanceOf(from) < body.points) fail('INSUFFICIENT_POINTS');
+          const transaction = record('DIEU_CHINH', [[from, -body.points], [to, body.points]], new Date());
+          return {
+            transactionId: transaction.id, studentCode: student.studentCode ?? '', studentName: student.fullName,
+            direction: body.direction, points: body.points, reason, originalTransactionId: body.originalTransactionId ?? null,
+            createdAt: transaction.createdAt,
+          };
+        });
       }),
 
     incidentPhotoUrl: (incidentId) => (state.incidents ?? []).find((incident) => incident.id === incidentId)?.photo ?? '',

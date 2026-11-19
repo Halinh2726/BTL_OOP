@@ -84,7 +84,7 @@ class PointTransactionRowTest {
         PointTransactionRow saved = new PointTransactionRow(99L, row.type(), row.points(),
                 row.sourceWalletId(), row.targetWalletId(), row.sourceBalanceAfter(), row.targetBalanceAfter(),
                 row.idempotencyKey(), row.performedBy(), row.createdAt(),
-                row.cashAmount(), row.cashPerPoint(), row.sessionId());
+                row.cashAmount(), row.cashPerPoint(), row.sessionId(), row.originalTransactionId(), row.reason());
 
         PointTransaction restored = saved.toDomain();
 

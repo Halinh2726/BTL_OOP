@@ -150,7 +150,7 @@ export interface Wallet {
   balance: number;
 }
 
-export type TransactionType = 'DOI_DIEM' | 'THANH_TOAN' | 'RUT_DIEM';
+export type TransactionType = 'DOI_DIEM' | 'THANH_TOAN' | 'RUT_DIEM' | 'DIEU_CHINH';
 
 /** Một dòng lịch sử, nhìn từ góc ví của người đang xem: change có dấu. */
 export interface TransactionItem {
@@ -252,17 +252,6 @@ export interface DepositResult {
 export interface OwnerWallet {
   fullName: string;
   balance: number;
-}
-
-export interface WithdrawalResult {
-  transactionId: number;
-  points: number;
-  cashPerPoint: number;
-  /** Số tiền quản lý trả cho chủ tài khoản. */
-  cashAmount: number;
-  balanceBefore: number;
-  balanceAfter: number;
-  createdAt: string;
 }
 
 export type GuardStatus = 'HOAT_DONG' | 'BI_KHOA';
@@ -417,4 +406,103 @@ export interface ReportIncidentRequest {
   photoContentType?: string;
   /** Ảnh đã thu nhỏ, dạng Base64 (có thể kèm tiền tố data:). */
   photoBase64?: string;
+}
+
+// ===== Đợt 3: rút điểm theo yêu cầu, điều chỉnh, tài chính chủ bãi xe =====
+
+export type WithdrawalStatus = 'CHO_XU_LY' | 'DA_TRA' | 'DA_XAC_NHAN' | 'TU_CHOI' | 'DA_HUY' | 'KHIEU_NAI';
+
+export interface WithdrawalView {
+  id: number;
+  points: number;
+  cashPerPoint: number;
+  /** Số tiền mặt sẽ trả / đã trả (đồng). */
+  cashAmount: number;
+  method: 'TIEN_MAT';
+  status: WithdrawalStatus;
+  createdAt: string;
+  cancelledAt: string | null;
+  processedByName: string | null;
+  processedAt: string | null;
+  rejectReason: string | null;
+  transactionId: number | null;
+  confirmedAt: string | null;
+  complaintNote: string | null;
+  complainedAt: string | null;
+  resolutionNote: string | null;
+  resolvedByName: string | null;
+  resolvedAt: string | null;
+}
+
+/** GET /manager/withdrawal-requests */
+export interface WithdrawalQueue {
+  ownerName: string;
+  /** Quỹ tiền mặt quản lý đang giữ (R13) — trả tiền không được vượt (R16). */
+  cashHeld: number;
+  items: WithdrawalView[];
+}
+
+export interface PayWithdrawalResult {
+  request: WithdrawalView;
+  /** true: yêu cầu đã được trả từ trước, lần này không trừ điểm (R17). */
+  replayed: boolean;
+}
+
+/** GET /owner/overview */
+export interface OwnerOverview {
+  ownerName: string;
+  balance: number;
+  /** Điểm đang nằm trong các yêu cầu rút chờ xử lý. */
+  pendingPoints: number;
+  /** Điểm còn tạo được yêu cầu rút (R15). */
+  available: number;
+  revenueToday: number;
+  paymentsToday: number;
+  revenueMonth: number;
+  cashHeld: number;
+  cashPerPoint: number;
+}
+
+export interface RevenueDay {
+  date: string;
+  payments: number;
+  revenue: number;
+  /** Điểm điều chỉnh ròng vào ví chủ bãi (âm: đã hoàn cho sinh viên). */
+  adjustments: number;
+  /** Tiền mặt vào hệ thống (đổi điểm). */
+  cashIn: number;
+  /** Tiền mặt ra khỏi hệ thống (rút điểm). */
+  cashOut: number;
+}
+
+export interface RevenueReport {
+  from: string;
+  to: string;
+  days: RevenueDay[];
+  totalPayments: number;
+  totalRevenue: number;
+  totalAdjustments: number;
+  totalCashIn: number;
+  totalCashOut: number;
+}
+
+export type AdjustmentDirection = 'HOAN_DIEM' | 'THU_HOI';
+
+export interface AdjustRequest {
+  studentCode: string;
+  direction: AdjustmentDirection;
+  points: number;
+  reason: string;
+  originalTransactionId?: number;
+}
+
+export interface AdjustResult {
+  transactionId: number;
+  studentCode: string;
+  studentName: string;
+  direction: AdjustmentDirection;
+  points: number;
+  reason: string;
+  originalTransactionId: number | null;
+  createdAt: string;
 }

@@ -7,6 +7,7 @@ import type {
   ShiftSummary,
   TransactionType,
   VehicleStatus,
+  WithdrawalStatus,
 } from '../../types/api';
 
 /** Dữ liệu giả lập — chỉ dùng khi VITE_API_MODE=mock, để bấm thử giao diện khi không có backend. */
@@ -53,6 +54,25 @@ export interface MockAuditEntry {
 }
 
 export const MOCK_OTP = '123456';
+
+/** Đợt 3 — yêu cầu rút điểm của chủ bãi xe. */
+export interface MockWithdrawal {
+  id: number;
+  points: number;
+  status: WithdrawalStatus;
+  createdAt: string;
+  cancelledAt: string | null;
+  processedBy: number | null;
+  processedAt: string | null;
+  rejectReason: string | null;
+  transactionId: number | null;
+  confirmedAt: string | null;
+  complaintNote: string | null;
+  complainedAt: string | null;
+  resolutionNote: string | null;
+  resolvedBy: number | null;
+  resolvedAt: string | null;
+}
 
 export interface MockParkingSession {
   id: number;
@@ -130,6 +150,8 @@ export interface MockState {
   /** Đợt 2 */
   shifts?: MockShift[];
   incidents?: MockIncident[];
+  /** Đợt 3 */
+  withdrawals?: MockWithdrawal[];
 }
 
 const HOUR = 60 * 60 * 1000;
@@ -207,5 +229,6 @@ export function seedState(now = new Date()): MockState {
     bicycleSeq: 0,
     shifts: [],
     incidents: [],
+    withdrawals: [],
   };
 }

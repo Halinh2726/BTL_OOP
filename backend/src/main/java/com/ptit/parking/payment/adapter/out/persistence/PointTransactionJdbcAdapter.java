@@ -28,10 +28,12 @@ class PointTransactionJdbcAdapter implements PointTransactionRepository {
     private static final String SELECT = """
             SELECT t.id, t.type, t.points, t.source_wallet_id, t.target_wallet_id,
                    t.source_balance_after, t.target_balance_after, t.idempotency_key, t.request_hash,
-                   t.performed_by, t.created_at, c.cash_amount, c.cash_per_point, p.session_id
+                   t.performed_by, t.created_at, c.cash_amount, c.cash_per_point, p.session_id,
+                   a.original_transaction_id, a.reason
             FROM point_transactions t
             LEFT JOIN cash_details c ON c.transaction_id = t.id
             LEFT JOIN parking_payment_details p ON p.transaction_id = t.id
+            LEFT JOIN adjustment_details a ON a.transaction_id = t.id
             """;
 
     /** Ràng buộc UNIQUE của cột idempotency_key (V006). */
@@ -62,6 +64,15 @@ class PointTransactionJdbcAdapter implements PointTransactionRepository {
                     .param("id", id)
                     .param("cash", row.cashAmount())
                     .param("rate", row.cashPerPoint())
+                    .update();
+        }
+        if (row.reason() != null) {
+            jdbc.sql("""
+                    INSERT INTO adjustment_details (transaction_id, original_transaction_id, reason)
+                    VALUES (:id, :original, :reason)""")
+                    .param("id", id)
+                    .param("original", row.originalTransactionId())
+                    .param("reason", row.reason())
                     .update();
         }
         if (row.sessionId() != null) {
@@ -101,6 +112,14 @@ class PointTransactionJdbcAdapter implements PointTransactionRepository {
     }
 
     @Override
+    public Optional<PointTransaction> findById(long id) {
+        return jdbc.sql(SELECT + "WHERE t.id = :id")
+                .param("id", id)
+                .query((rs, n) -> toRow(rs).toDomain())
+                .optional();
+    }
+
+    @Override
     public List<PointTransaction> findPageForWallet(long walletId, TransactionType type, Long before, int limit) {
         return jdbc.sql(SELECT + """
                 WHERE (t.source_wallet_id = :walletId OR t.target_wallet_id = :walletId)
@@ -130,6 +149,8 @@ class PointTransactionJdbcAdapter implements PointTransactionRepository {
                 rs.getObject("created_at", LocalDateTime.class).toInstant(ZoneOffset.UTC),
                 rs.getObject("cash_amount", Long.class),
                 rs.getObject("cash_per_point", Integer.class),
-                rs.getObject("session_id", Long.class));
+                rs.getObject("session_id", Long.class),
+                rs.getObject("original_transaction_id", Long.class),
+                rs.getString("reason"));
     }
 }

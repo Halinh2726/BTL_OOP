@@ -5,12 +5,12 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * GiaoDich — lớp TRỪU TƯỢNG, {@code sealed}: chỉ đúng 3 lớp con được phép kế thừa.
+ * GiaoDich — lớp TRỪU TƯỢNG, {@code sealed}: chỉ đúng 4 lớp con được phép kế thừa (Đợt 3 thêm PointAdjustment).
  * <p><b>Đa hình:</b> mỗi loại giao dịch tự biết điểm của MỘT ví thay đổi thế nào
  * ({@link #changeFor(long)}); nơi gọi không cần if/else theo loại.
  * <p>R10: không có phương thức nào sửa giao dịch sau khi tạo — mọi field đều final.
  */
-public abstract sealed class PointTransaction permits CashDeposit, CashWithdrawal, ParkingPayment {
+public abstract sealed class PointTransaction permits CashDeposit, CashWithdrawal, ParkingPayment, PointAdjustment {
 
     private final Long id;                 // null khi chưa lưu CSDL
     private final long points;

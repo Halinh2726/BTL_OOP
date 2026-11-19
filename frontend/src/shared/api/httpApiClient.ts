@@ -123,7 +123,6 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
     lookupStudent: (studentCode) => json(`/manager/students/${encodeURIComponent(studentCode.trim())}`),
     deposit: (body, key) => idempotent('/manager/deposits', body, key),
     ownerWallet: () => json('/manager/owner-wallet'),
-    withdraw: (points, key) => idempotent('/manager/withdrawals', { points }, key),
     guards: () => json('/manager/guards'),
     createGuard: (body) => json('/manager/guards', { method: 'POST', body }),
     changeGuardStatus: (guardId, status) =>
@@ -160,6 +159,23 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
     endShift: (note, closingCash) => json('/guard/shifts/end', { method: 'POST', body: { note, closingCash } }),
     myShiftHistory: () => json('/guard/shifts/history'),
     guardTimesheet: (from, to, guardId) => json('/manager/guard-shifts', { query: { from, to, guardId } }),
+
+    ownerOverview: () => json('/owner/overview'),
+    ownerRevenue: (from, to) => json('/owner/revenue', { query: { from, to } }),
+    myWithdrawalRequests: () => json('/owner/withdrawal-requests'),
+    createWithdrawalRequest: (points) => json('/owner/withdrawal-requests', { method: 'POST', body: { points } }),
+    cancelWithdrawalRequest: (id) => json(`/owner/withdrawal-requests/${id}/cancel`, { method: 'POST' }),
+    confirmWithdrawalRequest: (id) => json(`/owner/withdrawal-requests/${id}/confirm`, { method: 'POST' }),
+    complainWithdrawalRequest: (id, note) =>
+      json(`/owner/withdrawal-requests/${id}/complain`, { method: 'POST', body: { note } }),
+
+    withdrawalQueue: (status) => json('/manager/withdrawal-requests', { query: { status } }),
+    payWithdrawalRequest: (id) => json(`/manager/withdrawal-requests/${id}/pay`, { method: 'POST' }),
+    rejectWithdrawalRequest: (id, note) =>
+      json(`/manager/withdrawal-requests/${id}/reject`, { method: 'POST', body: { note } }),
+    resolveWithdrawalRequest: (id, note) =>
+      json(`/manager/withdrawal-requests/${id}/resolve`, { method: 'POST', body: { note } }),
+    adjustPoints: (body, key) => idempotent('/manager/adjustments', body, key),
     reportIncident: (body) => json('/guard/incidents', { method: 'POST', body }),
     myIncidents: () => json('/guard/incidents'),
     incidentPhotoUrl: (incidentId) => url(`/guard/incidents/${incidentId}/photo`),

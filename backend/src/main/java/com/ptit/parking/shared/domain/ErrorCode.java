@@ -18,6 +18,7 @@ public enum ErrorCode {
     FORBIDDEN(403, "Bạn không có quyền thực hiện thao tác này."),
     CSRF_INVALID(403, "Phiên làm việc không hợp lệ. Vui lòng tải lại trang."),
     PASSWORD_CHANGE_REQUIRED(403, "Bạn cần đổi mật khẩu tạm trước khi tiếp tục."),
+    SELF_PROCESSING_FORBIDDEN(403, "Người tạo yêu cầu không được tự xử lý yêu cầu của mình."),
 
     // 404 — không tìm thấy
     NOT_FOUND(404, "Không tìm thấy tài nguyên."),
@@ -27,6 +28,8 @@ public enum ErrorCode {
     GUARD_NOT_FOUND(404, "Không tìm thấy tài khoản bảo vệ."),
     VEHICLE_NOT_FOUND(404, "Không tìm thấy xe."),
     INCIDENT_NOT_FOUND(404, "Không tìm thấy sự cố."),
+    WITHDRAWAL_NOT_FOUND(404, "Không tìm thấy yêu cầu rút điểm."),
+    TRANSACTION_NOT_FOUND(404, "Không tìm thấy giao dịch gốc."),
 
     // 409 — xung đột dữ liệu
     STUDENT_CODE_EXISTS(409, "MSSV đã tồn tại"),
@@ -42,6 +45,7 @@ public enum ErrorCode {
     NO_OPEN_SHIFT(409, "Bạn chưa nhận ca trực."),
     HANDOVER_PENDING(409, "Có biên bản bàn giao ca chưa được xác nhận. Xem lại rồi bấm Nhận ca."),
     INCIDENT_STATUS_CONFLICT(409, "Sự cố không ở trạng thái cho phép thao tác này."),
+    WITHDRAWAL_STATUS_CONFLICT(409, "Yêu cầu rút điểm không ở trạng thái cho phép thao tác này."),
 
     // 422 — vi phạm quy tắc nghiệp vụ
     INSUFFICIENT_POINTS(422, "Không đủ điểm."),
@@ -56,6 +60,8 @@ public enum ErrorCode {
     PLATE_REQUIRED(422, "Vui lòng nhập biển số. Chỉ xe đạp không có biển mới được bãi cấp mã."),
     VEHICLE_LIMIT_REACHED(422, "Mỗi sinh viên được tối đa 3 xe đang sử dụng."),
     PHOTO_INVALID(422, "Ảnh phải là JPG, PNG hoặc WEBP và không quá 2 MB."),
+    WITHDRAWAL_EXCEEDS_AVAILABLE(422, "Số điểm yêu cầu vượt số điểm còn có thể rút (đã trừ các yêu cầu đang chờ)."),
+    CASH_FUND_INSUFFICIENT(422, "Quỹ tiền mặt hiện không đủ để trả yêu cầu này."),
 
     // 429 / 500
     TOO_MANY_REQUESTS(429, "Thao tác quá nhiều lần. Vui lòng thử lại sau ít phút."),

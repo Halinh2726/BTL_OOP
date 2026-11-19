@@ -77,7 +77,7 @@ describe('mockApiClient (dữ liệu giả lập phải theo đúng hợp đồn
     expect(await api.previewCheckIn('99Z99999')).toMatchObject({ allowed: false, reason: 'PLATE_NOT_FOUND', fullName: null });
   });
 
-  it('đổi điểm, rút điểm; cùng key khác nội dung -> IDEMPOTENCY_KEY_REUSED', async () => {
+  it('đổi điểm; cùng key khác nội dung -> IDEMPOTENCY_KEY_REUSED; quản lý không tự rút điểm', async () => {
     await api.login({ username: 'quanly01', password: 'demo1234' });
     const deposit = await api.deposit({ studentCode: 'b21dccn001', cashAmount: 50000 }, 'd-1');
     expect(deposit.data).toMatchObject({ studentCode: 'B21DCCN001', points: 50000, balanceBefore: 44000, balanceAfter: 94000 });
@@ -85,9 +85,7 @@ describe('mockApiClient (dữ liệu giả lập phải theo đúng hợp đồn
     expect(await codeOf(api.deposit({ studentCode: 'B21DCCN001', cashAmount: 0 }, 'd-2'))).toBe('INVALID_AMOUNT');
     expect(await codeOf(api.lookupStudent('KHONGCO'))).toBe('STUDENT_NOT_FOUND');
 
-    expect(await codeOf(api.withdraw(999999, 'w-1'))).toBe('INSUFFICIENT_POINTS');
-    const withdrawal = await api.withdraw(1000, 'w-2');
-    expect(withdrawal.data).toMatchObject({ cashAmount: 1000, balanceBefore: 4000, balanceAfter: 3000 });
+    expect(await codeOf(api.createWithdrawalRequest(1000))).toBe('FORBIDDEN');      // quản lý không tự tạo yêu cầu rút
   });
 
   it('khóa bảo vệ -> bảo vệ đó không đăng nhập được; tên đăng nhập trùng -> USERNAME_EXISTS', async () => {

@@ -4,5 +4,7 @@ package com.ptit.parking.payment.domain;
 public enum TransactionType {
     DOI_DIEM,
     THANH_TOAN,
-    RUT_DIEM
+    RUT_DIEM,
+    /** Đợt 3: chuyển điểm sửa sai sót, có lý do — xem PointAdjustment. */
+    DIEU_CHINH
 }

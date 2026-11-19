@@ -21,6 +21,9 @@ public interface PointTransactionRepository {
 
     Optional<Recorded> findByIdempotencyKey(UUID idempotencyKey);
 
+    /** Đợt 3: một giao dịch theo id (kiểm tra giao dịch gốc khi ghi điều chỉnh). */
+    Optional<PointTransaction> findById(long id);
+
     /**
      * Một trang lịch sử của MỘT ví (ví là nguồn hoặc đích), id giảm dần.
      *

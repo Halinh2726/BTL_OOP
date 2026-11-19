@@ -3,6 +3,7 @@ package com.ptit.parking.payment.application.port.out;
 import com.ptit.parking.payment.domain.CashDeposit;
 import com.ptit.parking.payment.domain.CashWithdrawal;
 import com.ptit.parking.payment.domain.ParkingPayment;
+import com.ptit.parking.payment.domain.PointAdjustment;
 import com.ptit.parking.payment.domain.PointTransaction;
 import com.ptit.parking.payment.domain.TransactionType;
 import java.util.ArrayList;
@@ -41,6 +42,11 @@ public class InMemoryPointTransactionRepository implements PointTransactionRepos
     }
 
     @Override
+    public synchronized Optional<PointTransaction> findById(long id) {
+        return saved.stream().map(Recorded::transaction).filter(t -> t.id() == id).findFirst();
+    }
+
+    @Override
     public synchronized List<PointTransaction> findPageForWallet(long walletId, TransactionType type, Long before, int limit) {
         return saved.stream().map(Recorded::transaction)
                 .filter(t -> t.involves(walletId))
@@ -71,6 +77,9 @@ public class InMemoryPointTransactionRepository implements PointTransactionRepos
             case ParkingPayment p -> ParkingPayment.restore(id, p.points(), p.idempotencyKey(), p.performedBy(),
                     p.createdAt(), p.sessionId(), p.sourceWalletId(), p.targetWalletId(),
                     p.sourceBalanceAfter(), p.targetBalanceAfter());
+            case PointAdjustment a -> PointAdjustment.restore(id, a.points(), a.idempotencyKey(), a.performedBy(),
+                    a.createdAt(), a.sourceWalletId(), a.targetWalletId(), a.sourceBalanceAfter(), a.targetBalanceAfter(),
+                    a.originalTransactionId(), a.reason());
         };
     }
 }

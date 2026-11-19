@@ -21,6 +21,11 @@ export const queryKeys = {
   currentShift: ['guard', 'shift'] as const,
   myIncidents: ['guard', 'incidents'] as const,
   myShiftHistory: ['guard', 'shift-history'] as const,
+  ownerOverview: ['owner', 'overview'] as const,
+  ownerRevenue: (from: string, to: string) => ['owner', 'revenue', from, to] as const,
+  myWithdrawals: ['owner', 'withdrawals'] as const,
+  withdrawalQueue: (status: string | undefined) => ['manager', 'withdrawals', status ?? 'ALL'] as const,
+  withdrawalQueueAll: ['manager', 'withdrawals'] as const,
   guardTimesheet: (from: string, to: string, guardId: number | undefined) =>
     ['manager', 'timesheet', from, to, guardId ?? 'ALL'] as const,
 };

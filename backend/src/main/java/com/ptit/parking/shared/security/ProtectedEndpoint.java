@@ -11,6 +11,8 @@ import static com.ptit.parking.shared.security.Permission.CASH_WITHDRAWAL;
 import static com.ptit.parking.shared.security.Permission.GUARD_CREATE;
 import static com.ptit.parking.shared.security.Permission.GUARD_LOCK;
 import static com.ptit.parking.shared.security.Permission.INCIDENT_REPORT;
+import static com.ptit.parking.shared.security.Permission.OWNER_FINANCE;
+import static com.ptit.parking.shared.security.Permission.POINT_ADJUST;
 import static com.ptit.parking.shared.security.Permission.PARKING_CHECK_IN;
 import static com.ptit.parking.shared.security.Permission.PARKING_CHECK_OUT;
 import static com.ptit.parking.shared.security.Permission.VEHICLE_REGISTER;
@@ -42,13 +44,22 @@ public enum ProtectedEndpoint {
     END_SHIFT          (HttpMethod.POST,  "/api/v1/guard/shifts/end",         PARKING_CHECK_IN, PARKING_CHECK_OUT), // Đợt 2
     MY_SHIFT_HISTORY   (HttpMethod.GET,   "/api/v1/guard/shifts/history",     PARKING_CHECK_IN, PARKING_CHECK_OUT), // Đợt 2: chấm công
     GUARD_TIMESHEET    (HttpMethod.GET,   "/api/v1/manager/guard-shifts",     GUARD_CREATE, GUARD_LOCK), // Đợt 2: chấm công
+    // Đợt 3 — chủ bãi xe: tổng quan, doanh thu, yêu cầu rút điểm (tạo / hủy / xác nhận / khiếu nại)
+    OWNER_OVERVIEW     (HttpMethod.GET,   "/api/v1/owner/overview",           OWNER_FINANCE),
+    OWNER_REVENUE      (HttpMethod.GET,   "/api/v1/owner/revenue",            OWNER_FINANCE),
+    OWNER_WITHDRAWALS  (HttpMethod.GET,   "/api/v1/owner/withdrawal-requests", OWNER_FINANCE),
+    CREATE_WITHDRAWAL  (HttpMethod.POST,  "/api/v1/owner/withdrawal-requests", OWNER_FINANCE),
+    OWNER_WITHDRAWAL_ACTION(HttpMethod.POST, "/api/v1/owner/withdrawal-requests/*/*", OWNER_FINANCE),
+    // Đợt 3 — quản lý: xử lý yêu cầu rút (thay cho rút điểm tự do #19 đã bỏ), giao dịch điều chỉnh
+    MANAGER_WITHDRAWALS(HttpMethod.GET,   "/api/v1/manager/withdrawal-requests", CASH_WITHDRAWAL),
+    MANAGER_WITHDRAWAL_ACTION(HttpMethod.POST, "/api/v1/manager/withdrawal-requests/*/*", CASH_WITHDRAWAL),
+    ADJUST_POINTS      (HttpMethod.POST,  "/api/v1/manager/adjustments",      POINT_ADJUST),
     REPORT_INCIDENT    (HttpMethod.POST,  "/api/v1/guard/incidents",          INCIDENT_REPORT),    // Đợt 2
     MY_INCIDENTS       (HttpMethod.GET,   "/api/v1/guard/incidents",          INCIDENT_REPORT),    // Đợt 2
     INCIDENT_PHOTO     (HttpMethod.GET,   "/api/v1/guard/incidents/*/photo",  INCIDENT_REPORT),    // Đợt 2
     LOOKUP_STUDENT     (HttpMethod.GET,   "/api/v1/manager/students/*",       CASH_DEPOSIT),       // #16
     DEPOSIT            (HttpMethod.POST,  "/api/v1/manager/deposits",         CASH_DEPOSIT),       // #17
     OWNER_WALLET       (HttpMethod.GET,   "/api/v1/manager/owner-wallet",     CASH_WITHDRAWAL),    // #18
-    WITHDRAW           (HttpMethod.POST,  "/api/v1/manager/withdrawals",      CASH_WITHDRAWAL),    // #19
     LIST_GUARDS        (HttpMethod.GET,   "/api/v1/manager/guards",           GUARD_CREATE, GUARD_LOCK), // #20
     CREATE_GUARD       (HttpMethod.POST,  "/api/v1/manager/guards",           GUARD_CREATE),       // #21
     CHANGE_GUARD_STATUS(HttpMethod.PATCH, "/api/v1/manager/guards/*/status",  GUARD_LOCK),         // #22

@@ -158,11 +158,21 @@ class ParkingFlowIntegrationTest {
                 .andExpect(jsonPath("$.items[1].type").value("DOI_DIEM"))
                 .andExpect(jsonPath("$.items[1].change").value(50000));
 
-        // 6. Quản lý rút 3.000 điểm của chủ tài khoản ra tiền mặt (R09)
-        mvc.perform(withKey(post(API + "/manager/withdrawals"), UUID.randomUUID()).session(manager)
+        // 6. Đợt 3: chủ bãi xe TẠO yêu cầu rút 3.000 điểm, quản lý TRẢ tiền mặt -> lúc này điểm mới bị trừ (R15–R18)
+        MvcResult requested = mvc.perform(post(API + "/owner/withdrawal-requests").session(owner).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"points\":3000}"))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.cashAmount").value(3000));
+                .andExpect(jsonPath("$.status").value("CHO_XU_LY"))
+                .andExpect(jsonPath("$.cashAmount").value(3000))
+                .andReturn();
+        assertThat(ownerBalance()).isEqualTo(ownerBefore + 3_000);              // tạo yêu cầu chưa trừ điểm
+        long requestId = longAt(requested, "$.id");
+        mvc.perform(post(API + "/manager/withdrawal-requests/" + requestId + "/pay").session(manager).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.request.status").value("DA_TRA"))
+                .andExpect(jsonPath("$.replayed").value(false));
+        mvc.perform(post(API + "/manager/withdrawal-requests/" + requestId + "/pay").session(manager).with(csrf()))
+                .andExpect(jsonPath("$.replayed").value(true));                  // R17: bấm lại không trừ lần hai
         assertThat(ownerBalance()).isEqualTo(ownerBefore);
     }
 
