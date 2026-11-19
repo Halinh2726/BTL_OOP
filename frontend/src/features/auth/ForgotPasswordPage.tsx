@@ -85,7 +85,8 @@ export function ForgotPasswordPage() {
             Gửi mã xác nhận
           </Button>
           <p className="text-sm text-slate-500">
-            Chưa khai báo email? Mang thẻ sinh viên tới quản lý bãi xe để được cấp mật khẩu tạm.
+            Chưa khai báo email? <strong>Sinh viên</strong> mang thẻ sinh viên tới quầy quản lý; <strong>bảo vệ</strong> báo
+            quản lý bãi xe — quản lý sẽ cấp mật khẩu tạm, lần đăng nhập sau bạn tự đặt mật khẩu mới.
           </p>
         </form>
       ) : (

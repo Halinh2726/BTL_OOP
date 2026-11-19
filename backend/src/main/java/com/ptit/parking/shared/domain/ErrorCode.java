@@ -26,6 +26,7 @@ public enum ErrorCode {
     STUDENT_NOT_FOUND(404, "MSSV không tồn tại"),
     GUARD_NOT_FOUND(404, "Không tìm thấy tài khoản bảo vệ."),
     VEHICLE_NOT_FOUND(404, "Không tìm thấy xe."),
+    INCIDENT_NOT_FOUND(404, "Không tìm thấy sự cố."),
 
     // 409 — xung đột dữ liệu
     STUDENT_CODE_EXISTS(409, "MSSV đã tồn tại"),
@@ -37,6 +38,10 @@ public enum ErrorCode {
     EMAIL_EXISTS(409, "Email đã được dùng cho tài khoản khác"),
     VEHICLE_PARKED(409, "Xe đang trong bãi. Lấy xe ra trước khi sửa hoặc ngừng sử dụng."),
     VEHICLE_INACTIVE(409, "Xe đã ngừng sử dụng."),
+    SHIFT_ALREADY_OPEN(409, "Bạn đang trong một ca trực chưa kết thúc."),
+    NO_OPEN_SHIFT(409, "Bạn chưa nhận ca trực."),
+    HANDOVER_PENDING(409, "Có biên bản bàn giao ca chưa được xác nhận. Xem lại rồi bấm Nhận ca."),
+    INCIDENT_STATUS_CONFLICT(409, "Sự cố không ở trạng thái cho phép thao tác này."),
 
     // 422 — vi phạm quy tắc nghiệp vụ
     INSUFFICIENT_POINTS(422, "Không đủ điểm."),
@@ -50,6 +55,7 @@ public enum ErrorCode {
     RESET_CODE_LOCKED(422, "Nhập sai mã quá 5 lần. Vui lòng yêu cầu mã mới."),
     PLATE_REQUIRED(422, "Vui lòng nhập biển số. Chỉ xe đạp không có biển mới được bãi cấp mã."),
     VEHICLE_LIMIT_REACHED(422, "Mỗi sinh viên được tối đa 3 xe đang sử dụng."),
+    PHOTO_INVALID(422, "Ảnh phải là JPG, PNG hoặc WEBP và không quá 2 MB."),
 
     // 429 / 500
     TOO_MANY_REQUESTS(429, "Thao tác quá nhiều lần. Vui lòng thử lại sau ít phút."),

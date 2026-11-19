@@ -10,6 +10,7 @@ import static com.ptit.parking.shared.security.Permission.CASH_DEPOSIT;
 import static com.ptit.parking.shared.security.Permission.CASH_WITHDRAWAL;
 import static com.ptit.parking.shared.security.Permission.GUARD_CREATE;
 import static com.ptit.parking.shared.security.Permission.GUARD_LOCK;
+import static com.ptit.parking.shared.security.Permission.INCIDENT_REPORT;
 import static com.ptit.parking.shared.security.Permission.PARKING_CHECK_IN;
 import static com.ptit.parking.shared.security.Permission.PARKING_CHECK_OUT;
 import static com.ptit.parking.shared.security.Permission.VEHICLE_REGISTER;
@@ -34,6 +35,16 @@ public enum ProtectedEndpoint {
     CHECK_OUT_PREVIEW  (HttpMethod.GET,   "/api/v1/guard/check-out/preview",  PARKING_CHECK_OUT),  // #14
     CHECK_OUT          (HttpMethod.POST,  "/api/v1/guard/check-out",          PARKING_CHECK_OUT),  // #15
     SUGGEST_PLATES     (HttpMethod.GET,   "/api/v1/guard/plates",             PARKING_CHECK_IN, PARKING_CHECK_OUT), // #24
+    PARKED_VEHICLES    (HttpMethod.GET,   "/api/v1/guard/parked-vehicles",    PARKING_CHECK_IN, PARKING_CHECK_OUT), // Đợt 2
+    MY_GATE_ACTIVITY   (HttpMethod.GET,   "/api/v1/guard/my-activity",        PARKING_CHECK_IN, PARKING_CHECK_OUT), // Đợt 2
+    CURRENT_SHIFT      (HttpMethod.GET,   "/api/v1/guard/shifts/current",     PARKING_CHECK_IN, PARKING_CHECK_OUT), // Đợt 2
+    START_SHIFT        (HttpMethod.POST,  "/api/v1/guard/shifts/start",       PARKING_CHECK_IN, PARKING_CHECK_OUT), // Đợt 2
+    END_SHIFT          (HttpMethod.POST,  "/api/v1/guard/shifts/end",         PARKING_CHECK_IN, PARKING_CHECK_OUT), // Đợt 2
+    MY_SHIFT_HISTORY   (HttpMethod.GET,   "/api/v1/guard/shifts/history",     PARKING_CHECK_IN, PARKING_CHECK_OUT), // Đợt 2: chấm công
+    GUARD_TIMESHEET    (HttpMethod.GET,   "/api/v1/manager/guard-shifts",     GUARD_CREATE, GUARD_LOCK), // Đợt 2: chấm công
+    REPORT_INCIDENT    (HttpMethod.POST,  "/api/v1/guard/incidents",          INCIDENT_REPORT),    // Đợt 2
+    MY_INCIDENTS       (HttpMethod.GET,   "/api/v1/guard/incidents",          INCIDENT_REPORT),    // Đợt 2
+    INCIDENT_PHOTO     (HttpMethod.GET,   "/api/v1/guard/incidents/*/photo",  INCIDENT_REPORT),    // Đợt 2
     LOOKUP_STUDENT     (HttpMethod.GET,   "/api/v1/manager/students/*",       CASH_DEPOSIT),       // #16
     DEPOSIT            (HttpMethod.POST,  "/api/v1/manager/deposits",         CASH_DEPOSIT),       // #17
     OWNER_WALLET       (HttpMethod.GET,   "/api/v1/manager/owner-wallet",     CASH_WITHDRAWAL),    // #18

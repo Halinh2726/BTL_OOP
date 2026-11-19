@@ -1,4 +1,13 @@
-import type { AuditAction, GuardStatus, Role, TransactionType, VehicleStatus } from '../../types/api';
+import type {
+  AuditAction,
+  GuardStatus,
+  IncidentStatus,
+  IncidentType,
+  Role,
+  ShiftSummary,
+  TransactionType,
+  VehicleStatus,
+} from '../../types/api';
 
 /** Dữ liệu giả lập — chỉ dùng khi VITE_API_MODE=mock, để bấm thử giao diện khi không có backend. */
 export interface MockUser {
@@ -50,6 +59,38 @@ export interface MockParkingSession {
   vehicleId: number;
   enteredAt: string;
   exitedAt: string | null;
+  /** Đợt 2 — bảo vệ cho vào / cho ra (thiếu với dữ liệu cũ). */
+  entryGuardId?: number;
+  exitGuardId?: number | null;
+}
+
+/** Đợt 2 — ca trực / biên bản bàn giao. */
+export interface MockShift {
+  id: number;
+  guardId: number;
+  startedAt: string;
+  endedAt: string | null;
+  summary: ShiftSummary | null;
+  handoverNote: string | null;
+  receivedBy: number | null;
+  /** Thiếu với dữ liệu cũ trong sessionStorage -> coi như 0 / null. */
+  openingCash?: number;
+  expectedOpeningCash?: number | null;
+  closingCash?: number | null;
+  receivedAt?: string | null;
+}
+
+export interface MockIncident {
+  id: number;
+  reporterId: number;
+  type: IncidentType;
+  plateNumber: string | null;
+  description: string;
+  status: IncidentStatus;
+  createdAt: string;
+  /** Ảnh dạng data URL để đặt thẳng vào thẻ img. */
+  photo: string | null;
+  resolution: string | null;
 }
 
 /** Một bút toán trên ví của một người dùng. Giao dịch thanh toán có hai bút toán: sinh viên (−) và chủ tài khoản (+). */
@@ -86,6 +127,9 @@ export interface MockState {
   resetCodes?: MockResetCode[];
   auditLogs?: MockAuditEntry[];
   bicycleSeq?: number;
+  /** Đợt 2 */
+  shifts?: MockShift[];
+  incidents?: MockIncident[];
 }
 
 const HOUR = 60 * 60 * 1000;
@@ -112,18 +156,18 @@ export function seedState(now = new Date()): MockState {
   return {
     nextId: 100,
     users: [
-      { id: MANAGER_ID, username: 'quanly01', password: 'Quanly@123', fullName: 'Phạm Văn Quản', role: 'QUAN_LY', status: 'HOAT_DONG' },
-      { id: OWNER_ID, username: 'chutk01', password: 'Chutk@123', fullName: 'Lê Văn C', role: 'CHU_TAI_KHOAN', status: 'HOAT_DONG' },
+      { id: MANAGER_ID, username: 'quanly01', password: 'demo1234', fullName: 'Phạm Văn Quản', role: 'QUAN_LY', status: 'HOAT_DONG' },
+      { id: OWNER_ID, username: 'chutk01', password: 'demo1234', fullName: 'Lê Văn C', role: 'CHU_TAI_KHOAN', status: 'HOAT_DONG' },
       {
-        id: STUDENT_ID, username: 'sv01', password: 'MatKhau@123', fullName: 'Nguyễn Văn A', role: 'SINH_VIEN',
+        id: STUDENT_ID, username: 'sv01', password: 'demo1234', fullName: 'Nguyễn Văn A', role: 'SINH_VIEN',
         status: 'HOAT_DONG', studentCode: 'B21DCCN001', email: 'sv01@ptit.edu.vn',
       },
       {
-        id: GUARD_ID, username: 'baove01', password: 'Baove@123', fullName: 'Trần Văn Bảo', role: 'BAO_VE',
+        id: GUARD_ID, username: 'baove01', password: 'demo1234', fullName: 'Trần Văn Bảo', role: 'BAO_VE',
         status: 'HOAT_DONG', phone: '0912345678',
       },
       {
-        id: STUDENT2_ID, username: 'sv02', password: 'MatKhau@123', fullName: 'Trần Thị B', role: 'SINH_VIEN',
+        id: STUDENT2_ID, username: 'sv02', password: 'demo1234', fullName: 'Trần Thị B', role: 'SINH_VIEN',
         status: 'HOAT_DONG', studentCode: 'B21DCCN002',
       },
     ],
@@ -131,10 +175,12 @@ export function seedState(now = new Date()): MockState {
     vehicles: [
       { id: 1, userId: STUDENT_ID, plateNumber: '29A12345', vehicleTypeCode: 'XE_MAY', registeredAt: at(24 * 7) },
       { id: 2, userId: STUDENT2_ID, plateNumber: '30B67890', vehicleTypeCode: 'XE_DAP_DIEN', registeredAt: at(24 * 6) },
+      { id: 3, userId: STUDENT2_ID, plateNumber: '29T67021', vehicleTypeCode: 'XE_MAY', registeredAt: at(24 * 4) },
     ],
     sessions: [
-      { id: 1, vehicleId: 1, enteredAt: at(24 * 3 + 9), exitedAt: at(24 * 3 + 2) },
-      { id: 2, vehicleId: 1, enteredAt: at(24 * 2 + 9), exitedAt: at(24 * 2 + 3) },
+      { id: 1, vehicleId: 1, enteredAt: at(24 * 3 + 9), exitedAt: at(24 * 3 + 2), entryGuardId: GUARD_ID, exitGuardId: GUARD_ID },
+      { id: 2, vehicleId: 1, enteredAt: at(24 * 2 + 9), exitedAt: at(24 * 2 + 3), entryGuardId: GUARD_ID, exitGuardId: GUARD_ID },
+      { id: 3, vehicleId: 3, enteredAt: at(30), exitedAt: null, entryGuardId: GUARD_ID, exitGuardId: null },
     ],
     transactions: [
       { id: 1, type: 'DOI_DIEM', createdAt: at(24 * 5), entries: [{ userId: STUDENT_ID, change: 50000, balanceBefore: 0, balanceAfter: 50000 }] },
@@ -159,5 +205,7 @@ export function seedState(now = new Date()): MockState {
     resetCodes: [],
     auditLogs: [],
     bicycleSeq: 0,
+    shifts: [],
+    incidents: [],
   };
 }

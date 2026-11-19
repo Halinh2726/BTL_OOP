@@ -6,6 +6,7 @@ import com.ptit.parking.account.application.port.out.CredentialRepository;
 import com.ptit.parking.account.application.port.out.EmailSender;
 import com.ptit.parking.account.application.port.out.PasswordResetCodeRepository;
 import com.ptit.parking.account.application.port.out.SecretGenerator;
+import com.ptit.parking.account.application.usecase.ApplyDemoPasswordUseCase;
 import com.ptit.parking.account.application.usecase.ChangePasswordUseCase;
 import com.ptit.parking.account.application.usecase.ConfirmPasswordResetUseCase;
 import com.ptit.parking.account.application.usecase.IssueTemporaryPasswordUseCase;
@@ -70,5 +71,11 @@ public class AccountUseCaseConfig {
     @Bean
     ListAuditLogUseCase listAuditLogUseCase(AuditLogQuery logs) {
         return new ListAuditLogUseCase(logs);
+    }
+
+    @Bean
+    ApplyDemoPasswordUseCase applyDemoPasswordUseCase(CredentialRepository credentials, PasswordHasher hasher,
+                                                      TransactionRunner transactions, Clock clock) {
+        return new ApplyDemoPasswordUseCase(credentials, hasher, transactions, clock);
     }
 }

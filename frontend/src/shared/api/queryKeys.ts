@@ -15,4 +15,12 @@ export const queryKeys = {
   guards: ['manager', 'guards'] as const,
   myProfile: ['me', 'profile'] as const,
   auditLogs: ['manager', 'audit-logs'] as const,
+  parkedVehicles: (fragment: string) => ['guard', 'parked', fragment] as const,
+  parkedVehiclesAll: ['guard', 'parked'] as const,
+  myGateActivity: ['guard', 'activity'] as const,
+  currentShift: ['guard', 'shift'] as const,
+  myIncidents: ['guard', 'incidents'] as const,
+  myShiftHistory: ['guard', 'shift-history'] as const,
+  guardTimesheet: (from: string, to: string, guardId: number | undefined) =>
+    ['manager', 'timesheet', from, to, guardId ?? 'ALL'] as const,
 };

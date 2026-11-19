@@ -151,6 +151,18 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
       json('/manager/audit-logs', {
         query: { before: query.before, limit: query.limit, targetUserId: query.targetUserId },
       }),
+
+    parkedVehicles: (fragment) => json('/guard/parked-vehicles', { query: { q: fragment } }),
+    myGateActivity: () => json('/guard/my-activity'),
+    currentShift: () => json('/guard/shifts/current'),
+    startShift: (acknowledgedHandoverIds, openingCash) =>
+      json('/guard/shifts/start', { method: 'POST', body: { acknowledgedHandoverIds, openingCash } }),
+    endShift: (note, closingCash) => json('/guard/shifts/end', { method: 'POST', body: { note, closingCash } }),
+    myShiftHistory: () => json('/guard/shifts/history'),
+    guardTimesheet: (from, to, guardId) => json('/manager/guard-shifts', { query: { from, to, guardId } }),
+    reportIncident: (body) => json('/guard/incidents', { method: 'POST', body }),
+    myIncidents: () => json('/guard/incidents'),
+    incidentPhotoUrl: (incidentId) => url(`/guard/incidents/${incidentId}/photo`),
   };
 }
 

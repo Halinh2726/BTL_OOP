@@ -14,5 +14,6 @@ public enum Permission {
     CASH_WITHDRAWAL,
     GUARD_CREATE,
     GUARD_LOCK,
-    ACCOUNT_MANAGE
+    ACCOUNT_MANAGE,
+    INCIDENT_REPORT
 }

@@ -14,7 +14,7 @@ Bài tập lớn môn Lập trình hướng đối tượng. Sinh viên đổi t
 
 - Java 21, Spring Boot 4, Spring Security (phiên phía máy chủ, CSRF), Maven Wrapper
 - MySQL 8.4 chạy bằng Docker, Flyway quản lý schema (`backend/src/main/resources/db/migration`)
-- JUnit 5, Mockito, AssertJ, Testcontainers (367 test), Postman / Newman cho kịch bản demo
+- JUnit 5, Mockito, AssertJ, Testcontainers (421 test), Postman / Newman cho kịch bản demo
 - Giao diện: React 18 + TypeScript + Vite, TanStack Query, Tailwind CSS, Vitest (`frontend/`)
 
 ## Chạy dự án
@@ -56,10 +56,20 @@ Chỉ muốn xem giao diện, không cần backend: `npm run dev:mock` (dữ li�
 
 ## Tài khoản có sẵn
 
-| Vai trò | Tên đăng nhập | Mật khẩu |
-|---|---|---|
-| Quản lý | `quanly01` | `Quanly@123` |
-| Chủ tài khoản | `chutk01` | `Chutk@123` |
+| Vai trò | Tên đăng nhập | Mật khẩu khi chạy `spring-boot:run` | Mật khẩu gốc (test, `.jar`) |
+|---|---|---|---|
+| Quản lý | `quanly01` | `demo1234` | `Quanly@123` |
+| Chủ bãi xe | `chutk01` | `demo1234` | `Chutk@123` |
+
+**Mật khẩu demo:** chạy backend bằng lệnh thường `.\mvnw.cmd spring-boot:run` là profile `demo` được bật tự động
+(khai báo trong `pom.xml`) — MỌI tài khoản đang có trong CSDL (quản lý, chủ bãi xe, bảo vệ, sinh viên) được đặt mật khẩu
+**`demo1234`** mỗi lần khởi động (cửa sổ backend in dòng `[DEMO] Đã đặt mật khẩu demo cho N tài khoản`).
+Tài khoản bị khóa vẫn không đăng nhập được. Test và file `.jar` triển khai KHÔNG bật profile này.
+Muốn chạy với mật khẩu thật: `.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=default"`.
+
+Quên mật khẩu (mọi vai trò): khai báo email ở trang **Tài khoản** trước; khi quên, bấm "Quên mật khẩu?" ở trang đăng nhập.
+Bản demo chưa gửi email thật — mã 6 số được in ra cửa sổ backend ở dòng `[EMAIL]`. Chưa khai báo email thì quản lý cấp
+mật khẩu tạm (sinh viên: tab **Tài khoản**; bảo vệ: tab **Bảo vệ** → "Cấp mật khẩu tạm").
 
 Sinh viên tự đăng ký qua `POST /students/register`; bảo vệ do quản lý tạo qua `POST /manager/guards`.
 Dữ liệu danh mục có sẵn: loại xe `XE_MAY`, `XE_DAP`, `XE_DAP_DIEN`; phí gửi **3.000 điểm** nếu xe ra trước 18:00,
@@ -167,7 +177,7 @@ Thiết kế CSDL: [`docs/database/ERD.md`](docs/database/ERD.md).
 ```powershell
 cd backend
 .\mvnw.cmd test
-# Tests run: 367, Failures: 0, Errors: 0
+# Tests run: 421, Failures: 0, Errors: 0
 ```
 
 294 test không cần MySQL: use case được test với kho dữ liệu giả trong bộ nhớ, controller test bằng `@WebMvcTest`

@@ -1,7 +1,7 @@
 import { forwardRef, useState, type FormEvent } from 'react';
 import { Button } from '../../shared/components/Button';
 import { useVehicleTypeName } from '../../shared/hooks/useVehicleTypeName';
-import { normalizePlate } from '../../shared/utils/format';
+import { formatPlate, normalizePlate } from '../../shared/utils/format';
 import { QrScannerDialog } from './QrScannerDialog';
 import { usePlateSuggestions } from './usePlateSuggestions';
 
@@ -96,7 +96,7 @@ export const PlateLookupForm = forwardRef<HTMLInputElement, PlateLookupFormProps
                 disabled={disabled || pending}
                 className="w-full rounded-xl border-2 border-slate-200 bg-slate-50 px-3 py-2.5 text-left hover:border-blue-500 hover:bg-blue-50 disabled:opacity-50"
               >
-                <span className="block font-mono text-lg font-bold tracking-wider">{suggestion.plateNumber}</span>
+                <span className="block font-mono text-lg font-bold tracking-wider">{formatPlate(suggestion.plateNumber)}</span>
                 <span className="block text-xs text-slate-500">
                   {typeName(suggestion.vehicleTypeCode)}
                   {!parkedOnly && suggestion.parked && <span className="ml-1 font-semibold text-amber-700">· đang trong bãi</span>}

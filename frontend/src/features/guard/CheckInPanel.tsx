@@ -1,10 +1,13 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../shared/api';
 import { Alert } from '../../shared/components/Alert';
 import { Button } from '../../shared/components/Button';
 import { Card, InfoRow } from '../../shared/components/Card';
 import { useVehicleTypeName } from '../../shared/hooks/useVehicleTypeName';
-import { formatDateTime, formatPoints } from '../../shared/utils/format';
+import { formatDateTime, formatPlate, formatPoints } from '../../shared/utils/format';
+import { ContinuousScanPanel } from './continuous/ContinuousScanPanel';
+import { checkInFlow } from './continuous/gateFlows';
+import { useGuardPreferences } from './guardPreferences';
 import { PlateLookupForm } from './PlateLookupForm';
 import { SuccessPanel } from './SuccessPanel';
 import { usePlateFocus } from './usePlateFocus';
@@ -14,8 +17,20 @@ import { VerdictBanner } from './VerdictBanner';
 export function CheckInPanel() {
   const { inputRef, formKey, resetForm } = usePlateFocus();
   const typeName = useVehicleTypeName();
-  const preview = useMutation({ mutationFn: api.previewCheckIn });
-  const checkIn = useMutation({ mutationFn: api.checkIn });
+  const { feedback, continuousScan } = useGuardPreferences();
+  const preview = useMutation({
+    mutationFn: api.previewCheckIn,
+    onSuccess: (result) => feedback(result.allowed ? 'allow' : 'deny'),
+  });
+  const queryClient = useQueryClient();
+  const checkIn = useMutation({
+    mutationFn: api.checkIn,
+    onSuccess: () => {
+      feedback('done');
+      // Số liệu ca trực, lịch sử xe, danh sách xe trong bãi phải cập nhật ngay
+      void queryClient.invalidateQueries({ queryKey: ['guard'] });
+    },
+  });
 
   function lookup(plate: string) {
     checkIn.reset();
@@ -28,10 +43,14 @@ export function CheckInPanel() {
     resetForm();
   }
 
+  if (continuousScan) {
+    return <ContinuousScanPanel flow={checkInFlow} />;
+  }
+
   if (checkIn.data) {
     return (
       <SuccessPanel title="Đã cho xe vào" onNext={nextVehicle}>
-        <InfoRow label="Biển số" value={<span className="font-mono">{checkIn.data.plateNumber}</span>} />
+        <InfoRow label="Biển số" value={<span className="font-mono">{formatPlate(checkIn.data.plateNumber)}</span>} />
         <InfoRow label="Mã lượt gửi" value={`#${checkIn.data.sessionId}`} />
         <InfoRow label="Giờ vào" value={formatDateTime(checkIn.data.enteredAt)} />
       </SuccessPanel>
@@ -59,10 +78,12 @@ export function CheckInPanel() {
       {data && (
         <Card>
           <div className="space-y-4">
-            <VerdictBanner allowed={data.allowed} allowedText="Cho xe vào" reason={data.reason} />
+            <VerdictBanner allowed={data.allowed} allowedText="Cho xe vào" reason={data.reason}
+              shortfall={data.balance === null ? null : data.minFee - data.balance}
+            />
             {data.fullName !== null && (
               <dl className="text-lg">
-                <InfoRow label="Biển số" value={<span className="font-mono">{data.plateNumber}</span>} />
+                <InfoRow label="Biển số" value={<span className="font-mono">{formatPlate(data.plateNumber ?? '')}</span>} />
                 <InfoRow label="Sinh viên" value={data.fullName} />
                 <InfoRow label="MSSV" value={data.studentCode} />
                 <InfoRow label="Loại xe" value={typeName(data.vehicleTypeCode)} />
