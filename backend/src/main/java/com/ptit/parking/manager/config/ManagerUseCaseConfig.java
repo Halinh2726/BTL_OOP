@@ -11,6 +11,7 @@ import com.ptit.parking.manager.application.usecase.DepositCashUseCase;
 import com.ptit.parking.manager.application.usecase.LookupStudentUseCase;
 import com.ptit.parking.payment.application.IdempotencyGuard;
 import com.ptit.parking.payment.application.port.out.WalletRepository;
+import com.ptit.parking.shared.application.port.out.AuditTrail;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
@@ -38,8 +39,8 @@ public class ManagerUseCaseConfig {
 
     @Bean
     CreateGuardUseCase createGuardUseCase(GuardAccountRepository guards, PasswordHasher hasher,
-                                          TransactionRunner transactions) {
-        return new CreateGuardUseCase(guards, hasher, transactions);
+                                          TransactionRunner transactions, AuditTrail audit, Clock clock) {
+        return new CreateGuardUseCase(guards, hasher, transactions, audit, clock);
     }
     
     @Bean
@@ -61,7 +62,8 @@ public class ManagerUseCaseConfig {
     }
 
     @Bean
-    ChangeGuardStatusUseCase changeGuardStatusUseCase(GuardAccountRepository guards, TransactionRunner transactions) {
-        return new ChangeGuardStatusUseCase(guards, transactions);
+    ChangeGuardStatusUseCase changeGuardStatusUseCase(GuardAccountRepository guards, TransactionRunner transactions,
+                                                      AuditTrail audit, Clock clock) {
+        return new ChangeGuardStatusUseCase(guards, transactions, audit, clock);
     }
 }

@@ -7,14 +7,18 @@ import org.springframework.http.HttpMethod;
 
 import static com.ptit.parking.shared.security.Permission.ACCOUNT_MANAGE;
 import static com.ptit.parking.shared.security.Permission.CASH_DEPOSIT;
+import static com.ptit.parking.shared.security.Permission.CASH_RECONCILE;
 import static com.ptit.parking.shared.security.Permission.CASH_WITHDRAWAL;
 import static com.ptit.parking.shared.security.Permission.GUARD_CREATE;
 import static com.ptit.parking.shared.security.Permission.GUARD_LOCK;
 import static com.ptit.parking.shared.security.Permission.INCIDENT_REPORT;
+import static com.ptit.parking.shared.security.Permission.LEDGER_VIEW;
 import static com.ptit.parking.shared.security.Permission.OWNER_FINANCE;
 import static com.ptit.parking.shared.security.Permission.POINT_ADJUST;
 import static com.ptit.parking.shared.security.Permission.PARKING_CHECK_IN;
 import static com.ptit.parking.shared.security.Permission.PARKING_CHECK_OUT;
+import static com.ptit.parking.shared.security.Permission.STUDENT_VIEW;
+import static com.ptit.parking.shared.security.Permission.TRAFFIC_STATS;
 import static com.ptit.parking.shared.security.Permission.VEHICLE_REGISTER;
 import static com.ptit.parking.shared.security.Permission.WALLET_VIEW_OWN;
 
@@ -54,6 +58,15 @@ public enum ProtectedEndpoint {
     MANAGER_WITHDRAWALS(HttpMethod.GET,   "/api/v1/manager/withdrawal-requests", CASH_WITHDRAWAL),
     MANAGER_WITHDRAWAL_ACTION(HttpMethod.POST, "/api/v1/manager/withdrawal-requests/*/*", CASH_WITHDRAWAL),
     ADJUST_POINTS      (HttpMethod.POST,  "/api/v1/manager/adjustments",      POINT_ADJUST),
+    // Đợt 4a — giám sát & đối soát
+    SEARCH_STUDENTS    (HttpMethod.GET,   "/api/v1/manager/student-profiles",   STUDENT_VIEW),
+    STUDENT_PROFILE    (HttpMethod.GET,   "/api/v1/manager/student-profiles/*", STUDENT_VIEW),
+    LEDGER             (HttpMethod.GET,   "/api/v1/manager/ledger",             LEDGER_VIEW),
+    LEDGER_EXPORT      (HttpMethod.GET,   "/api/v1/manager/ledger/export",      LEDGER_VIEW),
+    RECONCILIATIONS    (HttpMethod.GET,   "/api/v1/manager/reconciliations",    CASH_RECONCILE),
+    RECONCILIATION_DAY (HttpMethod.GET,   "/api/v1/manager/reconciliations/*",  CASH_RECONCILE),
+    CLOSE_RECONCILIATION(HttpMethod.POST, "/api/v1/manager/reconciliations",    CASH_RECONCILE),
+    TRAFFIC_STATS_VIEW (HttpMethod.GET,   "/api/v1/stats/traffic",              TRAFFIC_STATS),
     REPORT_INCIDENT    (HttpMethod.POST,  "/api/v1/guard/incidents",          INCIDENT_REPORT),    // Đợt 2
     MY_INCIDENTS       (HttpMethod.GET,   "/api/v1/guard/incidents",          INCIDENT_REPORT),    // Đợt 2
     INCIDENT_PHOTO     (HttpMethod.GET,   "/api/v1/guard/incidents/*/photo",  INCIDENT_REPORT),    // Đợt 2

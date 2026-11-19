@@ -46,6 +46,7 @@ public enum ErrorCode {
     HANDOVER_PENDING(409, "Có biên bản bàn giao ca chưa được xác nhận. Xem lại rồi bấm Nhận ca."),
     INCIDENT_STATUS_CONFLICT(409, "Sự cố không ở trạng thái cho phép thao tác này."),
     WITHDRAWAL_STATUS_CONFLICT(409, "Yêu cầu rút điểm không ở trạng thái cho phép thao tác này."),
+    ALREADY_RECONCILED(409, "Ngày này đã được chốt đối soát. Biên bản đã chốt không sửa được."),
 
     // 422 — vi phạm quy tắc nghiệp vụ
     INSUFFICIENT_POINTS(422, "Không đủ điểm."),
@@ -62,6 +63,9 @@ public enum ErrorCode {
     PHOTO_INVALID(422, "Ảnh phải là JPG, PNG hoặc WEBP và không quá 2 MB."),
     WITHDRAWAL_EXCEEDS_AVAILABLE(422, "Số điểm yêu cầu vượt số điểm còn có thể rút (đã trừ các yêu cầu đang chờ)."),
     CASH_FUND_INSUFFICIENT(422, "Quỹ tiền mặt hiện không đủ để trả yêu cầu này."),
+    RECONCILIATION_NOTE_REQUIRED(422, "Tiền đếm được lệch với sổ sách: bắt buộc ghi giải trình."),
+    RECONCILIATION_DATE_INVALID(422, "Chỉ đối soát được ngày hôm nay hoặc ngày đã qua."),
+    DATE_RANGE_INVALID(422, "Khoảng ngày không hợp lệ: ngày bắt đầu phải trước ngày kết thúc, tối đa 93 ngày."),
 
     // 429 / 500
     TOO_MANY_REQUESTS(429, "Thao tác quá nhiều lần. Vui lòng thử lại sau ít phút."),

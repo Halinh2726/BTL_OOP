@@ -1,8 +1,8 @@
 import { useState, type KeyboardEvent, type PointerEvent } from 'react';
-import { useElementWidth } from '../../../shared/hooks/useElementWidth';
-import { axisScale, labelEvery, longDate, shortDate, tickLabel } from './revenueMath';
+import { useElementWidth } from '../hooks/useElementWidth';
+import { axisScale, labelEvery, tickLabel } from './chartMath';
 
-/** Một chuỗi số liệu theo ngày. `down` vẽ cột quay xuống dưới đường 0 (ví dụ tiền ra) — vẫn chung MỘT trục. */
+/** Một chuỗi số liệu. `down` vẽ cột quay xuống dưới đường 0 (ví dụ tiền ra) — vẫn chung MỘT trục. */
 export interface BarSeries {
   id: string;
   label: string;
@@ -17,16 +17,23 @@ export interface DetailRow {
   value: string;
 }
 
-interface DailyBarChartProps {
-  dates: string[];
+interface BarChartProps {
+  /** Khóa của từng cột theo thứ tự (ngày "yyyy-mm-dd", giờ "7"...). */
+  keys: string[];
+  /** Nhãn ngắn dưới trục x. */
+  keyLabel: (key: string) => string;
+  /** Tiêu đề ô chi tiết khi rê chuột / chọn bằng phím. */
+  keyTitle: (key: string) => string;
   series: BarSeries[];
   /** Mô tả ngắn cho trình đọc màn hình. */
   ariaLabel: string;
   height?: number;
   /** Chuỗi được ghi số trực tiếp trên cột cao nhất (chỉ một nhãn — phần còn lại xem bằng rê chuột / bảng). */
   labelMaxOf?: string;
-  /** Các dòng phụ trong ô chi tiết của một ngày (ví dụ số lượt xe ra). */
+  /** Các dòng phụ trong ô chi tiết của một cột. */
   details?: (index: number) => DetailRow[];
+  /** Nhãn trục x được neo vào cột CUỐI (ngày gần nhất) hay cột ĐẦU (giờ 0). */
+  anchorLabels?: 'end' | 'start';
 }
 
 const INK = { secondary: '#52514e', muted: '#898781', grid: '#e1e0d9', baseline: '#c3c2b7', band: '#eef2f7' };
@@ -44,10 +51,13 @@ function barPath(x: number, width: number, base: number, end: number): string {
 }
 
 /**
- * Biểu đồ cột theo ngày, tự vẽ bằng SVG (không cần thư viện). Một trục y duy nhất; chuỗi `up` mọc lên, chuỗi `down`
- * mọc xuống từ cùng đường 0. Rê chuột hoặc dùng phím ←/→ khi biểu đồ đang được chọn để xem chi tiết từng ngày.
+ * Biểu đồ cột tự vẽ bằng SVG (không cần thư viện), dùng chung cho doanh thu theo ngày và lượt xe theo giờ.
+ * Một trục y duy nhất; chuỗi `up` mọc lên, chuỗi `down` mọc xuống từ cùng đường 0. Rê chuột hoặc dùng phím ←/→ khi
+ * biểu đồ đang được chọn để xem chi tiết từng cột.
  */
-export function DailyBarChart({ dates, series, ariaLabel, height = 220, labelMaxOf, details }: DailyBarChartProps) {
+export function BarChart({
+  keys, keyLabel, keyTitle, series, ariaLabel, height = 220, labelMaxOf, details, anchorLabels = 'end',
+}: BarChartProps) {
   const { ref, width } = useElementWidth<HTMLDivElement>();
   const [active, setActive] = useState<number | null>(null);
 
@@ -59,10 +69,12 @@ export function DailyBarChart({ dates, series, ariaLabel, height = 220, labelMax
   const plotHeight = height - MARGIN.top - MARGIN.bottom;
   const y = (value: number) => MARGIN.top + ((scale.max - value) / (scale.max - scale.min)) * plotHeight;
   const base = y(0);
-  const slot = plotWidth / Math.max(1, dates.length);
+  const slot = plotWidth / Math.max(1, keys.length);
   const barWidth = Math.max(1, Math.min(MAX_BAR, slot - 2, slot * 0.62));
   const center = (index: number) => MARGIN.left + slot * index + slot / 2;
   const every = labelEvery(slot);
+  const showLabel = (index: number) =>
+    (anchorLabels === 'end' ? keys.length - 1 - index : index) % every === 0;
 
   const labelled = series.find((s) => s.id === labelMaxOf);
   const peakValue = labelled ? Math.max(0, ...labelled.values) : 0;
@@ -70,13 +82,13 @@ export function DailyBarChart({ dates, series, ariaLabel, height = 220, labelMax
 
   function indexAt(event: PointerEvent<SVGRectElement>): number {
     const box = event.currentTarget.getBoundingClientRect();
-    return Math.min(dates.length - 1, Math.max(0, Math.floor((event.clientX - box.left) / slot)));
+    return Math.min(keys.length - 1, Math.max(0, Math.floor((event.clientX - box.left) / slot)));
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight' && event.key !== 'Home' && event.key !== 'End') return;
     event.preventDefault();
-    const last = dates.length - 1;
+    const last = keys.length - 1;
     setActive((current) => {
       if (event.key === 'Home') return 0;
       if (event.key === 'End') return last;
@@ -93,6 +105,8 @@ export function DailyBarChart({ dates, series, ariaLabel, height = 220, labelMax
           Math.max(0, center(active) < width / 2 ? center(active) + slot / 2 + 8 : center(active) - slot / 2 - 8 - TOOLTIP_WIDTH),
           Math.max(0, width - TOOLTIP_WIDTH),
         );
+  const peakAnchor = peak < 0 ? 'middle' : center(peak) > width - 60 ? 'end' : center(peak) < MARGIN.left + 40 ? 'start' : 'middle';
+  const peakX = peak < 0 ? 0 : peakAnchor === 'end' ? center(peak) + barWidth / 2 : peakAnchor === 'start' ? center(peak) - barWidth / 2 : center(peak);
 
   return (
     <div
@@ -100,9 +114,9 @@ export function DailyBarChart({ dates, series, ariaLabel, height = 220, labelMax
       className="relative rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
       tabIndex={0}
       role="group"
-      aria-label={`${ariaLabel}. Dùng phím mũi tên trái phải để xem từng ngày.`}
+      aria-label={`${ariaLabel}. Dùng phím mũi tên trái phải để xem từng cột.`}
       onKeyDown={onKeyDown}
-      onFocus={() => setActive((current) => current ?? dates.length - 1)}
+      onFocus={() => setActive((current) => current ?? keys.length - 1)}
       onBlur={() => setActive(null)}
     >
       <svg width={width} height={height} role="img" aria-label={ariaLabel} className="block select-none">
@@ -129,22 +143,15 @@ export function DailyBarChart({ dates, series, ariaLabel, height = 220, labelMax
 
         {labelled && peak >= 0 && (
           // Cột sát mép: canh chữ về phía trong để không bị cắt
-          <text
-            x={center(peak) > width - 60 ? center(peak) + barWidth / 2 : center(peak) < MARGIN.left + 40 ? center(peak) - barWidth / 2 : center(peak)}
-            y={y(peakValue) - 6}
-            textAnchor={center(peak) > width - 60 ? 'end' : center(peak) < MARGIN.left + 40 ? 'start' : 'middle'}
-            fontSize={11}
-            fontWeight={600}
-            fill={INK.secondary}
-          >
+          <text x={peakX} y={y(peakValue) - 6} textAnchor={peakAnchor} fontSize={11} fontWeight={600} fill={INK.secondary}>
             {labelled.format(peakValue)}
           </text>
         )}
 
-        {dates.map((date, index) =>
-          (dates.length - 1 - index) % every === 0 ? (
-            <text key={date} x={center(index)} y={height - 8} textAnchor="middle" fontSize={11} fill={INK.muted} style={{ fontVariantNumeric: 'tabular-nums' }}>
-              {shortDate(date)}
+        {keys.map((key, index) =>
+          showLabel(index) ? (
+            <text key={key} x={center(index)} y={height - 8} textAnchor="middle" fontSize={11} fill={INK.muted} style={{ fontVariantNumeric: 'tabular-nums' }}>
+              {keyLabel(key)}
             </text>
           ) : null,
         )}
@@ -160,13 +167,13 @@ export function DailyBarChart({ dates, series, ariaLabel, height = 220, labelMax
         />
       </svg>
 
-      {active !== null && dates[active] && (
+      {active !== null && keys[active] !== undefined && (
         <div
           role="status"
           className="pointer-events-none absolute top-0 z-10 rounded-lg bg-white p-3 text-sm shadow-lg ring-1 ring-slate-200"
           style={{ left: tooltipLeft, width: TOOLTIP_WIDTH }}
         >
-          <p className="mb-1 text-xs font-medium text-slate-500">{longDate(dates[active])}</p>
+          <p className="mb-1 text-xs font-medium text-slate-500">{keyTitle(keys[active])}</p>
           <ul className="space-y-0.5">
             {series.map((s) => (
               <li key={s.id} className="flex items-center gap-2">
@@ -201,3 +208,9 @@ export function ChartLegend({ items }: { items: Array<{ label: string; color: st
     </ul>
   );
 }
+
+/**
+ * Màu theo ĐỐI TƯỢNG, cố định trên cả ứng dụng (không đổi khi lọc) — 3 ô đầu của bảng màu phân loại, đã kiểm tra
+ * phân biệt được với người mù màu.
+ */
+export const CHART_COLORS = { primary: '#2a78d6', secondary: '#eb6834', tertiary: '#1baf7a' } as const;

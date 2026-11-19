@@ -8,9 +8,16 @@ import com.ptit.parking.auth.domain.AccountStatus;
 import com.ptit.parking.auth.domain.Guard;
 import com.ptit.parking.manager.application.port.out.InMemoryGuardAccountRepository;
 import com.ptit.parking.manager.application.usecase.ChangeGuardStatusUseCase.Command;
+import com.ptit.parking.shared.application.port.out.AuditTrail.AuditAction;
+import com.ptit.parking.shared.application.port.out.AuditTrail.AuditEntry;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 
@@ -29,7 +36,20 @@ class ChangeGuardStatusUseCaseTest {
         }
     };
 
-    private final ChangeGuardStatusUseCase changeStatus = new ChangeGuardStatusUseCase(guards, directly);
+    private final List<AuditEntry> logged = new ArrayList<>();
+    private final ChangeGuardStatusUseCase changeStatus = new ChangeGuardStatusUseCase(guards, directly, logged::add,
+            Clock.fixed(Instant.parse("2026-11-20T03:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh")));
+
+    @Test
+    void khoaVaMoKhoa_moiLanDoiTrangThaiGhiMotDongNhatKy_bamLaiKhongGhi() {
+        changeStatus.change(new Command(1L, tran, AccountStatus.BI_KHOA));
+        changeStatus.change(new Command(1L, tran, AccountStatus.BI_KHOA));          // đã khóa: không đổi gì
+        changeStatus.change(new Command(1L, tran, AccountStatus.HOAT_DONG));
+
+        assertThat(logged).extracting(AuditEntry::action, AuditEntry::targetUserId, AuditEntry::actorId)
+                .containsExactly(tuple(AuditAction.KHOA_TAI_KHOAN, tran, 1L),
+                        tuple(AuditAction.MO_KHOA_TAI_KHOAN, tran, 1L));
+    }
     private final ListGuardsUseCase listGuards = new ListGuardsUseCase(guards);
 
     @Test
@@ -43,7 +63,7 @@ class ChangeGuardStatusUseCaseTest {
 
     @Test
     void khoaBaoVeDangHoatDong_BI_KHOA_daLuu() {
-        Guard guard = changeStatus.change(new Command(tran, AccountStatus.BI_KHOA));
+        Guard guard = changeStatus.change(new Command(1L, tran, AccountStatus.BI_KHOA));
 
         assertThat(guard.status()).isEqualTo(AccountStatus.BI_KHOA);
         assertThat(guard.username()).isEqualTo("baove01");
@@ -53,7 +73,7 @@ class ChangeGuardStatusUseCaseTest {
 
     @Test
     void moKhoaBaoVeDangBiKhoa_HOAT_DONG_daLuu() {
-        Guard guard = changeStatus.change(new Command(an, AccountStatus.HOAT_DONG));
+        Guard guard = changeStatus.change(new Command(1L, an, AccountStatus.HOAT_DONG));
 
         assertThat(guard.status()).isEqualTo(AccountStatus.HOAT_DONG);
         assertThat(guards.stored(an).status()).isEqualTo(AccountStatus.HOAT_DONG);
@@ -61,7 +81,7 @@ class ChangeGuardStatusUseCaseTest {
 
     @Test
     void khoaNguoiDaBiKhoa_vanThanhCong_khongGhiGi() {
-        Guard guard = changeStatus.change(new Command(an, AccountStatus.BI_KHOA));
+        Guard guard = changeStatus.change(new Command(1L, an, AccountStatus.BI_KHOA));
 
         assertThat(guard.status()).isEqualTo(AccountStatus.BI_KHOA);
         assertThat(guards.statusWrites()).isZero();
@@ -69,7 +89,7 @@ class ChangeGuardStatusUseCaseTest {
 
     @Test
     void idKhongPhaiBaoVe_GUARD_NOT_FOUND_khongGhiGi() {
-        assertThatThrownBy(() -> changeStatus.change(new Command(999L, AccountStatus.BI_KHOA)))
+        assertThatThrownBy(() -> changeStatus.change(new Command(1L, 999L, AccountStatus.BI_KHOA)))
                 .isInstanceOfSatisfying(DomainException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.GUARD_NOT_FOUND));
         assertThat(guards.statusWrites()).isZero();
@@ -77,8 +97,8 @@ class ChangeGuardStatusUseCaseTest {
 
     @Test
     void khoaRoiMoKhoa_khongXoaTaiKhoan() {
-        changeStatus.change(new Command(tran, AccountStatus.BI_KHOA));
-        changeStatus.change(new Command(tran, AccountStatus.HOAT_DONG));
+        changeStatus.change(new Command(1L, tran, AccountStatus.BI_KHOA));
+        changeStatus.change(new Command(1L, tran, AccountStatus.HOAT_DONG));
 
         assertThat(guards.all()).hasSize(2);                                              // R14: chỉ khóa, không xóa
         assertThat(guards.stored(tran).status()).isEqualTo(AccountStatus.HOAT_DONG);

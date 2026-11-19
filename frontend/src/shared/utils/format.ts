@@ -3,6 +3,7 @@ import type {
   GuardStatus,
   IncidentStatus,
   IncidentType,
+  ReconciliationOutcome,
   Role,
   TransactionType,
   VehicleStatus,
@@ -111,6 +112,18 @@ export const WITHDRAWAL_STATUS_LABELS: Record<WithdrawalStatus, string> = {
   DA_HUY: 'Đã hủy',
   KHIEU_NAI: 'Khiếu nại chưa nhận đủ',
 };
+
+export const RECONCILIATION_OUTCOME_LABELS: Record<ReconciliationOutcome, string> = {
+  KHOP: 'Khớp sổ sách',
+  THUA: 'Thừa tiền',
+  THIEU: 'Thiếu tiền',
+};
+
+/** 7 -> "07:00–08:00" */
+export function hourRange(hour: number): string {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${pad(hour)}:00–${pad((hour + 1) % 24)}:00`;
+}
 
 export const GUARD_STATUS_LABELS: Record<GuardStatus, string> = {
   HOAT_DONG: 'Hoạt động',

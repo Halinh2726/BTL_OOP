@@ -3,9 +3,11 @@ package com.ptit.parking.manager.adapter.in.web;
 import com.ptit.parking.manager.application.usecase.ChangeGuardStatusUseCase;
 import com.ptit.parking.manager.application.usecase.CreateGuardUseCase;
 import com.ptit.parking.manager.application.usecase.ListGuardsUseCase;
+import com.ptit.parking.shared.security.SessionUser;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -40,15 +42,16 @@ class GuardController {
     /** API #21 — tạo tài khoản bảo vệ (quyền GUARD_CREATE). */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    GuardResponse create(@Valid @RequestBody CreateGuardRequest body) {
-        return GuardResponse.from(createGuard.create(new CreateGuardUseCase.Command(
+    GuardResponse create(@AuthenticationPrincipal SessionUser manager, @Valid @RequestBody CreateGuardRequest body) {
+        return GuardResponse.from(createGuard.create(new CreateGuardUseCase.Command(manager.id(),
                 body.fullName(), body.phone(), body.username(), body.password())));
     }
 
     /** API #22 — khóa / mở khóa tài khoản bảo vệ (quyền GUARD_LOCK). */
     @PatchMapping("/{id}/status")
-    GuardResponse changeStatus(@PathVariable long id, @Valid @RequestBody ChangeGuardStatusRequest body) {
+    GuardResponse changeStatus(@AuthenticationPrincipal SessionUser manager, @PathVariable long id,
+                               @Valid @RequestBody ChangeGuardStatusRequest body) {
         return GuardResponse.from(changeGuardStatus.change(
-                new ChangeGuardStatusUseCase.Command(id, body.accountStatus())));
+                new ChangeGuardStatusUseCase.Command(manager.id(), id, body.accountStatus())));
     }
 }

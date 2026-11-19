@@ -10,6 +10,8 @@ interface RequestOptions {
   body?: unknown;
   query?: Record<string, QueryValue>;
   idempotencyKey?: string;
+  /** Mặc định application/json; file tải về (CSV) cần khai báo kiểu khác. */
+  accept?: string;
 }
 
 const LOGIN_PATH = '/auth/login';
@@ -51,7 +53,7 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
 
   async function send(path: string, options: RequestOptions, csrfRetried = false): Promise<Response> {
     const method = options.method ?? 'GET';
-    const headers: Record<string, string> = { Accept: 'application/json' };
+    const headers: Record<string, string> = { Accept: options.accept ?? 'application/json' };
     if (options.body !== undefined) headers['Content-Type'] = 'application/json';
     if (options.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey;
     if (method !== 'GET' && !CSRF_EXEMPT.has(path)) {
@@ -179,6 +181,19 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
     reportIncident: (body) => json('/guard/incidents', { method: 'POST', body }),
     myIncidents: () => json('/guard/incidents'),
     incidentPhotoUrl: (incidentId) => url(`/guard/incidents/${incidentId}/photo`),
+
+    searchStudents: (q) => json('/manager/student-profiles', { query: { q } }),
+    studentProfile: (code) => json(`/manager/student-profiles/${encodeURIComponent(code.trim())}`),
+    ledger: (query) => json('/manager/ledger', { query: { ...query } }),
+    exportLedger: async (query) => {
+      // Lỗi (422...) vẫn là JSON nên chấp nhận cả hai kiểu
+      const response = await send('/manager/ledger/export', { query: { ...query }, accept: 'text/csv, application/json' });
+      return response.blob();
+    },
+    reconciliationDay: (date) => json(`/manager/reconciliations/${date}`),
+    reconciliationHistory: () => json('/manager/reconciliations'),
+    closeReconciliation: (body) => json('/manager/reconciliations', { method: 'POST', body }),
+    trafficStats: (days) => json('/stats/traffic', { query: { days } }),
   };
 }
 
