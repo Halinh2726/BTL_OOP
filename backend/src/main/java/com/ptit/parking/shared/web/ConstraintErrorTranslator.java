@@ -26,6 +26,7 @@ public class ConstraintErrorTranslator {
             Map.entry("uq_vehicles_active_plate", new ConstraintError(ErrorCode.PLATE_EXISTS, null)),
             Map.entry("uq_users_email", new ConstraintError(ErrorCode.EMAIL_EXISTS, null)),
             Map.entry("uq_guard_shifts_open", new ConstraintError(ErrorCode.SHIFT_ALREADY_OPEN, null)),
+            Map.entry("uq_withdrawal_requests_transaction", new ConstraintError(ErrorCode.WITHDRAWAL_STATUS_CONFLICT, null)),
             Map.entry("fk_vehicles_type", new ConstraintError(ErrorCode.VALIDATION_ERROR, "vehicleTypeCode")),
             Map.entry("uq_parking_sessions_open", new ConstraintError(ErrorCode.SESSION_ALREADY_OPEN, null)),
             Map.entry("uq_payment_details_session", new ConstraintError(ErrorCode.SESSION_ALREADY_PAID, null)),

@@ -1,4 +1,6 @@
 import type {
+  AdjustRequest,
+  AdjustResult,
   AuditPage,
   ChangePasswordRequest,
   CheckInPreview,
@@ -22,7 +24,10 @@ import type {
   GuardStatus,
   LoginRequest,
   MeResponse,
+  OwnerOverview,
   OwnerWallet,
+  PayWithdrawalResult,
+  RevenueReport,
   PlateSuggestion,
   Profile,
   RegisteredStudent,
@@ -37,7 +42,9 @@ import type {
   Vehicle,
   VehicleType,
   Wallet,
-  WithdrawalResult,
+  WithdrawalQueue,
+  WithdrawalStatus,
+  WithdrawalView,
 } from '../types/api';
 
 /** Kết quả của API có Idempotency-Key: replayed = true khi backend trả lại giao dịch đã tạo trước đó. */
@@ -79,7 +86,6 @@ export interface ApiClient {
   lookupStudent(studentCode: string): Promise<StudentSummary>;
   deposit(body: DepositRequest, idempotencyKey: string): Promise<Idempotent<DepositResult>>;
   ownerWallet(): Promise<OwnerWallet>;
-  withdraw(points: number, idempotencyKey: string): Promise<Idempotent<WithdrawalResult>>;
   guards(): Promise<Guard[]>;
   createGuard(body: CreateGuardRequest): Promise<Guard>;
   changeGuardStatus(guardId: number, status: GuardStatus): Promise<Guard>;
@@ -119,4 +125,20 @@ export interface ApiClient {
   myIncidents(): Promise<IncidentItem[]>;
   /** Địa chỉ ảnh sự cố để đặt vào thẻ img (cookie phiên tự đi kèm vì cùng origin). */
   incidentPhotoUrl(incidentId: number): string;
+
+  // Đợt 3 — chủ bãi xe
+  ownerOverview(): Promise<OwnerOverview>;
+  ownerRevenue(from: string, to: string): Promise<RevenueReport>;
+  myWithdrawalRequests(): Promise<WithdrawalView[]>;
+  createWithdrawalRequest(points: number): Promise<WithdrawalView>;
+  cancelWithdrawalRequest(id: number): Promise<WithdrawalView>;
+  confirmWithdrawalRequest(id: number): Promise<WithdrawalView>;
+  complainWithdrawalRequest(id: number, note: string): Promise<WithdrawalView>;
+
+  // Đợt 3 — quản lý (thay cho rút điểm tự do đã bỏ)
+  withdrawalQueue(status?: WithdrawalStatus): Promise<WithdrawalQueue>;
+  payWithdrawalRequest(id: number): Promise<PayWithdrawalResult>;
+  rejectWithdrawalRequest(id: number, note: string): Promise<WithdrawalView>;
+  resolveWithdrawalRequest(id: number, note: string): Promise<WithdrawalView>;
+  adjustPoints(body: AdjustRequest, idempotencyKey: string): Promise<Idempotent<AdjustResult>>;
 }

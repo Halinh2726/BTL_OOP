@@ -17,7 +17,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import com.ptit.parking.manager.application.port.out.OwnerAccountDirectory;
 import com.ptit.parking.manager.application.usecase.GetOwnerWalletUseCase;
-import com.ptit.parking.manager.application.usecase.WithdrawCashUseCase;
+import com.ptit.parking.manager.application.usecase.AdjustPointsUseCase;
+import com.ptit.parking.payment.application.port.out.PointTransactionRepository;
 
 /** Composition Root của module manager. */
 @Configuration
@@ -46,11 +47,12 @@ public class ManagerUseCaseConfig {
         return new GetOwnerWalletUseCase(owners, wallets);
     }
 
+    /** Đợt 3 — thay cho "rút điểm tự do" (đã bỏ): giao dịch điều chỉnh có lý do. */
     @Bean
-    WithdrawCashUseCase withdrawCashUseCase(OwnerAccountDirectory owners, WalletRepository wallets,
-                                            ExchangeRateRepository exchangeRates, IdempotencyGuard idempotency,
-                                            Clock clock) {
-        return new WithdrawCashUseCase(owners, wallets, exchangeRates, idempotency, clock);
+    AdjustPointsUseCase adjustPointsUseCase(StudentDirectory students, OwnerAccountDirectory owners,
+                                            WalletRepository wallets, PointTransactionRepository ledger,
+                                            IdempotencyGuard idempotency, Clock clock) {
+        return new AdjustPointsUseCase(students, owners, wallets, ledger, idempotency, clock);
     }
     
     @Bean

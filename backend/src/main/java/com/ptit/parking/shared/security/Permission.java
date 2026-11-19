@@ -15,5 +15,7 @@ public enum Permission {
     GUARD_CREATE,
     GUARD_LOCK,
     ACCOUNT_MANAGE,
-    INCIDENT_REPORT
+    INCIDENT_REPORT,
+    OWNER_FINANCE,
+    POINT_ADJUST
 }

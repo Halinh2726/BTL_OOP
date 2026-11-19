@@ -1,4 +1,13 @@
-import type { AuditAction, GuardStatus, IncidentStatus, IncidentType, Role, TransactionType, VehicleStatus } from '../types/api';
+import type {
+  AuditAction,
+  GuardStatus,
+  IncidentStatus,
+  IncidentType,
+  Role,
+  TransactionType,
+  VehicleStatus,
+  WithdrawalStatus,
+} from '../types/api';
 
 const NUMBER = new Intl.NumberFormat('vi-VN');
 
@@ -91,6 +100,16 @@ export const TRANSACTION_LABELS: Record<TransactionType, string> = {
   DOI_DIEM: 'Đổi điểm',
   THANH_TOAN: 'Thanh toán phí gửi xe',
   RUT_DIEM: 'Rút điểm',
+  DIEU_CHINH: 'Điều chỉnh',
+};
+
+export const WITHDRAWAL_STATUS_LABELS: Record<WithdrawalStatus, string> = {
+  CHO_XU_LY: 'Chờ xử lý',
+  DA_TRA: 'Đã trả — chờ chủ bãi xác nhận',
+  DA_XAC_NHAN: 'Hoàn tất',
+  TU_CHOI: 'Bị từ chối',
+  DA_HUY: 'Đã hủy',
+  KHIEU_NAI: 'Khiếu nại chưa nhận đủ',
 };
 
 export const GUARD_STATUS_LABELS: Record<GuardStatus, string> = {
