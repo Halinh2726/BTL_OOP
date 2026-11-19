@@ -51,6 +51,7 @@ public enum ErrorCode {
     WITHDRAWAL_STATUS_CONFLICT(409, "Yêu cầu rút điểm không ở trạng thái cho phép thao tác này."),
     COMPLAINT_STATUS_CONFLICT(409, "Khiếu nại không ở trạng thái cho phép thao tác này."),
     SHIFT_ALREADY_ASSIGNED(409, "Bảo vệ này đã được xếp vào ca đó."),
+    PASS_ALREADY_EXISTS(409, "Xe này đã có vé tháng cho tháng đó."),
     ALREADY_RECONCILED(409, "Ngày này đã được chốt đối soát. Biên bản đã chốt không sửa được."),
 
     // 422 — vi phạm quy tắc nghiệp vụ
@@ -76,6 +77,8 @@ public enum ErrorCode {
     TOO_MANY_OPEN_COMPLAINTS(422, "Bạn đang có 5 khiếu nại chưa xử lý xong. Vui lòng chờ kết quả trước khi gửi thêm."),
     SHIFT_SLOT_PASSED(422, "Ca này đã bắt đầu hoặc đã kết thúc: không xếp / gỡ được nữa."),
     GUARD_INACTIVE(422, "Bảo vệ đang bị khóa tài khoản, không xếp ca được."),
+    PASS_MONTH_INVALID(422, "Chỉ mua được vé cho tháng này hoặc tháng sau."),
+    PASS_NOT_AVAILABLE(422, "Loại xe này chưa bán vé tháng."),
     DATE_RANGE_INVALID(422, "Khoảng ngày không hợp lệ: ngày bắt đầu phải trước ngày kết thúc, tối đa 93 ngày."),
 
     // 429 / 500

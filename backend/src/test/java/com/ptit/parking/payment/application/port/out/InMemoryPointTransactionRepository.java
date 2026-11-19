@@ -3,6 +3,7 @@ package com.ptit.parking.payment.application.port.out;
 import com.ptit.parking.payment.domain.CashDeposit;
 import com.ptit.parking.payment.domain.CashWithdrawal;
 import com.ptit.parking.payment.domain.ParkingPayment;
+import com.ptit.parking.payment.domain.PassPurchase;
 import com.ptit.parking.payment.domain.PointAdjustment;
 import com.ptit.parking.payment.domain.PointTransaction;
 import com.ptit.parking.payment.domain.TransactionType;
@@ -80,6 +81,8 @@ public class InMemoryPointTransactionRepository implements PointTransactionRepos
             case PointAdjustment a -> PointAdjustment.restore(id, a.points(), a.idempotencyKey(), a.performedBy(),
                     a.createdAt(), a.sourceWalletId(), a.targetWalletId(), a.sourceBalanceAfter(), a.targetBalanceAfter(),
                     a.originalTransactionId(), a.reason());
+            case PassPurchase m -> PassPurchase.restore(id, m.points(), m.idempotencyKey(), m.performedBy(),
+                    m.createdAt(), m.sourceWalletId(), m.targetWalletId(), m.sourceBalanceAfter(), m.targetBalanceAfter());
         };
     }
 }

@@ -143,6 +143,27 @@ export interface MockComplaint {
   compensationTransactionId: number | null;
 }
 
+/** Đợt 5 — vé tháng (month "yyyy-MM"). */
+export interface MockPass {
+  id: number;
+  studentId: number;
+  vehicleId: number;
+  month: string;
+  price: number;
+  transactionId: number;
+}
+
+/** Đợt 5 — thông báo trong hộp thư của một người dùng. */
+export interface MockNotification {
+  id: number;
+  userId: number;
+  kind: string;
+  title: string;
+  body: string;
+  createdAt: string;
+  read: boolean;
+}
+
 /** Đợt 4b — một ca đã xếp. */
 export interface MockAssignment {
   id: number;
@@ -213,6 +234,9 @@ export interface MockState {
   /** Đợt 4b */
   complaints?: MockComplaint[];
   assignments?: MockAssignment[];
+  /** Đợt 5 */
+  passes?: MockPass[];
+  notifications?: MockNotification[];
 }
 
 const HOUR = 60 * 60 * 1000;
@@ -294,5 +318,7 @@ export function seedState(now = new Date()): MockState {
     reconciliations: [],
     complaints: [],
     assignments: [],
+    passes: [],
+    notifications: [],
   };
 }

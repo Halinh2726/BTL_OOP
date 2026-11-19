@@ -150,7 +150,7 @@ export interface Wallet {
   balance: number;
 }
 
-export type TransactionType = 'DOI_DIEM' | 'THANH_TOAN' | 'RUT_DIEM' | 'DIEU_CHINH';
+export type TransactionType = 'DOI_DIEM' | 'THANH_TOAN' | 'RUT_DIEM' | 'DIEU_CHINH' | 'MUA_VE';
 
 /** Một dòng lịch sử, nhìn từ góc ví của người đang xem: change có dấu. */
 export interface TransactionItem {
@@ -186,6 +186,8 @@ export interface CheckInPreview {
   minFee: number;
   allowed: boolean;
   reason: CheckInReason | null;
+  /** Đợt 5: "yyyy-mm-dd" — xe có vé tháng còn hiệu lực tới ngày này (không cần điểm tối thiểu). */
+  passValidUntil?: string | null;
 }
 
 export interface CheckInResult {
@@ -208,10 +210,14 @@ export interface CheckOutPreview {
   fee: number | null;
   allowed: boolean;
   reason: CheckOutReason | null;
+  /** Đợt 5: xe có vé tháng thì phí 0 và có hạn vé. */
+  passValidUntil?: string | null;
 }
 
 export interface CheckOutResult {
-  transactionId: number;
+  /** Đợt 5: null khi xe ra miễn phí nhờ vé tháng (không có giao dịch). */
+  transactionId: number | null;
+  passValidUntil?: string | null;
   sessionId: number;
   fee: number;
   exitedAt: string;
@@ -728,4 +734,53 @@ export interface ShiftWeek {
   to: string;
   guards: Array<{ id: number; fullName: string; active: boolean }>;
   shifts: PlannedShift[];
+}
+
+// ===== Đợt 5 — vé tháng & thông báo =====
+
+export interface PassView {
+  id: number;
+  vehicleId: number;
+  plateNumber: string | null;
+  /** "yyyy-MM" */
+  month: string;
+  validUntil: string;
+  price: number;
+  transactionId: number;
+}
+
+export interface PassOption {
+  vehicleId: number;
+  plateNumber: string;
+  vehicleTypeName: string;
+  /** null: loại xe này chưa bán vé tháng. */
+  price: number | null;
+  current: PassView | null;
+  next: PassView | null;
+}
+
+export interface PassOverview {
+  currentMonth: string;
+  nextMonth: string;
+  options: PassOption[];
+  passes: PassView[];
+}
+
+export interface BuyPassResult {
+  pass: PassView;
+  balanceAfter: number;
+}
+
+export interface NotificationItem {
+  id: number;
+  kind: string;
+  title: string;
+  body: string;
+  createdAt: string;
+  read: boolean;
+}
+
+export interface NotificationInbox {
+  unread: number;
+  items: NotificationItem[];
 }

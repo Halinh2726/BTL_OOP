@@ -34,7 +34,7 @@ class CashPositionJdbcAdapter implements CashPositionQuery {
                        COALESCE(SUM(t.type = 'DOI_DIEM'   AND t.created_at >= :start), 0) AS deposits,
                        COALESCE(SUM(t.type = 'RUT_DIEM'   AND t.created_at >= :start), 0) AS withdrawals,
                        COALESCE(SUM(t.type = 'THANH_TOAN' AND t.created_at >= :start), 0) AS payments,
-                       COALESCE(SUM(CASE WHEN t.type = 'THANH_TOAN' AND t.created_at >= :start THEN t.points END), 0) AS revenue
+                       COALESCE(SUM(CASE WHEN t.type IN ('THANH_TOAN', 'MUA_VE') AND t.created_at >= :start THEN t.points END), 0) AS revenue
                 FROM point_transactions t
                 LEFT JOIN cash_details c ON c.transaction_id = t.id
                 WHERE t.created_at < :end""")

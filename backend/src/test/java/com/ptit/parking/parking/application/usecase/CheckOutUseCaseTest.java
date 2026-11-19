@@ -1,5 +1,6 @@
 package com.ptit.parking.parking.application.usecase;
 
+import com.ptit.parking.shared.application.port.out.EventPublisher;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -112,7 +113,8 @@ class CheckOutUseCaseTest {
 
     private CheckOutUseCase at(Instant now) {
         return new CheckOutUseCase(sessions, vehicles, new PayParkingFeeUseCase(wallets, () -> receiverWallet),
-                new IdempotencyGuard(transactions, transactionRunner), feePolicy, Clock.fixed(now, VN));
+                new IdempotencyGuard(transactions, transactionRunner), feePolicy, wallets, transactionRunner,
+                EventPublisher.NONE, Clock.fixed(now, VN));
     }
 
     @Test

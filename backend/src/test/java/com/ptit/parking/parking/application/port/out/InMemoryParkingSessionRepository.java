@@ -48,6 +48,11 @@ public class InMemoryParkingSessionRepository implements ParkingSessionRepositor
         return Optional.ofNullable(byId.get(sessionId)).map(InMemoryParkingSessionRepository::copy);
     }
 
+    @Override
+    public synchronized Optional<ParkingSession> findById(long sessionId) {
+        return Optional.ofNullable(byId.get(sessionId)).map(InMemoryParkingSessionRepository::copy);
+    }
+
     /** Như câu UPDATE ... WHERE status = 'DANG_GUI': lượt đã ra thì không ghi đè. */
     @Override
     public synchronized void saveExit(ParkingSession session) {

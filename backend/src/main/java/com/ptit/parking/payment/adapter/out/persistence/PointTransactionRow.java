@@ -4,6 +4,7 @@ import com.ptit.parking.payment.domain.CashDeposit;
 import com.ptit.parking.payment.domain.CashWithdrawal;
 import com.ptit.parking.payment.domain.ExchangeRate;
 import com.ptit.parking.payment.domain.ParkingPayment;
+import com.ptit.parking.payment.domain.PassPurchase;
 import com.ptit.parking.payment.domain.PointAdjustment;
 import com.ptit.parking.payment.domain.PointTransaction;
 import com.ptit.parking.payment.domain.TransactionType;
@@ -46,6 +47,11 @@ record PointTransactionRow(
                     a.sourceWalletId(), a.targetWalletId(), a.sourceBalanceAfter(), a.targetBalanceAfter(),
                     a.idempotencyKey(), a.performedBy(), a.createdAt(),
                     null, null, null, a.originalTransactionId(), a.reason());
+            // Đợt 5: lớp con thứ 5 — trình biên dịch báo lỗi ở đây (và ở toDomain) cho tới khi thêm 2 nhánh này
+            case PassPurchase m -> new PointTransactionRow(m.id(), m.type(), m.points(),
+                    m.sourceWalletId(), m.targetWalletId(), m.sourceBalanceAfter(), m.targetBalanceAfter(),
+                    m.idempotencyKey(), m.performedBy(), m.createdAt(),
+                    null, null, null, null, null);
         };
     }
 
@@ -60,6 +66,8 @@ record PointTransactionRow(
                     sessionId, sourceWalletId, targetWalletId, sourceBalanceAfter, targetBalanceAfter);
             case DIEU_CHINH -> PointAdjustment.restore(id, points, idempotencyKey, performedBy, createdAt,
                     sourceWalletId, targetWalletId, sourceBalanceAfter, targetBalanceAfter, originalTransactionId, reason);
+            case MUA_VE -> PassPurchase.restore(id, points, idempotencyKey, performedBy, createdAt,
+                    sourceWalletId, targetWalletId, sourceBalanceAfter, targetBalanceAfter);
         };
     }
 }

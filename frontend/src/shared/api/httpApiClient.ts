@@ -221,6 +221,12 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
       await send(`/manager/shift-plan/${id}`, { method: 'DELETE' });
     },
     mySchedule: () => json('/guard/my-schedule'),
+
+    myPasses: () => json('/me/passes'),
+    buyPass: (body, key) => idempotent('/me/passes', body, key),
+    notifications: () => json('/me/notifications'),
+    markNotificationRead: (id) => json(`/me/notifications/${id}/read`, { method: 'POST' }),
+    markAllNotificationsRead: () => json('/me/notifications/read-all', { method: 'POST' }),
   };
 }
 

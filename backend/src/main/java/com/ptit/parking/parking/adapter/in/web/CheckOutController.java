@@ -34,7 +34,8 @@ class CheckOutController {
 
     /** Response của API #14. Trường nào không có (chưa đăng ký, không có lượt mở) thì null. */
     record PreviewResponse(Long sessionId, String plateNumber, String vehicleTypeCode, String studentCode,
-                           String fullName, String enteredAt, Long balance, Long fee, boolean allowed, String reason) {
+                           String fullName, String enteredAt, Long balance, Long fee, boolean allowed, String reason,
+                           String passValidUntil) {
 
         static PreviewResponse from(Preview preview, ZoneId zone) {
             VehicleOwner owner = preview.owner();
@@ -47,7 +48,8 @@ class CheckOutController {
                     owner == null ? null : owner.fullName(),
                     session == null ? null : format(session.enteredAt(), zone),
                     preview.balance(), preview.fee(), preview.allowed(),
-                    preview.reason() == null ? null : preview.reason().name());
+                    preview.reason() == null ? null : preview.reason().name(),
+                    preview.passValidUntil() == null ? null : preview.passValidUntil().toString());
         }
     }
 
@@ -58,12 +60,22 @@ class CheckOutController {
             Long sessionId) {
     }
 
-    /** Response 201 của API #15. balanceAfter là số điểm còn lại của SINH VIÊN. */
-    record CheckOutResponse(long transactionId, long sessionId, long fee, String exitedAt, long balanceAfter) {
+    /**
+     * Response 201 của API #15. balanceAfter là số điểm còn lại của SINH VIÊN.
+     * Đợt 5: xe có vé tháng thì {@code transactionId} null, {@code fee} 0, {@code passValidUntil} là hạn vé.
+     */
+    record CheckOutResponse(Long transactionId, long sessionId, long fee, String exitedAt, long balanceAfter,
+                            String passValidUntil) {
 
-        static CheckOutResponse from(ParkingPayment payment, ZoneId zone) {
+        static CheckOutResponse from(CheckOutUseCase.Result result, ZoneId zone) {
+            if (result.freeExit() != null) {
+                CheckOutUseCase.FreeExit free = result.freeExit();
+                return new CheckOutResponse(null, free.sessionId(), 0, format(free.exitedAt(), zone), free.balance(),
+                        free.passValidUntil() == null ? null : free.passValidUntil().toString());
+            }
+            ParkingPayment payment = result.payment();
             return new CheckOutResponse(payment.id(), payment.sessionId(), payment.points(),
-                    format(payment.createdAt(), zone), payment.sourceBalanceAfter());
+                    format(payment.createdAt(), zone), payment.sourceBalanceAfter(), null);
         }
     }
 
@@ -90,7 +102,7 @@ class CheckOutController {
                                               @Valid @RequestBody CheckOutRequest body) {
         CheckOutUseCase.Result result = checkOut.checkOut(new CheckOutUseCase.Command(
                 guard.id(), IdempotencyKeyHeader.parse(key), body.sessionId()));
-        return IdempotencyKeyHeader.created(CheckOutResponse.from(result.payment(), zone), result.replayed());
+        return IdempotencyKeyHeader.created(CheckOutResponse.from(result, zone), result.replayed());
     }
 
     /** Giờ Việt Nam kèm múi giờ, ví dụ "2026-10-05T18:30:00+07:00" (CSDL lưu UTC). */

@@ -5,7 +5,7 @@ import { Button } from '../../shared/components/Button';
 import { Card, InfoRow } from '../../shared/components/Card';
 import { useIdempotencyKey } from '../../shared/hooks/useIdempotencyKey';
 import { useVehicleTypeName } from '../../shared/hooks/useVehicleTypeName';
-import { formatDateTime, formatPlate, formatPoints } from '../../shared/utils/format';
+import { formatDateTime, formatDay, formatPlate, formatPoints } from '../../shared/utils/format';
 import { ContinuousScanPanel } from './continuous/ContinuousScanPanel';
 import { checkOutFlow } from './continuous/gateFlows';
 import { useGuardPreferences } from './guardPreferences';
@@ -60,18 +60,23 @@ export function CheckOutPanel() {
 
   if (checkOut.data) {
     const result = checkOut.data.data;
+    const free = result.transactionId === null;
     return (
       <SuccessPanel
-        title="Đã cho xe ra và thanh toán"
+        title={free ? 'Đã cho xe ra — miễn phí (vé tháng)' : 'Đã cho xe ra và thanh toán'}
         onNext={nextVehicle}
         notice={
           checkOut.data.replayed && <Alert tone="info">Lượt này đã được thanh toán trước đó — không trừ điểm lần hai.</Alert>
         }
       >
-        <InfoRow label="Phí đã trừ" value={<span className="text-red-600">{formatPoints(result.fee)}</span>} />
+        {free ? (
+          <InfoRow label="Vé tháng" value={<span className="text-emerald-700">Còn hiệu lực đến {formatDay(result.passValidUntil ?? '')}</span>} />
+        ) : (
+          <InfoRow label="Phí đã trừ" value={<span className="text-red-600">{formatPoints(result.fee)}</span>} />
+        )}
         <InfoRow label="Điểm còn lại của sinh viên" value={formatPoints(result.balanceAfter)} />
         <InfoRow label="Giờ ra" value={formatDateTime(result.exitedAt)} />
-        <InfoRow label="Mã giao dịch" value={`#${result.transactionId}`} />
+        {!free && <InfoRow label="Mã giao dịch" value={`#${result.transactionId}`} />}
       </SuccessPanel>
     );
   }
@@ -110,10 +115,14 @@ export function CheckOutPanel() {
                 <InfoRow label="Loại xe" value={typeName(data.vehicleTypeCode)} />
                 <InfoRow label="Giờ vào" value={data.enteredAt ? formatDateTime(data.enteredAt) : '—'} />
                 <InfoRow label="Số điểm hiện có" value={data.balance === null ? '—' : formatPoints(data.balance)} />
-                <InfoRow
-                  label="Phí gửi xe"
-                  value={data.fee === null ? '—' : <span className="text-xl font-bold text-red-600">{formatPoints(data.fee)}</span>}
-                />
+                {data.passValidUntil ? (
+                  <InfoRow label="Phí gửi xe" value={<span className="text-xl font-bold text-emerald-700">Miễn phí — vé tháng đến {formatDay(data.passValidUntil)}</span>} />
+                ) : (
+                  <InfoRow
+                    label="Phí gửi xe"
+                    value={data.fee === null ? '—' : <span className="text-xl font-bold text-red-600">{formatPoints(data.fee)}</span>}
+                  />
+                )}
               </dl>
             )}
             {checkOut.isError && <Alert tone="error">{errorMessage(checkOut.error)}</Alert>}

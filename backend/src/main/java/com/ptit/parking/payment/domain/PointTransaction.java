@@ -10,7 +10,7 @@ import java.util.UUID;
  * ({@link #changeFor(long)}); nơi gọi không cần if/else theo loại.
  * <p>R10: không có phương thức nào sửa giao dịch sau khi tạo — mọi field đều final.
  */
-public abstract sealed class PointTransaction permits CashDeposit, CashWithdrawal, ParkingPayment, PointAdjustment {
+public abstract sealed class PointTransaction permits CashDeposit, CashWithdrawal, ParkingPayment, PointAdjustment, PassPurchase {
 
     private final Long id;                 // null khi chưa lưu CSDL
     private final long points;

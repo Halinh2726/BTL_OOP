@@ -106,7 +106,13 @@ export const TRANSACTION_LABELS: Record<TransactionType, string> = {
   THANH_TOAN: 'Thanh toán phí gửi xe',
   RUT_DIEM: 'Rút điểm',
   DIEU_CHINH: 'Điều chỉnh',
+  MUA_VE: 'Mua vé tháng',
 };
+
+/** "2026-11-30" -> "30/11/2026"; "2026-11" -> "11/2026" */
+export function formatDay(value: string): string {
+  return value.split('-').reverse().join('/');
+}
 
 export const WITHDRAWAL_STATUS_LABELS: Record<WithdrawalStatus, string> = {
   CHO_XU_LY: 'Chờ xử lý',

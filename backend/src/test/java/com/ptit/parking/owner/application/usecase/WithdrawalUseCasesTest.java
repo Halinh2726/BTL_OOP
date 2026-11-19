@@ -1,5 +1,6 @@
 package com.ptit.parking.owner.application.usecase;
 
+import com.ptit.parking.shared.application.port.out.EventPublisher;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -52,8 +53,9 @@ class WithdrawalUseCasesTest {
         long walletId = wallets.insert(new Wallet(null, OWNER, 10_000));
         finance.account = new OwnerFinanceQuery.ReceivingAccount(OWNER, "Lê Văn C", walletId);
         finance.cashHeld = 50_000;
-        owner = new OwnerWithdrawalUseCase(requests, finance, wallets, () -> new ExchangeRate(1), DIRECTLY, clock);
-        manager = new ProcessWithdrawalUseCase(requests, finance, wallets, ledger, DIRECTLY, clock);
+        owner = new OwnerWithdrawalUseCase(requests, finance, wallets, () -> new ExchangeRate(1), DIRECTLY,
+                EventPublisher.NONE, clock);
+        manager = new ProcessWithdrawalUseCase(requests, finance, wallets, ledger, DIRECTLY, EventPublisher.NONE, clock);
     }
 
     @Test

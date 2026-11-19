@@ -4,6 +4,9 @@ import com.ptit.parking.parking.application.port.out.ParkingSessionRepository;
 import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory;
 import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory.VehicleOwner;
 import com.ptit.parking.parking.domain.FeePolicy;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
 import com.ptit.parking.payment.application.port.out.WalletRepository;
 import com.ptit.parking.payment.domain.Wallet;
 import com.ptit.parking.shared.domain.DomainException;
@@ -21,19 +24,33 @@ public class PreviewCheckInUseCase {
 
     /** {@code owner}, {@code balance} là null khi biển số chưa đăng ký; {@code reason} null khi được cho vào. */
     public record Preview(PlateNumber plate, VehicleOwner owner, Long balance, long minFee,
-                          boolean allowed, ErrorCode reason) {}
+                          boolean allowed, ErrorCode reason, LocalDate passValidUntil) {
+
+        /** Đợt 5: {@code passValidUntil} khác null khi xe có vé tháng (không cần điểm tối thiểu). */
+        public Preview(PlateNumber plate, VehicleOwner owner, Long balance, long minFee, boolean allowed,
+                       ErrorCode reason) {
+            this(plate, owner, balance, minFee, allowed, reason, null);
+        }
+    }
 
     private final VehicleOwnerDirectory vehicles;
     private final ParkingSessionRepository sessions;
     private final WalletRepository wallets;
     private final FeePolicy feePolicy;
+    private final Clock clock;
 
     public PreviewCheckInUseCase(VehicleOwnerDirectory vehicles, ParkingSessionRepository sessions,
                                  WalletRepository wallets, FeePolicy feePolicy) {
+        this(vehicles, sessions, wallets, feePolicy, Clock.systemUTC());
+    }
+
+    public PreviewCheckInUseCase(VehicleOwnerDirectory vehicles, ParkingSessionRepository sessions,
+                                 WalletRepository wallets, FeePolicy feePolicy, Clock clock) {
         this.vehicles = vehicles;
         this.sessions = sessions;
         this.wallets = wallets;
         this.feePolicy = feePolicy;
+        this.clock = clock;
     }
 
     public Preview preview(String rawPlate) {
@@ -47,14 +64,18 @@ public class PreviewCheckInUseCase {
         }
         VehicleOwner owner = found.get();
         Wallet wallet = wallets.findByUserId(owner.studentUserId()).orElseThrow();
+        // Đợt 5: xe có vé tháng thì không cần điểm tối thiểu
+        ZonedDateTime now = ZonedDateTime.now(clock);
+        long required = feePolicy.minimumFeeFor(owner.vehicleId(), now);
+        LocalDate passUntil = feePolicy.quote(owner.vehicleId(), now).passValidUntil();
 
         // Cùng thứ tự kiểm tra với lúc xác nhận (API #13): lượt đang mở trước, rồi tới số điểm
         ErrorCode reason = null;
         if (sessions.hasOpenSession(owner.vehicleId())) {
             reason = ErrorCode.SESSION_ALREADY_OPEN;                         // R05
-        } else if (!wallet.hasAtLeast(minFee)) {
+        } else if (!wallet.hasAtLeast(required)) {
             reason = ErrorCode.INSUFFICIENT_POINTS;                          // R04: chỉ kiểm tra, không trừ
         }
-        return new Preview(plate, owner, wallet.balance(), minFee, reason == null, reason);
+        return new Preview(plate, owner, wallet.balance(), required, reason == null, reason, passUntil);
     }
 }

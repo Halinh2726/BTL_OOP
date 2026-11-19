@@ -1,5 +1,7 @@
 package com.ptit.parking.support.application.usecase;
 
+import com.ptit.parking.support.application.event.ComplaintChanged;
+import com.ptit.parking.shared.application.port.out.EventPublisher;
 import com.ptit.parking.gate.domain.IncidentPhoto;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import com.ptit.parking.shared.domain.DomainException;
@@ -29,13 +31,15 @@ public class StudentComplaintUseCase {
     private final ComplaintRepository complaints;
     private final ComplaintDirectory directory;
     private final TransactionRunner transactions;
+    private final EventPublisher events;
     private final Clock clock;
 
     public StudentComplaintUseCase(ComplaintRepository complaints, ComplaintDirectory directory,
-                                   TransactionRunner transactions, Clock clock) {
+                                   TransactionRunner transactions, EventPublisher events, Clock clock) {
         this.complaints = complaints;
         this.directory = directory;
         this.transactions = transactions;
+        this.events = events;
         this.clock = clock;
     }
 
@@ -53,7 +57,9 @@ public class StudentComplaintUseCase {
             if (open >= MAX_OPEN) {
                 throw new DomainException(ErrorCode.TOO_MANY_OPEN_COMPLAINTS);
             }
-            return complaints.insert(complaint, photo);
+            Complaint inserted = complaints.insert(complaint, photo);
+            events.publish(ComplaintChanged.of(inserted));                   // Đợt 5: báo quản lý có khiếu nại mới
+            return inserted;
         });
         return ComplaintDetails.of(saved, directory);
     }

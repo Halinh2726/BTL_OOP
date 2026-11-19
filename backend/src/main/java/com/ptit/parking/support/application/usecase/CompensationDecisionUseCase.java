@@ -1,5 +1,7 @@
 package com.ptit.parking.support.application.usecase;
 
+import com.ptit.parking.support.application.event.ComplaintChanged;
+import com.ptit.parking.shared.application.port.out.EventPublisher;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
@@ -30,14 +32,16 @@ public class CompensationDecisionUseCase {
     private final ComplaintDirectory directory;
     private final PointPayout payout;
     private final TransactionRunner transactions;
+    private final EventPublisher events;
     private final Clock clock;
 
     public CompensationDecisionUseCase(ComplaintRepository complaints, ComplaintDirectory directory, PointPayout payout,
-                                       TransactionRunner transactions, Clock clock) {
+                                       TransactionRunner transactions, EventPublisher events, Clock clock) {
         this.complaints = complaints;
         this.directory = directory;
         this.payout = payout;
         this.transactions = transactions;
+        this.events = events;
         this.clock = clock;
     }
 
@@ -64,6 +68,7 @@ public class CompensationDecisionUseCase {
                     "Bồi thường theo khiếu nại #" + c.id(), null, ownerId, "complaint-compensation:" + c.id(), now);
             c.approveCompensation(ownerId, note, transactionId, now);
             complaints.update(c);
+            events.publish(ComplaintChanged.of(c));                          // Đợt 5: báo sinh viên và người đề xuất
             return c;
         });
         return new Decision(ComplaintDetails.of(decided, directory), replayed[0]);
@@ -74,6 +79,7 @@ public class CompensationDecisionUseCase {
             Complaint c = lock(complaintId);
             c.rejectCompensation(ownerId, reason, clock.instant());
             complaints.update(c);
+            events.publish(ComplaintChanged.of(c));
             return c;
         });
         return ComplaintDetails.of(decided, directory);

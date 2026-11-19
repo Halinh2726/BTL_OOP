@@ -41,6 +41,7 @@ import {
   type MockIncident,
   type MockReconciliation,
   type MockComplaint,
+  type MockPass,
   type MockAssignment,
   type MockTransaction,
   type MockShift,
@@ -97,6 +98,9 @@ const ERRORS = {
   TOO_MANY_OPEN_COMPLAINTS: [422, 'Bạn đang có 5 khiếu nại chưa xử lý xong. Vui lòng chờ kết quả trước khi gửi thêm.'],
   SHIFT_SLOT_PASSED: [422, 'Ca này đã bắt đầu hoặc đã kết thúc: không xếp / gỡ được nữa.'],
   GUARD_INACTIVE: [422, 'Bảo vệ đang bị khóa tài khoản, không xếp ca được.'],
+  PASS_ALREADY_EXISTS: [409, 'Xe này đã có vé tháng cho tháng đó.'],
+  PASS_MONTH_INVALID: [422, 'Chỉ mua được vé cho tháng này hoặc tháng sau.'],
+  PASS_NOT_AVAILABLE: [422, 'Loại xe này chưa bán vé tháng.'],
   DATE_RANGE_INVALID: [422, 'Khoảng ngày không hợp lệ: ngày bắt đầu phải trước ngày kết thúc, tối đa 93 ngày.'],
   PLATE_NOT_FOUND: [404, 'Biển số chưa được đăng ký.'],
   NO_OPEN_SESSION: [404, 'Xe không có lượt gửi đang mở.'],
@@ -420,6 +424,56 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         days.set(date, day);
       });
     return [...days.values()].sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  // ===== Đợt 5: helpers =====
+
+  const PASS_PRICES: Record<string, number> = { XE_MAY: 100_000, XE_DAP_DIEN: 80_000, XE_DAP: 50_000 };
+
+  /** "2026-11" -> "2026-11-30" */
+  function lastDayOf(month: string): string {
+    const [year, mon] = month.split('-').map(Number);
+    const day = new Date(Date.UTC(year ?? 2000, mon ?? 1, 0)).getUTCDate();
+    return `${month}-${String(day).padStart(2, '0')}`;
+  }
+
+  function nextMonthOf(month: string): string {
+    const [year, mon] = month.split('-').map(Number);
+    const next = new Date(Date.UTC(year ?? 2000, mon ?? 1, 1));
+    return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}`;
+  }
+
+  /** Vé tháng của xe trong tháng (giờ VN) của thời điểm `at`; null nếu không có. */
+  function passUntil(vehicleId: number, at: Date): string | null {
+    const month = toVietnamIso(at).slice(0, 7);
+    const pass = (state.passes ?? []).find((p) => p.vehicleId === vehicleId && p.month === month);
+    return pass ? lastDayOf(pass.month) : null;
+  }
+
+  function toPassView(p: MockPass) {
+    return {
+      id: p.id, vehicleId: p.vehicleId, plateNumber: state.vehicles.find((v) => v.id === p.vehicleId)?.plateNumber ?? null,
+      month: p.month, validUntil: lastDayOf(p.month), price: p.price, transactionId: p.transactionId,
+    };
+  }
+
+  /** Ghi thông báo cho một người hoặc mọi người (đang hoạt động) của một vai trò — như NotificationListener. */
+  function notify(to: number | Role, kind: string, title: string, body: string): void {
+    const recipients = typeof to === 'number' ? [to]
+      : state.users.filter((user) => user.role === to && user.status === 'HOAT_DONG').map((user) => user.id);
+    const createdAt = toVietnamIso(new Date());
+    state.notifications = [
+      ...(state.notifications ?? []),
+      ...recipients.map((userId) => ({ id: nextId(), userId, kind, title, body, createdAt, read: false })),
+    ];
+  }
+
+  function inboxOf(userId: number) {
+    const mine = (state.notifications ?? []).filter((n) => n.userId === userId).sort((a, b) => b.id - a.id);
+    return {
+      unread: mine.filter((n) => !n.read).length,
+      items: mine.slice(0, 30).map(({ id, kind, title, body, createdAt, read }) => ({ id, kind, title, body, createdAt, read })),
+    };
   }
 
   // ===== Đợt 4b: helpers =====
@@ -832,13 +886,15 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           };
         }
         const balance = balanceOf(found.owner.id);
+        const passValidUntil = passUntil(found.vehicle.id, new Date());
+        const required = passValidUntil ? 0 : MIN_FEE;                     // Đợt 5: có vé tháng thì không cần điểm
         const reason = openSessionOf(found.vehicle.id)
           ? ('SESSION_ALREADY_OPEN' as const)
-          : balance < MIN_FEE ? ('INSUFFICIENT_POINTS' as const) : null;
+          : balance < required ? ('INSUFFICIENT_POINTS' as const) : null;
         return {
           plateNumber: plate, vehicleTypeCode: found.vehicle.vehicleTypeCode,
           studentCode: found.owner.studentCode ?? null, fullName: found.owner.fullName, balance,
-          minFee: MIN_FEE, allowed: reason === null, reason,
+          minFee: required, allowed: reason === null, reason, passValidUntil,
         };
       }),
 
@@ -850,7 +906,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         const found = findOwnerByPlate(plate);
         if (!found) return fail('PLATE_NOT_FOUND');
         if (openSessionOf(found.vehicle.id)) fail('SESSION_ALREADY_OPEN');
-        if (balanceOf(found.owner.id) < MIN_FEE) fail('INSUFFICIENT_POINTS');
+        if (!passUntil(found.vehicle.id, new Date()) && balanceOf(found.owner.id) < MIN_FEE) fail('INSUFFICIENT_POINTS');
         const guard = currentUser();
         const session = {
           id: nextId(), vehicleId: found.vehicle.id, enteredAt: toVietnamIso(new Date()), exitedAt: null,
@@ -883,9 +939,13 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
             reason: 'NO_OPEN_SESSION' as const,
           };
         }
-        const fee = feeAt(new Date());
+        const passValidUntil = passUntil(found.vehicle.id, new Date());
+        const fee = passValidUntil ? 0 : feeAt(new Date());
         const reason = balance < fee ? ('INSUFFICIENT_POINTS' as const) : null;
-        return { ...owner, sessionId: session.id, enteredAt: session.enteredAt, balance, fee, allowed: reason === null, reason };
+        return {
+          ...owner, sessionId: session.id, enteredAt: session.enteredAt, balance, fee, allowed: reason === null, reason,
+          passValidUntil,
+        };
       }),
 
     checkOut: (sessionId, key) =>
@@ -898,6 +958,16 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           const vehicle = state.vehicles.find((candidate) => candidate.id === session.vehicleId);
           if (!vehicle) return fail('NO_OPEN_SESSION');
           const now = new Date();
+          const passValidUntil = passUntil(vehicle.id, now);
+          if (passValidUntil) {
+            // Đợt 5: vé tháng -> chỉ đóng lượt, không ghi giao dịch
+            session.exitedAt = toVietnamIso(now);
+            session.exitGuardId = guard.id;
+            return {
+              transactionId: null, sessionId, fee: 0, exitedAt: session.exitedAt, balanceAfter: balanceOf(vehicle.userId),
+              passValidUntil,
+            };
+          }
           const fee = feeAt(now);
           if (balanceOf(vehicle.userId) < fee) fail('INSUFFICIENT_POINTS');
           session.exitedAt = toVietnamIso(now);
@@ -905,9 +975,13 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           const transaction = record('THANH_TOAN', [[vehicle.userId, -fee], [OWNER_ID, fee]], now, {
             performedBy: guard.id, sessionId: session.id,
           });
+          const balanceAfter = balanceOf(vehicle.userId);
+          if (balanceAfter < MIN_FEE) {
+            notify(vehicle.userId, 'SO_DU_THAP', 'Số điểm sắp hết',
+              `Bạn còn ${balanceAfter.toLocaleString('vi-VN')} điểm, chưa đủ ${MIN_FEE.toLocaleString('vi-VN')} điểm cho lượt gửi tiếp theo.`);
+          }
           return {
-            transactionId: transaction.id, sessionId, fee, exitedAt: transaction.createdAt,
-            balanceAfter: balanceOf(vehicle.userId),
+            transactionId: transaction.id, sessionId, fee, exitedAt: transaction.createdAt, balanceAfter, passValidUntil: null,
           };
         });
       }),
@@ -1409,6 +1483,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         request.transactionId = transaction.id;
         request.processedBy = manager.id;
         request.processedAt = transaction.createdAt;
+        notify(OWNER_ID, 'RUT_DIEM', `Đã trả tiền yêu cầu #${request.id}`, 'Vui lòng kiểm tra và bấm "Đã nhận đủ".');
         return { request: toWithdrawal(request), replayed: false };
       }),
 
@@ -1579,6 +1654,68 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         return toClosed(record);
       }),
 
+    // ===== Đợt 5 =====
+
+    myPasses: () =>
+      call(() => {
+        const student = requireRole('SINH_VIEN');
+        const currentMonth = toVietnamIso(new Date()).slice(0, 7);
+        const nextMonth = nextMonthOf(currentMonth);
+        const mine = (state.passes ?? []).filter((p) => p.studentId === student.id);
+        const find = (vehicleId: number, month: string) => {
+          const pass = mine.find((p) => p.vehicleId === vehicleId && p.month === month);
+          return pass ? toPassView(pass) : null;
+        };
+        return {
+          currentMonth, nextMonth,
+          options: state.vehicles.filter((v) => v.userId === student.id && isActive(v)).map((v) => ({
+            vehicleId: v.id, plateNumber: v.plateNumber,
+            vehicleTypeName: v.vehicleTypeCode === 'XE_MAY' ? 'Xe máy' : v.vehicleTypeCode === 'XE_DAP' ? 'Xe đạp' : 'Xe đạp điện',
+            price: PASS_PRICES[v.vehicleTypeCode] ?? null, current: find(v.id, currentMonth), next: find(v.id, nextMonth),
+          })),
+          passes: [...mine].sort((a, b) => b.month.localeCompare(a.month)).map(toPassView),
+        };
+      }),
+
+    buyPass: (body, key) =>
+      call(() => {
+        const student = requireRole('SINH_VIEN');
+        const currentMonth = toVietnamIso(new Date()).slice(0, 7);
+        if (body.month !== currentMonth && body.month !== nextMonthOf(currentMonth)) fail('PASS_MONTH_INVALID');
+        const vehicle = state.vehicles.find((v) => v.id === body.vehicleId && v.userId === student.id);
+        if (!vehicle) return fail('VEHICLE_NOT_FOUND');
+        if (!isActive(vehicle)) fail('VEHICLE_INACTIVE');
+        const price = PASS_PRICES[vehicle.vehicleTypeCode];
+        if (!price) return fail('PASS_NOT_AVAILABLE');
+        return idempotent(key, `MUA_VE|${student.id}|${body.vehicleId}|${body.month}`, () => {
+          if ((state.passes ?? []).some((p) => p.vehicleId === vehicle.id && p.month === body.month)) fail('PASS_ALREADY_EXISTS');
+          if (balanceOf(student.id) < price) fail('INSUFFICIENT_POINTS');
+          const transaction = record('MUA_VE', [[student.id, -price], [OWNER_ID, price]], new Date(), { performedBy: student.id });
+          const pass: MockPass = { id: nextId(), studentId: student.id, vehicleId: vehicle.id, month: body.month, price, transactionId: transaction.id };
+          state.passes = [...(state.passes ?? []), pass];
+          notify(student.id, 'VE_THANG', `Đã mua vé tháng ${body.month.split('-').reverse().join('/')}`,
+            `Xe ${displayPlate(vehicle.plateNumber)} gửi miễn phí đến hết ngày ${lastDayOf(body.month).split('-').reverse().join('/')}.`);
+          return { pass: toPassView(pass), balanceAfter: balanceOf(student.id) };
+        });
+      }),
+
+    notifications: () => call(() => inboxOf(currentUser().id)),
+
+    markNotificationRead: (id) =>
+      call(() => {
+        const user = currentUser();
+        const found = (state.notifications ?? []).find((n) => n.id === id && n.userId === user.id);
+        if (found) found.read = true;
+        return inboxOf(user.id);
+      }),
+
+    markAllNotificationsRead: () =>
+      call(() => {
+        const user = currentUser();
+        (state.notifications ?? []).filter((n) => n.userId === user.id).forEach((n) => { n.read = true; });
+        return inboxOf(user.id);
+      }),
+
     // ===== Đợt 4b =====
 
     myComplaints: () =>
@@ -1602,6 +1739,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           compensationTransactionId: null,
         };
         state.complaints = [...(state.complaints ?? []), complaint];
+        notify('QUAN_LY', 'KHIEU_NAI', `Khiếu nại mới #${complaint.id}`, 'Sinh viên vừa gửi khiếu nại, vào mục Xử lý để tiếp nhận.');
         return toComplaint(complaint);
       }),
 
@@ -1661,6 +1799,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         }
         moveComplaint(complaint, 'DA_XU_LY');
         Object.assign(complaint, { resolution: text, refundTransactionId: refundId, handledBy: manager.id, handledAt: toVietnamIso(new Date()) });
+        notify(complaint.studentId, 'KHIEU_NAI', `Khiếu nại #${complaint.id} đã xử lý xong`, `Kết luận: ${text}`);
         return toComplaint(complaint);
       }),
 
@@ -1784,6 +1923,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         }
         const assignment: MockAssignment = { id: nextId(), date: body.date, slot: body.slot, guardId: body.guardId };
         state.assignments = [...(state.assignments ?? []), assignment];
+        notify(body.guardId, 'PHAN_CA', `Bạn được xếp ca ngày ${body.date.split('-').reverse().join('/')}`, 'Xem tab Ca trực → Lịch trực của tôi.');
         return toPlanned(assignment);
       }),
 

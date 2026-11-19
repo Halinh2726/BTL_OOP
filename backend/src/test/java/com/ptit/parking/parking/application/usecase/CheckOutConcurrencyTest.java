@@ -1,5 +1,6 @@
 package com.ptit.parking.parking.application.usecase;
 
+import com.ptit.parking.shared.application.port.out.EventPublisher;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.ptit.parking.catalog.domain.FeeRule;
@@ -78,7 +79,7 @@ class CheckOutConcurrencyTest {
     private final CheckOutUseCase checkOut = new CheckOutUseCase(sessions, vehicles,
             new PayParkingFeeUseCase(wallets, () -> receiverWallet), new IdempotencyGuard(ledger, transactions),
             new TimeSlotFeePolicy(List.of(new FeeRule(LocalTime.MIDNIGHT, 3000), new FeeRule(LocalTime.of(18, 0), 5000)), VN),
-            Clock.fixed(AT_18_30, VN));
+            wallets, transactions, EventPublisher.NONE, Clock.fixed(AT_18_30, VN));
 
     private final long sessionId;
 

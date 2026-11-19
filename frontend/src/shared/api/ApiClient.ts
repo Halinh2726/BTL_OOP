@@ -1,4 +1,7 @@
 import type {
+  BuyPassResult,
+  NotificationInbox,
+  PassOverview,
   CompensationDecision,
   ComplaintSession,
   ComplaintStatus,
@@ -206,4 +209,12 @@ export interface ApiClient {
   assignShift(body: { date: string; slot: ShiftSlot; guardId: number }): Promise<PlannedShift>;
   removeShift(id: number): Promise<void>;
   mySchedule(): Promise<PlannedShift[]>;
+
+  // Đợt 5 — vé tháng (sinh viên) và thông báo (mọi vai trò)
+  myPasses(): Promise<PassOverview>;
+  /** month: "yyyy-MM" (tháng này hoặc tháng sau). */
+  buyPass(body: { vehicleId: number; month: string }, idempotencyKey: string): Promise<Idempotent<BuyPassResult>>;
+  notifications(): Promise<NotificationInbox>;
+  markNotificationRead(id: number): Promise<NotificationInbox>;
+  markAllNotificationsRead(): Promise<NotificationInbox>;
 }

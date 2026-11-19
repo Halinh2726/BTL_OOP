@@ -29,6 +29,7 @@ public class ConstraintErrorTranslator {
             Map.entry("uq_withdrawal_requests_transaction", new ConstraintError(ErrorCode.WITHDRAWAL_STATUS_CONFLICT, null)),
             Map.entry("uq_daily_reconciliations_date", new ConstraintError(ErrorCode.ALREADY_RECONCILED, null)),
             Map.entry("uq_shift_assignments", new ConstraintError(ErrorCode.SHIFT_ALREADY_ASSIGNED, null)),
+            Map.entry("uq_monthly_passes_vehicle_month", new ConstraintError(ErrorCode.PASS_ALREADY_EXISTS, null)),
             Map.entry("ck_complaints_four_eyes", new ConstraintError(ErrorCode.SELF_PROCESSING_FORBIDDEN, null)),
             Map.entry("uq_complaints_compensation", new ConstraintError(ErrorCode.COMPLAINT_STATUS_CONFLICT, null)),
             Map.entry("uq_complaints_refund", new ConstraintError(ErrorCode.COMPLAINT_STATUS_CONFLICT, null)),

@@ -1,5 +1,6 @@
 package com.ptit.parking.owner.config;
 
+import com.ptit.parking.shared.application.port.out.EventPublisher;
 import com.ptit.parking.catalog.application.port.out.ExchangeRateRepository;
 import com.ptit.parking.owner.application.port.out.OwnerFinanceQuery;
 import com.ptit.parking.owner.application.port.out.WithdrawalRequestRepository;
@@ -20,15 +21,16 @@ public class OwnerUseCaseConfig {
     @Bean
     OwnerWithdrawalUseCase ownerWithdrawalUseCase(WithdrawalRequestRepository requests, OwnerFinanceQuery finance,
                                                   WalletRepository wallets, ExchangeRateRepository exchangeRates,
-                                                  TransactionRunner transactions, Clock clock) {
-        return new OwnerWithdrawalUseCase(requests, finance, wallets, exchangeRates, transactions, clock);
+                                                  TransactionRunner transactions, EventPublisher events, Clock clock) {
+        return new OwnerWithdrawalUseCase(requests, finance, wallets, exchangeRates, transactions, events, clock);
     }
 
     @Bean
     ProcessWithdrawalUseCase processWithdrawalUseCase(WithdrawalRequestRepository requests, OwnerFinanceQuery finance,
                                                       WalletRepository wallets, PointTransactionRepository ledger,
-                                                      TransactionRunner transactions, Clock clock) {
-        return new ProcessWithdrawalUseCase(requests, finance, wallets, ledger, transactions, clock);
+                                                      TransactionRunner transactions, EventPublisher events,
+                                                      Clock clock) {
+        return new ProcessWithdrawalUseCase(requests, finance, wallets, ledger, transactions, events, clock);
     }
 
     @Bean

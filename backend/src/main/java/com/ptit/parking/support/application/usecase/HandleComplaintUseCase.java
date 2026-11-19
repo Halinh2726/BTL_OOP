@@ -1,5 +1,7 @@
 package com.ptit.parking.support.application.usecase;
 
+import com.ptit.parking.support.application.event.ComplaintChanged;
+import com.ptit.parking.shared.application.port.out.EventPublisher;
 import com.ptit.parking.gate.domain.IncidentPhoto;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import com.ptit.parking.shared.domain.DomainException;
@@ -32,14 +34,16 @@ public class HandleComplaintUseCase {
     private final ComplaintDirectory directory;
     private final PointPayout payout;
     private final TransactionRunner transactions;
+    private final EventPublisher events;
     private final Clock clock;
 
     public HandleComplaintUseCase(ComplaintRepository complaints, ComplaintDirectory directory, PointPayout payout,
-                                  TransactionRunner transactions, Clock clock) {
+                                  TransactionRunner transactions, EventPublisher events, Clock clock) {
         this.complaints = complaints;
         this.directory = directory;
         this.payout = payout;
         this.transactions = transactions;
+        this.events = events;
         this.clock = clock;
     }
 
@@ -97,6 +101,7 @@ public class HandleComplaintUseCase {
                     .orElseThrow(() -> new DomainException(ErrorCode.COMPLAINT_NOT_FOUND));
             action.accept(c);
             complaints.update(c);
+            events.publish(ComplaintChanged.of(c));                          // Đợt 5: báo sinh viên / chủ bãi
             return c;
         });
         return ComplaintDetails.of(changed, directory);
