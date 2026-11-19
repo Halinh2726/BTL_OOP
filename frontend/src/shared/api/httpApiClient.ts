@@ -2,7 +2,7 @@ import type { ApiClient, Idempotent } from './ApiClient';
 import { ApiError, isApiErrorBody } from './ApiError';
 import { endsSession, notifySessionEnded } from './sessionEvents';
 
-type Method = 'GET' | 'POST' | 'PATCH';
+type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 type QueryValue = string | number | undefined;
 
 interface RequestOptions {
@@ -194,6 +194,33 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
     reconciliationHistory: () => json('/manager/reconciliations'),
     closeReconciliation: (body) => json('/manager/reconciliations', { method: 'POST', body }),
     trafficStats: (days) => json('/stats/traffic', { query: { days } }),
+
+    myComplaints: () => json('/me/complaints'),
+    submitComplaint: (body) => json('/me/complaints', { method: 'POST', body }),
+    cancelComplaint: (id) => json(`/me/complaints/${id}/cancel`, { method: 'POST' }),
+    complaintSessions: () => json('/me/complaint-sessions'),
+    complaintPhotoUrl: (id, manager) => url(manager ? `/manager/complaints/${id}/photo` : `/me/complaints/${id}/photo`),
+    managerComplaints: (status) => json('/manager/complaints', { query: { status } }),
+    startComplaint: (id) => json(`/manager/complaints/${id}/start`, { method: 'POST' }),
+    resolveComplaint: (id, note, refundPoints) =>
+      json(`/manager/complaints/${id}/resolve`, { method: 'POST', body: { note, refundPoints } }),
+    rejectComplaint: (id, note) => json(`/manager/complaints/${id}/reject`, { method: 'POST', body: { note } }),
+    proposeCompensation: (id, points, note) =>
+      json(`/manager/complaints/${id}/propose`, { method: 'POST', body: { points, note } }),
+    managerIncidents: (status) => json('/manager/incidents', { query: { status } }),
+    startIncident: (id) => json(`/manager/incidents/${id}/start`, { method: 'POST' }),
+    resolveIncident: (id, note) => json(`/manager/incidents/${id}/resolve`, { method: 'POST', body: { note } }),
+    rejectIncident: (id, note) => json(`/manager/incidents/${id}/reject`, { method: 'POST', body: { note } }),
+    managerIncidentPhotoUrl: (id) => url(`/manager/incidents/${id}/photo`),
+    ownerCompensations: () => json('/owner/compensations'),
+    approveCompensation: (id, note) => json(`/owner/compensations/${id}/approve`, { method: 'POST', body: { note } }),
+    rejectCompensation: (id, note) => json(`/owner/compensations/${id}/reject`, { method: 'POST', body: { note } }),
+    shiftWeek: (from) => json('/manager/shift-plan', { query: { from } }),
+    assignShift: (body) => json('/manager/shift-plan', { method: 'POST', body }),
+    removeShift: async (id) => {
+      await send(`/manager/shift-plan/${id}`, { method: 'DELETE' });
+    },
+    mySchedule: () => json('/guard/my-schedule'),
   };
 }
 

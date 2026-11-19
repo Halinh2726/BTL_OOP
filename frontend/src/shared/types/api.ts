@@ -637,3 +637,95 @@ export interface TrafficReport {
   peakHours: number[];
   parkedNow: number;
 }
+
+// ===== Đợt 4b — khiếu nại, xử lý sự cố, bồi thường, phân ca =====
+
+export type ComplaintType = 'THU_PHI_SAI' | 'XE_HU_HONG' | 'MAT_DO' | 'KHAC';
+export type ComplaintStatus =
+  | 'MOI' | 'DANG_XU_LY' | 'CHO_DUYET_BOI_THUONG' | 'DA_XU_LY' | 'TU_CHOI' | 'DA_HUY' | 'DA_BOI_THUONG' | 'KHONG_BOI_THUONG';
+
+export interface ComplaintSession {
+  id: number;
+  plateNumber: string;
+  enteredAt: string;
+  exitedAt: string | null;
+  /** null khi xe còn trong bãi (chưa thu phí). */
+  fee: number | null;
+}
+
+export interface ComplaintView {
+  id: number;
+  type: ComplaintType;
+  status: ComplaintStatus;
+  description: string;
+  createdAt: string;
+  hasPhoto: boolean;
+  studentCode: string | null;
+  studentName: string | null;
+  session: ComplaintSession | null;
+  handlerName: string | null;
+  handledAt: string | null;
+  /** Kết luận / lý do từ chối / căn cứ đề xuất bồi thường. */
+  resolution: string | null;
+  refundTransactionId: number | null;
+  proposedPoints: number | null;
+  proposerName: string | null;
+  proposedAt: string | null;
+  deciderName: string | null;
+  decidedAt: string | null;
+  decisionNote: string | null;
+  compensationTransactionId: number | null;
+  cancelledAt: string | null;
+}
+
+export interface SubmitComplaintRequest {
+  type: ComplaintType;
+  sessionId?: number;
+  description: string;
+  photoContentType?: string;
+  photoBase64?: string;
+}
+
+export interface CompensationDecision {
+  complaint: ComplaintView;
+  /** Đã duyệt từ trước: không trả điểm lần hai. */
+  replayed: boolean;
+}
+
+export interface ManagedIncident {
+  id: number;
+  type: IncidentType;
+  plateNumber: string | null;
+  plateDisplay: string | null;
+  description: string;
+  status: IncidentStatus;
+  createdAt: string;
+  reporterName: string | null;
+  hasPhoto: boolean;
+  handlerName: string | null;
+  handledAt: string | null;
+  resolution: string | null;
+}
+
+export type ShiftSlot = 'SANG' | 'CHIEU' | 'DEM';
+export type AttendanceStatus = 'SAP_TOI' | 'CHUA_NHAN_CA' | 'DUNG_GIO' | 'DI_MUON' | 'VANG';
+
+export interface PlannedShift {
+  id: number;
+  date: string;
+  slot: ShiftSlot;
+  startsAt: string;
+  endsAt: string;
+  guardId: number;
+  guardName: string | null;
+  attendance: AttendanceStatus;
+  actualStart: string | null;
+  lateMinutes: number;
+}
+
+export interface ShiftWeek {
+  from: string;
+  to: string;
+  guards: Array<{ id: number; fullName: string; active: boolean }>;
+  shifts: PlannedShift[];
+}

@@ -1,9 +1,10 @@
 import { BalanceCard } from '../../shared/components/BalanceCard';
 import { TransactionHistory } from '../../shared/components/TransactionHistory';
+import { ComplaintsCard } from './ComplaintsCard';
 import { FeeTable } from './FeeTable';
 import { VehiclesCard } from './VehiclesCard';
 
-/** Trang sinh viên: số điểm, xe của tôi, bảng phí, lịch sử giao dịch. */
+/** Trang sinh viên: số điểm, xe của tôi, bảng phí, lịch sử giao dịch, khiếu nại (Đợt 4b). */
 export function StudentPage() {
   return (
     <div className="space-y-6">
@@ -13,6 +14,7 @@ export function StudentPage() {
       </div>
       <VehiclesCard />
       <TransactionHistory />
+      <ComplaintsCard />
     </div>
   );
 }

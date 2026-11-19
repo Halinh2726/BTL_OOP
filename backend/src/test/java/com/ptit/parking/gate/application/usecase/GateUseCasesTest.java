@@ -273,5 +273,28 @@ class GateUseCasesTest {
         public Optional<IncidentPhoto> findPhoto(long incidentId) {
             return Optional.ofNullable(photos.get(incidentId));
         }
+
+        // Đợt 4b — quản lý xử lý sự cố (đối tượng trong danh sách được sửa trực tiếp nên update không cần làm gì)
+
+        @Override
+        public Optional<Incident> lockById(long incidentId) {
+            return findById(incidentId);
+        }
+
+        @Override
+        public void updateHandling(Incident incident) {
+        }
+
+        @Override
+        public List<Incident> findByStatus(com.ptit.parking.gate.domain.IncidentStatus status, int limit) {
+            return all.stream().filter(i -> status == null ? i.isOpen() : i.status() == status).limit(limit).toList();
+        }
+
+        @Override
+        public Map<Long, String> namesOf(java.util.Collection<Long> userIds) {
+            Map<Long, String> names = new HashMap<>();
+            userIds.forEach(id -> names.put(id, "Người dùng " + id));
+            return names;
+        }
     }
 }

@@ -2,7 +2,10 @@ package com.ptit.parking.gate.application.port.out;
 
 import com.ptit.parking.gate.domain.Incident;
 import com.ptit.parking.gate.domain.IncidentPhoto;
+import com.ptit.parking.gate.domain.IncidentStatus;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /** Port: sự cố (incidents) và ảnh đính kèm (incident_photos). */
@@ -21,4 +24,17 @@ public interface IncidentRepository {
     long countOpen();
 
     Optional<IncidentPhoto> findPhoto(long incidentId);
+
+    // ===== Đợt 4b: quản lý xử lý sự cố =====
+
+    /** SELECT ... FOR UPDATE: hai quản lý bấm cùng lúc thì người sau đợi và thấy trạng thái mới. */
+    Optional<Incident> lockById(long incidentId);
+
+    /** Ghi trạng thái, người xử lý, thời điểm, kết quả. */
+    void updateHandling(Incident incident);
+
+    /** Theo trạng thái; {@code status} null = các sự cố chưa đóng. Mới nhất trước. */
+    List<Incident> findByStatus(IncidentStatus status, int limit);
+
+    Map<Long, String> namesOf(Collection<Long> userIds);
 }

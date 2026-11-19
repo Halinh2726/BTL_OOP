@@ -11,7 +11,10 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -88,6 +91,49 @@ class IncidentJdbcAdapter implements IncidentRepository {
                 .param("id", incidentId)
                 .query((rs, row) -> new IncidentPhoto(rs.getString("content_type"), rs.getBytes("data")))
                 .optional();
+    }
+
+    // ===== Đợt 4b: quản lý xử lý sự cố =====
+
+    @Override
+    public Optional<Incident> lockById(long incidentId) {
+        // Khóa đúng dòng incidents; dòng ảnh (LEFT JOIN) không bị khóa
+        return jdbc.sql(SELECT + "WHERE i.id = :id FOR UPDATE OF i").param("id", incidentId)
+                .query(IncidentJdbcAdapter::map).optional();
+    }
+
+    @Override
+    public void updateHandling(Incident incident) {
+        jdbc.sql("""
+                UPDATE incidents SET status = :status, handled_by = :handledBy, handled_at = :handledAt,
+                                     resolution = :resolution
+                WHERE id = :id""")
+                .param("status", incident.status().name())
+                .param("handledBy", incident.handledBy())
+                .param("handledAt", incident.handledAt() == null ? null
+                        : LocalDateTime.ofInstant(incident.handledAt(), ZoneOffset.UTC))
+                .param("resolution", incident.resolution())
+                .param("id", incident.id())
+                .update();
+    }
+
+    @Override
+    public List<Incident> findByStatus(IncidentStatus status, int limit) {
+        if (status == null) {
+            return findOpen(limit);
+        }
+        return jdbc.sql(SELECT + "WHERE i.status = :status ORDER BY i.id DESC LIMIT :limit")
+                .param("status", status.name()).param("limit", limit).query(IncidentJdbcAdapter::map).list();
+    }
+
+    @Override
+    public Map<Long, String> namesOf(Collection<Long> userIds) {
+        Map<Long, String> names = new HashMap<>();
+        if (!userIds.isEmpty()) {
+            jdbc.sql("SELECT id, full_name FROM users WHERE id IN (:ids)").param("ids", List.copyOf(userIds))
+                    .query((rs, row) -> names.put(rs.getLong("id"), rs.getString("full_name"))).list();
+        }
+        return names;
     }
 
     private static Incident map(ResultSet rs, int row) throws SQLException {

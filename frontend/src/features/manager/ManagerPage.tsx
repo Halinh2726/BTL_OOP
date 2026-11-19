@@ -3,6 +3,9 @@ import { Tabs } from '../../shared/components/Tabs';
 import { TrafficStatsCard } from '../stats/TrafficStatsCard';
 import { AccountsTab } from './AccountsTab';
 import { AdjustmentTab } from './AdjustmentTab';
+import { ComplaintsTab } from './ComplaintsTab';
+import { IncidentsQueueTab } from './IncidentsQueueTab';
+import { ShiftPlanTab } from './ShiftPlanTab';
 import { DepositTab } from './DepositTab';
 import { GuardsTab } from './GuardsTab';
 import { LedgerTab } from './LedgerTab';
@@ -11,7 +14,7 @@ import { StudentsTab } from './StudentsTab';
 import { TimesheetTab } from './TimesheetTab';
 import { WithdrawalRequestsTab } from './WithdrawalRequestsTab';
 
-type Group = 'cashier' | 'lookup' | 'stats' | 'staff';
+type Group = 'cashier' | 'cases' | 'lookup' | 'stats' | 'staff';
 
 interface Section {
   id: string;
@@ -33,6 +36,13 @@ const GROUPS: Record<Group, { label: string; sections: Section[] }> = {
       { id: 'reconcile', label: 'Đối soát cuối ngày', render: () => <ReconciliationTab /> },
     ],
   },
+  cases: {
+    label: 'Xử lý',
+    sections: [
+      { id: 'complaints', label: 'Khiếu nại sinh viên', render: () => <ComplaintsTab /> },
+      { id: 'incidents', label: 'Sự cố bảo vệ báo', render: () => <IncidentsQueueTab /> },
+    ],
+  },
   lookup: {
     label: 'Tra cứu',
     sections: [
@@ -48,17 +58,18 @@ const GROUPS: Record<Group, { label: string; sections: Section[] }> = {
     label: 'Nhân sự',
     sections: [
       { id: 'guards', label: 'Bảo vệ', render: () => <GuardsTab /> },
+      { id: 'shiftplan', label: 'Phân ca', render: () => <ShiftPlanTab /> },
       { id: 'timesheet', label: 'Chấm công', render: () => <TimesheetTab /> },
       { id: 'accounts', label: 'Tài khoản', render: () => <AccountsTab /> },
     ],
   },
 };
 
-/** Trang quản lý bãi xe: thu ngân, tra cứu, thống kê, nhân sự. */
+/** Trang quản lý bãi xe: thu ngân, xử lý khiếu nại / sự cố, tra cứu, thống kê, nhân sự. */
 export function ManagerPage() {
   const [group, setGroup] = useState<Group>('cashier');
   const [openSection, setOpenSection] = useState<Record<Group, string>>({
-    cashier: 'deposit', lookup: 'students', stats: 'traffic', staff: 'guards',
+    cashier: 'deposit', cases: 'complaints', lookup: 'students', stats: 'traffic', staff: 'guards',
   });
   const sections = GROUPS[group].sections;
   const current = sections.find((section) => section.id === openSection[group]) ?? sections[0];

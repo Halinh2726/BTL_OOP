@@ -6,6 +6,10 @@ import java.util.List;
 import org.springframework.http.HttpMethod;
 
 import static com.ptit.parking.shared.security.Permission.ACCOUNT_MANAGE;
+import static com.ptit.parking.shared.security.Permission.CASE_HANDLE;
+import static com.ptit.parking.shared.security.Permission.COMPENSATION_APPROVE;
+import static com.ptit.parking.shared.security.Permission.COMPLAINT_SUBMIT;
+import static com.ptit.parking.shared.security.Permission.SHIFT_PLAN;
 import static com.ptit.parking.shared.security.Permission.CASH_DEPOSIT;
 import static com.ptit.parking.shared.security.Permission.CASH_RECONCILE;
 import static com.ptit.parking.shared.security.Permission.CASH_WITHDRAWAL;
@@ -67,6 +71,24 @@ public enum ProtectedEndpoint {
     RECONCILIATION_DAY (HttpMethod.GET,   "/api/v1/manager/reconciliations/*",  CASH_RECONCILE),
     CLOSE_RECONCILIATION(HttpMethod.POST, "/api/v1/manager/reconciliations",    CASH_RECONCILE),
     TRAFFIC_STATS_VIEW (HttpMethod.GET,   "/api/v1/stats/traffic",              TRAFFIC_STATS),
+    // Đợt 4b — khiếu nại (sinh viên), xử lý sự cố & khiếu nại (quản lý), bồi thường (chủ bãi xe), phân ca
+    MY_COMPLAINTS      (HttpMethod.GET,   "/api/v1/me/complaints",              COMPLAINT_SUBMIT),
+    SUBMIT_COMPLAINT   (HttpMethod.POST,  "/api/v1/me/complaints",              COMPLAINT_SUBMIT),
+    CANCEL_COMPLAINT   (HttpMethod.POST,  "/api/v1/me/complaints/*/cancel",     COMPLAINT_SUBMIT),
+    MY_COMPLAINT_PHOTO (HttpMethod.GET,   "/api/v1/me/complaints/*/photo",      COMPLAINT_SUBMIT),
+    COMPLAINT_SESSIONS (HttpMethod.GET,   "/api/v1/me/complaint-sessions",      COMPLAINT_SUBMIT),
+    MANAGER_COMPLAINTS (HttpMethod.GET,   "/api/v1/manager/complaints",         CASE_HANDLE),
+    MANAGER_COMPLAINT_ACTION(HttpMethod.POST, "/api/v1/manager/complaints/*/*", CASE_HANDLE),
+    MANAGER_COMPLAINT_PHOTO(HttpMethod.GET, "/api/v1/manager/complaints/*/photo", CASE_HANDLE),
+    MANAGER_INCIDENTS  (HttpMethod.GET,   "/api/v1/manager/incidents",          CASE_HANDLE),
+    MANAGER_INCIDENT_ACTION(HttpMethod.POST, "/api/v1/manager/incidents/*/*",   CASE_HANDLE),
+    MANAGER_INCIDENT_PHOTO(HttpMethod.GET, "/api/v1/manager/incidents/*/photo", CASE_HANDLE),
+    OWNER_COMPENSATIONS(HttpMethod.GET,   "/api/v1/owner/compensations",        COMPENSATION_APPROVE),
+    OWNER_COMPENSATION_ACTION(HttpMethod.POST, "/api/v1/owner/compensations/*/*", COMPENSATION_APPROVE),
+    SHIFT_PLAN_VIEW    (HttpMethod.GET,   "/api/v1/manager/shift-plan",         SHIFT_PLAN),
+    SHIFT_ASSIGN       (HttpMethod.POST,  "/api/v1/manager/shift-plan",         SHIFT_PLAN),
+    SHIFT_UNASSIGN     (HttpMethod.DELETE, "/api/v1/manager/shift-plan/*",      SHIFT_PLAN),
+    MY_SCHEDULE        (HttpMethod.GET,   "/api/v1/guard/my-schedule",          PARKING_CHECK_IN, PARKING_CHECK_OUT),
     REPORT_INCIDENT    (HttpMethod.POST,  "/api/v1/guard/incidents",          INCIDENT_REPORT),    // Đợt 2
     MY_INCIDENTS       (HttpMethod.GET,   "/api/v1/guard/incidents",          INCIDENT_REPORT),    // Đợt 2
     INCIDENT_PHOTO     (HttpMethod.GET,   "/api/v1/guard/incidents/*/photo",  INCIDENT_REPORT),    // Đợt 2

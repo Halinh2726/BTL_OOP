@@ -1,6 +1,7 @@
 import { TransactionHistory } from '../../shared/components/TransactionHistory';
 import { TrafficStatsCard } from '../stats/TrafficStatsCard';
 import { OwnerOverviewCard } from './OwnerOverviewCard';
+import { CompensationsCard } from './CompensationsCard';
 import { RevenueCard } from './RevenueCard';
 import { WithdrawalRequestsCard } from './WithdrawalRequestsCard';
 
@@ -13,6 +14,7 @@ export function OwnerPage() {
     <div className="space-y-6">
       <OwnerOverviewCard />
       <WithdrawalRequestsCard />
+      <CompensationsCard />
       <RevenueCard />
       <TrafficStatsCard />
       <TransactionHistory defaultType="THANH_TOAN" types={['THANH_TOAN', 'RUT_DIEM', 'DIEU_CHINH']} />

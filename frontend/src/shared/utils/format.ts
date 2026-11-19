@@ -1,10 +1,14 @@
 import type {
+  AttendanceStatus,
   AuditAction,
+  ComplaintStatus,
+  ComplaintType,
   GuardStatus,
   IncidentStatus,
   IncidentType,
   ReconciliationOutcome,
   Role,
+  ShiftSlot,
   TransactionType,
   VehicleStatus,
   WithdrawalStatus,
@@ -124,6 +128,38 @@ export function hourRange(hour: number): string {
   const pad = (value: number) => String(value).padStart(2, '0');
   return `${pad(hour)}:00–${pad((hour + 1) % 24)}:00`;
 }
+
+export const COMPLAINT_TYPE_LABELS: Record<ComplaintType, string> = {
+  THU_PHI_SAI: 'Thu phí sai',
+  XE_HU_HONG: 'Xe bị hư hỏng trong bãi',
+  MAT_DO: 'Mất đồ trong bãi',
+  KHAC: 'Khác',
+};
+
+export const COMPLAINT_STATUS_LABELS: Record<ComplaintStatus, string> = {
+  MOI: 'Mới gửi',
+  DANG_XU_LY: 'Đang xử lý',
+  CHO_DUYET_BOI_THUONG: 'Chờ chủ bãi duyệt bồi thường',
+  DA_XU_LY: 'Đã xử lý',
+  TU_CHOI: 'Bị từ chối',
+  DA_HUY: 'Đã hủy',
+  DA_BOI_THUONG: 'Đã bồi thường',
+  KHONG_BOI_THUONG: 'Không bồi thường',
+};
+
+export const SHIFT_SLOT_LABELS: Record<ShiftSlot, string> = {
+  SANG: 'Ca sáng 06:00–14:00',
+  CHIEU: 'Ca chiều 14:00–22:00',
+  DEM: 'Ca đêm 22:00–06:00',
+};
+
+export const ATTENDANCE_LABELS: Record<AttendanceStatus, string> = {
+  SAP_TOI: 'Sắp tới',
+  CHUA_NHAN_CA: 'Chưa nhận ca',
+  DUNG_GIO: 'Đúng giờ',
+  DI_MUON: 'Đi muộn',
+  VANG: 'Vắng',
+};
 
 export const GUARD_STATUS_LABELS: Record<GuardStatus, string> = {
   HOAT_DONG: 'Hoạt động',
