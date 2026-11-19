@@ -1,4 +1,4 @@
-import type { AuditAction, GuardStatus, Role, TransactionType, VehicleStatus } from '../types/api';
+import type { AuditAction, GuardStatus, IncidentStatus, IncidentType, Role, TransactionType, VehicleStatus } from '../types/api';
 
 const NUMBER = new Intl.NumberFormat('vi-VN');
 
@@ -39,6 +39,36 @@ export const ROLE_LABELS: Record<Role, string> = {
   QUAN_LY: 'Quản lý',
   CHU_TAI_KHOAN: 'Chủ bãi xe',
 };
+
+export const INCIDENT_TYPE_LABELS: Record<IncidentType, string> = {
+  XE_GUI_QUA_LAU: 'Xe gửi quá lâu',
+  XE_CHUA_DANG_KY: 'Xe chưa đăng ký đỗ trong bãi',
+  XE_HU_HONG: 'Xe bị hư hỏng',
+  KHAC: 'Khác',
+};
+
+export const INCIDENT_STATUS_LABELS: Record<IncidentStatus, string> = {
+  MOI: 'Mới',
+  DANG_XU_LY: 'Đang xử lý',
+  DA_XU_LY: 'Đã xử lý',
+  TU_CHOI: 'Từ chối',
+};
+
+/** 1500 phút -> "1 ngày 1 giờ"; 95 -> "1 giờ 35 phút". */
+export function formatDuration(minutes: number): string {
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor((minutes % 1440) / 60);
+  const mins = minutes % 60;
+  if (days > 0) return `${days} ngày ${hours} giờ`;
+  if (hours > 0) return `${hours} giờ ${mins} phút`;
+  return `${mins} phút`;
+}
+
+/** Chỉ giờ:phút của chuỗi ISO giờ Việt Nam. */
+export function formatTime(iso: string): string {
+  const match = /T(\d{2}):(\d{2})/.exec(iso);
+  return match ? `${match[1]}:${match[2]}` : iso;
+}
 
 export const VEHICLE_STATUS_LABELS: Record<VehicleStatus, string> = {
   DANG_DUNG: 'Đang dùng',

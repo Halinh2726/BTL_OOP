@@ -82,6 +82,14 @@ public final class AccountFakes {
         public void save(AccountCredential credential) {
             byId.put(credential.userId(), credential);
         }
+
+        public String demoHash;
+
+        @Override
+        public int resetAllPasswords(String passwordHash, java.time.Instant changedAt) {
+            demoHash = passwordHash;
+            return byId.size();
+        }
     }
 
     public static final class Codes implements PasswordResetCodeRepository {

@@ -118,6 +118,15 @@ class AccountJdbcAdapter implements AccountProfileRepository, CredentialReposito
                 .update();
     }
 
+    @Override
+    public int resetAllPasswords(String passwordHash, Instant changedAt) {
+        return jdbc.sql("""
+                UPDATE users SET password_hash = :hash, must_change_password = FALSE, password_changed_at = :changedAt""")
+                .param("hash", passwordHash)
+                .param("changedAt", toUtc(changedAt))
+                .update();
+    }
+
     // ===== CredentialStateLookup (chạy ở MỌI request đã đăng nhập: chỉ đọc 2 cột) =====
 
     @Override

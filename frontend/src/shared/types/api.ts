@@ -297,3 +297,124 @@ export interface ApiErrorBody {
   traceId: string;
   fields?: FieldViolation[];
 }
+
+// ===== Đợt 2: bảo vệ — không có trường điểm hay tiền nào (R06) =====
+
+export interface ParkedVehicleItem {
+  sessionId: number;
+  plateNumber: string;
+  plateDisplay: string;
+  vehicleTypeCode: string;
+  studentCode: string;
+  fullName: string;
+  enteredAt: string;
+  entryGuardName: string;
+  minutesParked: number;
+  /** Gửi quá 24 giờ. */
+  overdue: boolean;
+}
+
+export interface ParkedVehiclesResponse {
+  total: number;
+  overdue: number;
+  items: ParkedVehicleItem[];
+}
+
+export interface GateActivityItem {
+  sessionId: number;
+  plateNumber: string;
+  plateDisplay: string;
+  vehicleTypeCode: string;
+  studentCode: string;
+  fullName: string;
+  direction: 'VAO' | 'RA';
+  at: string;
+}
+
+export interface GateActivityResponse {
+  from: string;
+  inShift: boolean;
+  checkIns: number;
+  checkOuts: number;
+  items: GateActivityItem[];
+}
+
+export interface ShiftSummary {
+  checkIns: number;
+  checkOuts: number;
+  vehiclesInLot: number;
+  openIncidents: number;
+}
+
+export interface ShiftView {
+  id: number;
+  guardId: number;
+  guardName: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  /** Chấm công: số phút đã trực (ca đang trực tính tới hiện tại). */
+  workedMinutes: number;
+  summary: ShiftSummary | null;
+  handoverNote: string | null;
+  /** Tiền mặt (đồng) bảo vệ KHAI đang cầm lúc nhận ca. */
+  openingCash: number;
+  /** Tổng tiền các ca trước bàn giao lại; null nếu không nhận biên bản nào. */
+  expectedOpeningCash: number | null;
+  /** openingCash − expectedOpeningCash; khác 0 là khai lệch. */
+  openingDiscrepancy: number | null;
+  /** Tiền mặt (đồng) bảo vệ khai bàn giao lúc kết thúc ca; null khi đang trực. */
+  closingCash: number | null;
+  receivedByName: string | null;
+  receivedAt: string | null;
+}
+
+/** Chấm công: tổng hợp một bảo vệ trong khoảng ngày. */
+export interface GuardTotals {
+  guardId: number;
+  guardName: string | null;
+  shifts: number;
+  workedMinutes: number;
+  checkIns: number;
+  checkOuts: number;
+  /** Số ca khai tiền nhận ca lệch với tiền ca trước bàn giao. */
+  cashMismatches: number;
+}
+
+export interface GuardTimesheet {
+  from: string;
+  to: string;
+  totals: GuardTotals[];
+  shifts: ShiftView[];
+}
+
+export type IncidentType = 'XE_GUI_QUA_LAU' | 'XE_CHUA_DANG_KY' | 'XE_HU_HONG' | 'KHAC';
+export type IncidentStatus = 'MOI' | 'DANG_XU_LY' | 'DA_XU_LY' | 'TU_CHOI';
+
+export interface IncidentItem {
+  id: number;
+  type: IncidentType;
+  plateNumber: string | null;
+  plateDisplay: string | null;
+  description: string;
+  status: IncidentStatus;
+  createdAt: string;
+  reporterName: string | null;
+  hasPhoto: boolean;
+  resolution: string | null;
+}
+
+export interface ShiftOverview {
+  current: ShiftView | null;
+  liveSummary: ShiftSummary | null;
+  pendingHandovers: ShiftView[];
+  openIncidents: IncidentItem[];
+}
+
+export interface ReportIncidentRequest {
+  type: IncidentType;
+  plateNumber: string;
+  description: string;
+  photoContentType?: string;
+  /** Ảnh đã thu nhỏ, dạng Base64 (có thể kèm tiền tố data:). */
+  photoBase64?: string;
+}

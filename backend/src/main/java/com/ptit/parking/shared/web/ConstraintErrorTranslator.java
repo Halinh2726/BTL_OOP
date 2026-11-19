@@ -18,16 +18,18 @@ public class ConstraintErrorTranslator {
     /** Kết quả dịch: mã lỗi, và tên trường nếu lỗi gắn với một trường cụ thể của request. */
     public record ConstraintError(ErrorCode code, String field) {}
 
-    private static final Map<String, ConstraintError> BY_CONSTRAINT = Map.of(
-            "uq_users_username",          new ConstraintError(ErrorCode.USERNAME_EXISTS, null),
-            "uq_students_code",           new ConstraintError(ErrorCode.STUDENT_CODE_EXISTS, null),
-            "uq_vehicles_plate",          new ConstraintError(ErrorCode.PLATE_EXISTS, null),
-            "uq_vehicles_active_plate",   new ConstraintError(ErrorCode.PLATE_EXISTS, null),
-            "uq_users_email",             new ConstraintError(ErrorCode.EMAIL_EXISTS, null),
-            "fk_vehicles_type",           new ConstraintError(ErrorCode.VALIDATION_ERROR, "vehicleTypeCode"),
-            "uq_parking_sessions_open",   new ConstraintError(ErrorCode.SESSION_ALREADY_OPEN, null),
-            "uq_payment_details_session", new ConstraintError(ErrorCode.SESSION_ALREADY_PAID, null),
-            "ck_wallets_balance",         new ConstraintError(ErrorCode.INSUFFICIENT_POINTS, null));
+    /** Map.ofEntries: không giới hạn 10 cặp như Map.of. */
+    private static final Map<String, ConstraintError> BY_CONSTRAINT = Map.ofEntries(
+            Map.entry("uq_users_username", new ConstraintError(ErrorCode.USERNAME_EXISTS, null)),
+            Map.entry("uq_students_code", new ConstraintError(ErrorCode.STUDENT_CODE_EXISTS, null)),
+            Map.entry("uq_vehicles_plate", new ConstraintError(ErrorCode.PLATE_EXISTS, null)),
+            Map.entry("uq_vehicles_active_plate", new ConstraintError(ErrorCode.PLATE_EXISTS, null)),
+            Map.entry("uq_users_email", new ConstraintError(ErrorCode.EMAIL_EXISTS, null)),
+            Map.entry("uq_guard_shifts_open", new ConstraintError(ErrorCode.SHIFT_ALREADY_OPEN, null)),
+            Map.entry("fk_vehicles_type", new ConstraintError(ErrorCode.VALIDATION_ERROR, "vehicleTypeCode")),
+            Map.entry("uq_parking_sessions_open", new ConstraintError(ErrorCode.SESSION_ALREADY_OPEN, null)),
+            Map.entry("uq_payment_details_session", new ConstraintError(ErrorCode.SESSION_ALREADY_PAID, null)),
+            Map.entry("ck_wallets_balance", new ConstraintError(ErrorCode.INSUFFICIENT_POINTS, null)));
 
     /** Duyệt chuỗi nguyên nhân của exception, tìm tên ràng buộc đã biết. */
     public Optional<ConstraintError> translate(Throwable exception) {

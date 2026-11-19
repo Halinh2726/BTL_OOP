@@ -1,11 +1,14 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../shared/api';
 import { Alert } from '../../shared/components/Alert';
 import { Button } from '../../shared/components/Button';
 import { Card, InfoRow } from '../../shared/components/Card';
 import { useIdempotencyKey } from '../../shared/hooks/useIdempotencyKey';
 import { useVehicleTypeName } from '../../shared/hooks/useVehicleTypeName';
-import { formatDateTime, formatPoints } from '../../shared/utils/format';
+import { formatDateTime, formatPlate, formatPoints } from '../../shared/utils/format';
+import { ContinuousScanPanel } from './continuous/ContinuousScanPanel';
+import { checkOutFlow } from './continuous/gateFlows';
+import { useGuardPreferences } from './guardPreferences';
 import { PlateLookupForm } from './PlateLookupForm';
 import { SuccessPanel } from './SuccessPanel';
 import { usePlateFocus } from './usePlateFocus';
@@ -18,15 +21,25 @@ import { VerdictBanner } from './VerdictBanner';
 export function CheckOutPanel() {
   const { inputRef, formKey, resetForm } = usePlateFocus();
   const typeName = useVehicleTypeName();
+  const { feedback, continuousScan } = useGuardPreferences();
   const idempotency = useIdempotencyKey();
+  const queryClient = useQueryClient();
   const preview = useMutation({
     mutationFn: api.previewCheckOut,
     // Bước xác nhận mở ra -> sinh Idempotency-Key cho lượt thanh toán này
-    onSuccess: (result) => (result.allowed ? idempotency.start() : idempotency.finish()),
+    onSuccess: (result) => {
+      feedback(result.allowed ? 'allow' : 'deny');
+      if (result.allowed) idempotency.start();
+      else idempotency.finish();
+    },
   });
   const checkOut = useMutation({
     mutationFn: ({ sessionId, key }: { sessionId: number; key: string }) => api.checkOut(sessionId, key),
-    onSuccess: idempotency.finish,
+    onSuccess: () => {
+      feedback('done');
+      idempotency.finish();
+      void queryClient.invalidateQueries({ queryKey: ['guard'] });
+    },
   });
 
   function lookup(plate: string) {
@@ -39,6 +52,10 @@ export function CheckOutPanel() {
     checkOut.reset();
     idempotency.finish();
     resetForm();
+  }
+
+  if (continuousScan) {
+    return <ContinuousScanPanel flow={checkOutFlow} />;
   }
 
   if (checkOut.data) {
@@ -82,10 +99,12 @@ export function CheckOutPanel() {
       {data && (
         <Card>
           <div className="space-y-4">
-            <VerdictBanner allowed={data.allowed} allowedText="Cho xe ra" reason={data.reason} />
+            <VerdictBanner allowed={data.allowed} allowedText="Cho xe ra" reason={data.reason}
+              shortfall={data.balance === null ? null : (data.fee ?? 0) - data.balance}
+            />
             {data.fullName !== null && (
               <dl className="text-lg">
-                <InfoRow label="Biển số" value={<span className="font-mono">{data.plateNumber}</span>} />
+                <InfoRow label="Biển số" value={<span className="font-mono">{formatPlate(data.plateNumber ?? '')}</span>} />
                 <InfoRow label="Sinh viên" value={data.fullName} />
                 <InfoRow label="MSSV" value={data.studentCode} />
                 <InfoRow label="Loại xe" value={typeName(data.vehicleTypeCode)} />

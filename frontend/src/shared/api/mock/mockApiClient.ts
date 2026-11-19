@@ -1,5 +1,9 @@
 import type {
   AuditItem,
+  IncidentItem,
+  ParkedVehicleItem,
+  ShiftSummary,
+  ShiftView,
   FeeRule,
   FieldViolation,
   Guard,
@@ -20,6 +24,8 @@ import {
   toVietnamIso,
   vietnamClock,
   type MockAuditEntry,
+  type MockIncident,
+  type MockShift,
   type MockEntry,
   type MockState,
   type MockUser,
@@ -47,6 +53,10 @@ const ERRORS = {
   RESET_CODE_LOCKED: [422, 'Nhập sai mã quá 5 lần. Vui lòng yêu cầu mã mới.'],
   PLATE_REQUIRED: [422, 'Vui lòng nhập biển số. Chỉ xe đạp không có biển mới được bãi cấp mã.'],
   VEHICLE_LIMIT_REACHED: [422, 'Mỗi sinh viên được tối đa 3 xe đang sử dụng.'],
+  NO_OPEN_SHIFT: [409, 'Bạn chưa nhận ca trực.'],
+  HANDOVER_PENDING: [409, 'Có biên bản bàn giao ca chưa được xác nhận. Xem lại rồi bấm Nhận ca.'],
+  INCIDENT_NOT_FOUND: [404, 'Không tìm thấy sự cố.'],
+  PHOTO_INVALID: [422, 'Ảnh phải là JPG, PNG hoặc WEBP và không quá 2 MB.'],
   PLATE_NOT_FOUND: [404, 'Biển số chưa được đăng ký.'],
   NO_OPEN_SESSION: [404, 'Xe không có lượt gửi đang mở.'],
   STUDENT_NOT_FOUND: [404, 'MSSV không tồn tại'],
@@ -66,7 +76,7 @@ type ErrorCode = keyof typeof ERRORS;
 
 const PERMISSIONS: Record<Role, string[]> = {
   SINH_VIEN: ['VEHICLE_REGISTER', 'WALLET_VIEW_OWN'],
-  BAO_VE: ['PARKING_CHECK_IN', 'PARKING_CHECK_OUT'],
+  BAO_VE: ['INCIDENT_REPORT', 'PARKING_CHECK_IN', 'PARKING_CHECK_OUT'],
   QUAN_LY: ['ACCOUNT_MANAGE', 'CASH_DEPOSIT', 'CASH_WITHDRAWAL', 'GUARD_CREATE', 'GUARD_LOCK'],
   CHU_TAI_KHOAN: ['WALLET_VIEW_OWN'],
 };
@@ -254,6 +264,57 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
     if (!isActive(vehicle)) fail('VEHICLE_INACTIVE');
     if (openSessionOf(vehicle.id)) fail('VEHICLE_PARKED');
     return vehicle;
+  }
+
+  // ===== Đợt 2: bảo vệ =====
+
+  function nameOf(userId: number): string | null {
+    return state.users.find((user) => user.id === userId)?.fullName ?? null;
+  }
+
+  function sinceMs(iso: string): number {
+    return new Date(iso).getTime();
+  }
+
+  function openIncidents(): MockIncident[] {
+    return (state.incidents ?? []).filter((incident) => incident.status === 'MOI' || incident.status === 'DANG_XU_LY');
+  }
+
+  function summarize(guardId: number, fromIso: string): ShiftSummary {
+    const from = sinceMs(fromIso);
+    return {
+      checkIns: state.sessions.filter((s) => s.entryGuardId === guardId && sinceMs(s.enteredAt) >= from).length,
+      checkOuts: state.sessions.filter((s) => s.exitGuardId === guardId && s.exitedAt && sinceMs(s.exitedAt) >= from).length,
+      vehiclesInLot: state.sessions.filter((s) => s.exitedAt === null).length,
+      openIncidents: openIncidents().length,
+    };
+  }
+
+  function toShiftView(shift: MockShift): ShiftView {
+    const { id, guardId, startedAt, endedAt, summary, handoverNote } = shift;
+    const openingCash = shift.openingCash ?? 0;
+    const expected = shift.expectedOpeningCash ?? null;
+    const end = endedAt ? sinceMs(endedAt) : Date.now();
+    return {
+      id, guardId, guardName: nameOf(guardId), startedAt, endedAt, summary, handoverNote,
+      workedMinutes: Math.max(0, Math.floor((end - sinceMs(startedAt)) / 60_000)),
+      openingCash, expectedOpeningCash: expected, openingDiscrepancy: expected === null ? null : openingCash - expected,
+      closingCash: shift.closingCash ?? (endedAt ? 0 : null),
+      receivedByName: shift.receivedBy ? nameOf(shift.receivedBy) : null, receivedAt: shift.receivedAt ?? null,
+    };
+  }
+
+  function checkCash(amount: number): void {
+    if (!Number.isSafeInteger(amount) || amount < 0 || amount > 50_000_000) fail('INVALID_AMOUNT');
+  }
+
+  function toIncident(incident: MockIncident): IncidentItem {
+    return {
+      id: incident.id, type: incident.type, plateNumber: incident.plateNumber,
+      plateDisplay: incident.plateNumber ? displayPlate(incident.plateNumber) : null,
+      description: incident.description, status: incident.status, createdAt: incident.createdAt,
+      reporterName: nameOf(incident.reporterId), hasPhoto: incident.photo !== null, resolution: incident.resolution,
+    };
   }
 
   function issueTemporary(managerId: number, user: MockUser) {
@@ -497,7 +558,11 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         if (!found) return fail('PLATE_NOT_FOUND');
         if (openSessionOf(found.vehicle.id)) fail('SESSION_ALREADY_OPEN');
         if (balanceOf(found.owner.id) < MIN_FEE) fail('INSUFFICIENT_POINTS');
-        const session = { id: nextId(), vehicleId: found.vehicle.id, enteredAt: toVietnamIso(new Date()), exitedAt: null };
+        const guard = currentUser();
+        const session = {
+          id: nextId(), vehicleId: found.vehicle.id, enteredAt: toVietnamIso(new Date()), exitedAt: null,
+          entryGuardId: guard.id, exitGuardId: null,
+        };
         state.sessions.push(session);
         return { sessionId: session.id, plateNumber: plate, enteredAt: session.enteredAt };
       }),
@@ -543,6 +608,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           const fee = feeAt(now);
           if (balanceOf(vehicle.userId) < fee) fail('INSUFFICIENT_POINTS');
           session.exitedAt = toVietnamIso(now);
+          session.exitGuardId = guard.id;
           const transaction = record('THANH_TOAN', [[vehicle.userId, -fee], [OWNER_ID, fee]], now);
           return {
             transactionId: transaction.id, sessionId, fee, exitedAt: transaction.createdAt,
@@ -796,5 +862,176 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         const hasMore = rows.length > limit;
         return { items, hasMore, nextBefore: hasMore ? (items[items.length - 1]?.id ?? null) : null };
       }),
+
+    // ===== Đợt 2 =====
+
+    parkedVehicles: (rawFragment) =>
+      call(() => {
+        requireRole('BAO_VE');
+        const fragment = normalizePlate(rawFragment ?? '').replace(/[^A-Z0-9]/g, '');
+        const now = Date.now();
+        const all: ParkedVehicleItem[] = state.sessions
+          .filter((session) => session.exitedAt === null)
+          .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt))
+          .flatMap((session) => {
+            const vehicle = state.vehicles.find((candidate) => candidate.id === session.vehicleId);
+            const owner = vehicle ? state.users.find((user) => user.id === vehicle.userId) : undefined;
+            if (!vehicle || !owner) return [];
+            const minutesParked = Math.max(0, Math.floor((now - sinceMs(session.enteredAt)) / 60_000));
+            return [{
+              sessionId: session.id, plateNumber: vehicle.plateNumber, plateDisplay: displayPlate(vehicle.plateNumber),
+              vehicleTypeCode: vehicle.vehicleTypeCode, studentCode: owner.studentCode ?? '', fullName: owner.fullName,
+              enteredAt: session.enteredAt, entryGuardName: nameOf(session.entryGuardId ?? 0) ?? '—',
+              minutesParked, overdue: minutesParked > 24 * 60,
+            }];
+          });
+        return {
+          total: all.length,
+          overdue: all.filter((item) => item.overdue).length,
+          items: fragment ? all.filter((item) => item.plateNumber.includes(fragment)) : all,
+        };
+      }),
+
+    myGateActivity: () =>
+      call(() => {
+        const guard = requireRole('BAO_VE');
+        const shift = (state.shifts ?? []).find((candidate) => candidate.guardId === guard.id && candidate.endedAt === null);
+        const from = shift?.startedAt ?? toVietnamIso(new Date(Date.now() - 12 * 3600_000));
+        const plateOf = (vehicleId: number) => state.vehicles.find((vehicle) => vehicle.id === vehicleId);
+        const items = state.sessions
+          .flatMap((session) => {
+            const vehicle = plateOf(session.vehicleId);
+            const owner = vehicle ? state.users.find((user) => user.id === vehicle.userId) : undefined;
+            if (!vehicle || !owner) return [];
+            const base = {
+              sessionId: session.id, plateNumber: vehicle.plateNumber, plateDisplay: displayPlate(vehicle.plateNumber),
+              vehicleTypeCode: vehicle.vehicleTypeCode, studentCode: owner.studentCode ?? '', fullName: owner.fullName,
+            };
+            const entries = [];
+            if (session.entryGuardId === guard.id && sinceMs(session.enteredAt) >= sinceMs(from)) {
+              entries.push({ ...base, direction: 'VAO' as const, at: session.enteredAt });
+            }
+            if (session.exitGuardId === guard.id && session.exitedAt && sinceMs(session.exitedAt) >= sinceMs(from)) {
+              entries.push({ ...base, direction: 'RA' as const, at: session.exitedAt });
+            }
+            return entries;
+          })
+          .sort((a, b) => b.at.localeCompare(a.at));
+        const summary = summarize(guard.id, from);
+        return { from, inShift: shift !== undefined, checkIns: summary.checkIns, checkOuts: summary.checkOuts, items };
+      }),
+
+    currentShift: () =>
+      call(() => {
+        const guard = requireRole('BAO_VE');
+        const shifts = state.shifts ?? [];
+        const current = shifts.find((shift) => shift.guardId === guard.id && shift.endedAt === null) ?? null;
+        return {
+          current: current ? toShiftView(current) : null,
+          liveSummary: current ? summarize(guard.id, current.startedAt) : null,
+          pendingHandovers: shifts
+            .filter((shift) => shift.endedAt !== null && shift.receivedBy === null && shift.guardId !== guard.id)
+            .sort((a, b) => b.id - a.id)
+            .map(toShiftView),
+          openIncidents: openIncidents().slice(-10).reverse().map(toIncident),
+        };
+      }),
+
+    startShift: (acknowledged, openingCash) =>
+      call(() => {
+        const guard = requireRole('BAO_VE');
+        checkCash(openingCash);
+        state.shifts = state.shifts ?? [];
+        const open = state.shifts.find((shift) => shift.guardId === guard.id && shift.endedAt === null);
+        if (open) return toShiftView(open);
+        const pending = state.shifts.filter((shift) => shift.endedAt !== null && shift.receivedBy === null && shift.guardId !== guard.id);
+        const same = pending.length === acknowledged.length && pending.every((shift) => acknowledged.includes(shift.id));
+        if (!same) fail('HANDOVER_PENDING');
+        const now = toVietnamIso(new Date());
+        pending.forEach((shift) => {
+          shift.receivedBy = guard.id;
+          shift.receivedAt = now;
+        });
+        const shift: MockShift = {
+          id: nextId(), guardId: guard.id, startedAt: now, endedAt: null, summary: null,
+          handoverNote: null, receivedBy: null, openingCash,
+          expectedOpeningCash: pending.length ? pending.reduce((sum, item) => sum + (item.closingCash ?? 0), 0) : null,
+          closingCash: null, receivedAt: null,
+        };
+        state.shifts.push(shift);
+        return toShiftView(shift);
+      }),
+
+    endShift: (note, closingCash) =>
+      call(() => {
+        const guard = requireRole('BAO_VE');
+        checkCash(closingCash);
+        const shift = (state.shifts ?? []).find((candidate) => candidate.guardId === guard.id && candidate.endedAt === null);
+        if (!shift) return fail('NO_OPEN_SHIFT');
+        shift.summary = summarize(guard.id, shift.startedAt);
+        shift.endedAt = toVietnamIso(new Date());
+        shift.handoverNote = note.trim() || null;
+        shift.closingCash = closingCash;
+        return toShiftView(shift);
+      }),
+
+    myShiftHistory: () =>
+      call(() => {
+        const guard = requireRole('BAO_VE');
+        return (state.shifts ?? []).filter((shift) => shift.guardId === guard.id).sort((a, b) => b.id - a.id).map(toShiftView);
+      }),
+
+    guardTimesheet: (from, to, guardId) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        const start = new Date(`${from}T00:00:00+07:00`).getTime();
+        const end = new Date(`${to}T00:00:00+07:00`).getTime() + 24 * 3600_000;
+        const shifts = (state.shifts ?? [])
+          .filter((shift) => sinceMs(shift.startedAt) >= start && sinceMs(shift.startedAt) < end)
+          .filter((shift) => guardId === undefined || shift.guardId === guardId)
+          .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
+          .map(toShiftView);
+        const byGuard = new Map<number, ShiftView[]>();
+        shifts.forEach((shift) => byGuard.set(shift.guardId, [...(byGuard.get(shift.guardId) ?? []), shift]));
+        const totals = [...byGuard.entries()].map(([id, rows]) => ({
+          guardId: id, guardName: nameOf(id), shifts: rows.length,
+          workedMinutes: rows.reduce((sum, row) => sum + row.workedMinutes, 0),
+          checkIns: rows.reduce((sum, row) => sum + (row.summary?.checkIns ?? 0), 0),
+          checkOuts: rows.reduce((sum, row) => sum + (row.summary?.checkOuts ?? 0), 0),
+          cashMismatches: rows.filter((row) => row.openingDiscrepancy !== null && row.openingDiscrepancy !== 0).length,
+        }));
+        return { from, to, totals, shifts };
+      }),
+
+    reportIncident: (body) =>
+      call(() => {
+        const guard = requireRole('BAO_VE');
+        const description = body.description.trim();
+        const plate = normalizePlate(body.plateNumber ?? '');
+        const fields: FieldViolation[] = [];
+        if (!description || description.length > 1000) {
+          fields.push({ field: 'description', code: 'LENGTH', message: 'Vui lòng mô tả sự cố (tối đa 1000 ký tự)' });
+        }
+        if (plate && !PLATE.test(plate)) fields.push({ field: 'plateNumber', code: 'PATTERN', message: 'Biển số không hợp lệ' });
+        invalid(fields);
+        if (body.photoBase64 && !/^image\/(jpeg|png|webp)$/.test(body.photoContentType ?? '')) fail('PHOTO_INVALID');
+        const incident: MockIncident = {
+          id: nextId(), reporterId: guard.id, type: body.type, plateNumber: plate || null, description,
+          status: 'MOI', createdAt: toVietnamIso(new Date()), resolution: null,
+          photo: body.photoBase64
+            ? (body.photoBase64.startsWith('data:') ? body.photoBase64 : `data:${body.photoContentType};base64,${body.photoBase64}`)
+            : null,
+        };
+        state.incidents = [...(state.incidents ?? []), incident];
+        return toIncident(incident);
+      }),
+
+    myIncidents: () =>
+      call(() => {
+        const guard = requireRole('BAO_VE');
+        return (state.incidents ?? []).filter((incident) => incident.reporterId === guard.id).sort((a, b) => b.id - a.id).map(toIncident);
+      }),
+
+    incidentPhotoUrl: (incidentId) => (state.incidents ?? []).find((incident) => incident.id === incidentId)?.photo ?? '',
   };
 }

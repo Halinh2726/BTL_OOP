@@ -1,0 +1,8 @@
+# Profile DEMO — chỉ bật khi trình diễn / chấm bài:
+#   .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=demo"
+# Mỗi lần backend khởi động, MỌI tài khoản đang có (quản lý, chủ bãi xe, bảo vệ, sinh viên) được đặt mật khẩu dưới đây.
+# Tài khoản tạo SAU khi khởi động giữ mật khẩu người tạo đặt; khởi động lại thì cũng thành mật khẩu demo.
+# KHÔNG bật profile này khi đưa hệ thống cho người dùng thật.
+parking:
+  demo:
+    password: demo1234

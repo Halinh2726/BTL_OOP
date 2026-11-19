@@ -32,12 +32,15 @@ Backend chạy ở cổng khác: `$env:BACKEND_URL="http://localhost:8081"; npm 
 
 | Vai trò | Tài khoản | Backend thật | Mock |
 |---|---|---|---|
-| Quản lý | `quanly01` / `Quanly@123` | có sẵn (seed) | có |
-| Chủ tài khoản | `chutk01` / `Chutk@123` | có sẵn (seed) | có, 4.000 điểm |
-| Bảo vệ | `baove01` / `Baove@123` | quản lý tạo ở tab **Bảo vệ** | có |
-| Sinh viên | `sv01` / `MatKhau@123` | tự đăng ký ở `/register` | có, 44.000 điểm, xe `29A12345` |
+| Quản lý | `quanly01` / `demo1234` | có sẵn (seed) | có |
+| Chủ bãi xe | `chutk01` / `demo1234` | có sẵn (seed) | có, 4.000 điểm |
+| Bảo vệ | `baove01` / `demo1234` | quản lý tạo ở tab **Bảo vệ** | có |
+| Sinh viên | `sv01` / `demo1234` | tự đăng ký ở `/register` | có, 44.000 điểm, xe `29A12345` |
 
-Mock còn có `sv02` / `MatKhau@123` (2.000 điểm, xe `30B67890`) để thử trường hợp **không đủ điểm**. Dữ liệu mock nằm trong `sessionStorage` của tab — đóng tab là về dữ liệu ban đầu.
+Mọi tài khoản mock đều dùng mật khẩu **`demo1234`**. Với backend thật, chạy profile `demo` để có cùng mật khẩu (xem README gốc).
+Mã khôi phục mật khẩu trong chế độ mock luôn là `123456`.
+
+Mock còn có `sv02` / `demo1234` (2.000 điểm, xe `30B67890`) để thử trường hợp **không đủ điểm**. Dữ liệu mock nằm trong `sessionStorage` của tab — đóng tab là về dữ liệu ban đầu.
 
 ## Màn hình
 

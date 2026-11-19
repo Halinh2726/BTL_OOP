@@ -20,6 +20,12 @@
         <!-- Java 21 (LTS): có sealed class + record + pattern matching dùng cho domain -->
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!--
+            Chạy demo: ".\mvnw.cmd spring-boot:run" TỰ BẬT profile demo -> mọi tài khoản có mật khẩu demo1234
+            (xem application-demo.yml). Chỉ áp dụng cho lệnh spring-boot:run: test và file .jar triển khai KHÔNG bị ảnh hưởng.
+            Muốn chạy với mật khẩu thật: .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=default"
+        -->
+        <spring-boot.run.profiles>demo</spring-boot.run.profiles>
     </properties>
 
     <dependencies>
