@@ -8,8 +8,8 @@ import { QueryError } from '../../shared/components/QueryError';
 import { LoadingBlock } from '../../shared/components/Spinner';
 import type { RevenueReport } from '../../shared/types/api';
 import { formatCash, formatNumber, formatPoints } from '../../shared/utils/format';
-import { ChartLegend, DailyBarChart, type BarSeries } from './revenue/DailyBarChart';
-import { RANGE_PRESETS, fillDays, matchingPreset, presetRange, shortDate, vietnamToday } from './revenue/revenueMath';
+import { BarChart, CHART_COLORS, ChartLegend, type BarSeries } from '../../shared/charts/BarChart';
+import { RANGE_PRESETS, fillDays, longDate, matchingPreset, presetRange, shortDate, vietnamToday } from './revenue/revenueMath';
 
 type Channel = 'ALL' | 'CASH_IN' | 'CASH_OUT';
 
@@ -17,7 +17,7 @@ type Channel = 'ALL' | 'CASH_IN' | 'CASH_OUT';
  * Màu theo ĐỐI TƯỢNG, cố định trên cả trang (không đổi khi lọc): doanh thu = xanh dương, tiền ra = cam, tiền vào =
  * xanh ngọc — 3 ô đầu của bảng màu phân loại, đã kiểm tra phân biệt được với người mù màu.
  */
-const COLORS = { revenue: '#2a78d6', cashOut: '#eb6834', cashIn: '#1baf7a' };
+const COLORS = { revenue: CHART_COLORS.primary, cashOut: CHART_COLORS.secondary, cashIn: CHART_COLORS.tertiary };
 
 /** Xuất CSV ngay trên trình duyệt (UTF-8 có BOM để Excel đọc đúng tiếng Việt). */
 function downloadCsv(report: RevenueReport): void {
@@ -137,8 +137,10 @@ export function RevenueCard() {
                     <h3 className="font-semibold text-slate-900">Doanh thu phí gửi xe</h3>
                     <p className="text-sm text-slate-500">Điểm thu được mỗi ngày, {shortDate(data.from)} – {shortDate(data.to)}</p>
                   </div>
-                  <DailyBarChart
-                    dates={dates}
+                  <BarChart
+                    keys={dates}
+                    keyLabel={shortDate}
+                    keyTitle={longDate}
                     series={revenueSeries}
                     labelMaxOf="revenue"
                     ariaLabel={`Biểu đồ cột doanh thu theo ngày, tổng ${formatPoints(data.totalRevenue)}`}
@@ -163,8 +165,10 @@ export function RevenueCard() {
                       items={cashSeries.map((s) => ({ label: s.id === 'cashIn' ? 'Tiền vào (đổi điểm)' : 'Tiền ra (rút điểm)', color: s.color }))}
                     />
                   </div>
-                  <DailyBarChart
-                    dates={dates}
+                  <BarChart
+                    keys={dates}
+                    keyLabel={shortDate}
+                    keyTitle={longDate}
                     series={cashSeries}
                     height={200}
                     ariaLabel={`Biểu đồ dòng tiền mặt theo ngày, vào ${formatCash(data.totalCashIn)}, ra ${formatCash(data.totalCashOut)}`}

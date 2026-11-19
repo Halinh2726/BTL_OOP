@@ -1,4 +1,4 @@
-import type { TransactionType } from '../types/api';
+import type { LedgerQuery, TransactionType } from '../types/api';
 
 /** Khóa cache của TanStack Query — gom một chỗ để invalidate đúng dữ liệu sau mỗi thao tác. */
 export const queryKeys = {
@@ -26,6 +26,14 @@ export const queryKeys = {
   myWithdrawals: ['owner', 'withdrawals'] as const,
   withdrawalQueue: (status: string | undefined) => ['manager', 'withdrawals', status ?? 'ALL'] as const,
   withdrawalQueueAll: ['manager', 'withdrawals'] as const,
+  studentSearch: (q: string) => ['manager', 'student-search', q] as const,
+  studentProfile: (code: string) => ['manager', 'student-profile', code] as const,
+  ledger: (query: Omit<LedgerQuery, 'before'>) => ['manager', 'ledger', query] as const,
+  ledgerAll: ['manager', 'ledger'] as const,
+  reconciliationDay: (date: string) => ['manager', 'reconciliation', date] as const,
+  reconciliationHistory: ['manager', 'reconciliation', 'history'] as const,
+  reconciliationAll: ['manager', 'reconciliation'] as const,
+  trafficStats: (days: number) => ['stats', 'traffic', days] as const,
   guardTimesheet: (from: string, to: string, guardId: number | undefined) =>
     ['manager', 'timesheet', from, to, guardId ?? 'ALL'] as const,
 };

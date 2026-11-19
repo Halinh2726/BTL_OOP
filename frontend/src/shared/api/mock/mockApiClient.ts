@@ -1,4 +1,9 @@
 import type {
+  ClosedReconciliation,
+  LedgerItem,
+  LedgerParty,
+  LedgerQuery,
+  ReconciliationDay,
   AuditItem,
   RevenueDay,
   WithdrawalView,
@@ -20,6 +25,8 @@ import type { ApiClient, Idempotent } from '../ApiClient';
 import { ApiError } from '../ApiError';
 import { endsSession, notifySessionEnded } from '../sessionEvents';
 import {
+  GUARD_ID,
+  MANAGER_ID,
   MOCK_OTP,
   OWNER_ID,
   seedState,
@@ -27,6 +34,8 @@ import {
   vietnamClock,
   type MockAuditEntry,
   type MockIncident,
+  type MockReconciliation,
+  type MockTransaction,
   type MockShift,
   type MockWithdrawal,
   type MockEntry,
@@ -66,6 +75,10 @@ const ERRORS = {
   WITHDRAWAL_STATUS_CONFLICT: [409, 'Yêu cầu rút điểm không ở trạng thái cho phép thao tác này.'],
   WITHDRAWAL_EXCEEDS_AVAILABLE: [422, 'Số điểm yêu cầu vượt số điểm còn có thể rút (đã trừ các yêu cầu đang chờ).'],
   CASH_FUND_INSUFFICIENT: [422, 'Quỹ tiền mặt hiện không đủ để trả yêu cầu này.'],
+  ALREADY_RECONCILED: [409, 'Ngày này đã được chốt đối soát. Biên bản đã chốt không sửa được.'],
+  RECONCILIATION_NOTE_REQUIRED: [422, 'Tiền đếm được lệch với sổ sách: bắt buộc ghi giải trình.'],
+  RECONCILIATION_DATE_INVALID: [422, 'Chỉ đối soát được ngày hôm nay hoặc ngày đã qua.'],
+  DATE_RANGE_INVALID: [422, 'Khoảng ngày không hợp lệ: ngày bắt đầu phải trước ngày kết thúc, tối đa 93 ngày.'],
   PLATE_NOT_FOUND: [404, 'Biển số chưa được đăng ký.'],
   NO_OPEN_SESSION: [404, 'Xe không có lượt gửi đang mở.'],
   STUDENT_NOT_FOUND: [404, 'MSSV không tồn tại'],
@@ -204,7 +217,8 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
     try {
       const result = handler();
       save();
-      return result === undefined ? result : (structuredClone(result) as T);
+      // Blob (file CSV) vốn bất biến: trả nguyên, không sao chép
+      return result === undefined || result instanceof Blob ? result : (structuredClone(result) as T);
     } catch (error) {
       save();
       if (error instanceof ApiError && endsSession(error.code)) notifySessionEnded(error);
@@ -389,6 +403,79 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
     return [...days.values()].sort((a, b) => a.date.localeCompare(b.date));
   }
 
+  // ===== Đợt 4a: helpers =====
+
+  function partyOf(userId: number | undefined): LedgerParty | null {
+    const user = state.users.find((candidate) => candidate.id === userId);
+    return user ? { fullName: user.fullName, studentCode: user.studentCode ?? null, role: user.role } : null;
+  }
+
+  function toLedger(t: MockTransaction): LedgerItem {
+    const out = t.entries.find((entry) => entry.change < 0);
+    const into = t.entries.find((entry) => entry.change > 0);
+    const performer = state.users.find((user) => user.id === (t.performedBy ?? (t.type === 'THANH_TOAN' ? GUARD_ID : MANAGER_ID)));
+    const points = Math.abs(t.entries[0]?.change ?? 0);
+    const session = state.sessions.find((candidate) => candidate.id === t.sessionId);
+    const vehicle = state.vehicles.find((candidate) => candidate.id === session?.vehicleId);
+    return {
+      id: t.id, type: t.type, points,
+      cashAmount: t.type === 'DOI_DIEM' || t.type === 'RUT_DIEM' ? points * CASH_PER_POINT : null,
+      from: partyOf(out?.userId), to: partyOf(into?.userId),
+      performerName: performer?.fullName ?? '', performerRole: performer?.role ?? 'QUAN_LY',
+      createdAt: t.createdAt, plateNumber: vehicle?.plateNumber ?? null,
+      reason: t.reason ?? null, originalTransactionId: t.originalTransactionId ?? null,
+    };
+  }
+
+  /** Lọc sổ giao dịch như backend: ngày theo giờ Việt Nam (createdAt đã là giờ VN), mới nhất trước. */
+  function ledgerRows(query: Omit<LedgerQuery, 'before' | 'limit'>): MockTransaction[] {
+    if (query.from && query.to && query.from > query.to) fail('DATE_RANGE_INVALID');
+    const code = query.studentCode?.trim().toUpperCase();
+    return [...state.transactions]
+      .filter((t) => !query.from || t.createdAt.slice(0, 10) >= query.from)
+      .filter((t) => !query.to || t.createdAt.slice(0, 10) <= query.to)
+      .filter((t) => !query.type || t.type === query.type)
+      .filter((t) => !code || t.entries.some((entry) => partyOf(entry.userId)?.studentCode === code))
+      .sort((a, b) => b.id - a.id);
+  }
+
+  function positionOn(date: string): Omit<ReconciliationDay, 'closed'> {
+    let openingCash = 0;
+    const day = { cashIn: 0, cashOut: 0, deposits: 0, withdrawals: 0, payments: 0, revenue: 0 };
+    state.transactions.forEach((t) => {
+      const when = t.createdAt.slice(0, 10);
+      const amount = Math.abs(t.entries[0]?.change ?? 0);
+      if (when < date) {
+        if (t.type === 'DOI_DIEM') openingCash += amount * CASH_PER_POINT;
+        if (t.type === 'RUT_DIEM') openingCash -= amount * CASH_PER_POINT;
+      } else if (when === date) {
+        if (t.type === 'DOI_DIEM') { day.cashIn += amount * CASH_PER_POINT; day.deposits += 1; }
+        if (t.type === 'RUT_DIEM') { day.cashOut += amount * CASH_PER_POINT; day.withdrawals += 1; }
+        if (t.type === 'THANH_TOAN') { day.payments += 1; day.revenue += amount; }
+      }
+    });
+    const issued = state.transactions.filter((t) => t.type === 'DOI_DIEM').reduce((sum, t) => sum + (t.entries[0]?.change ?? 0), 0);
+    const withdrawn = state.transactions.filter((t) => t.type === 'RUT_DIEM').reduce((sum, t) => sum - (t.entries[0]?.change ?? 0), 0);
+    const inWallets = Object.values(state.wallets).reduce((sum, balance) => sum + balance, 0);
+    return {
+      date, openingCash, ...day, expectedCash: openingCash + day.cashIn - day.cashOut,
+      pointsBalanced: inWallets === issued - withdrawn,
+    };
+  }
+
+  function toClosed(r: MockReconciliation): ClosedReconciliation {
+    const discrepancy = r.countedCash - r.expectedCash;
+    return {
+      date: r.date, cashIn: r.cashIn, cashOut: r.cashOut, expectedCash: r.expectedCash, countedCash: r.countedCash,
+      discrepancy, outcome: discrepancy === 0 ? 'KHOP' : discrepancy > 0 ? 'THUA' : 'THIEU',
+      pointsBalanced: r.pointsBalanced, note: r.note, closedByName: nameOf(r.closedBy) ?? '', closedAt: r.closedAt,
+    };
+  }
+
+  function requirePastOrToday(date: string): void {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > toVietnamIso(new Date()).slice(0, 10)) fail('RECONCILIATION_DATE_INVALID');
+  }
+
   function issueTemporary(managerId: number, user: MockUser) {
     user.password = TEMPORARY_PASSWORD;
     user.mustChangePassword = true;
@@ -401,14 +488,19 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
   }
 
   /** Ghi một giao dịch: cập nhật số dư từng ví và lưu bút toán. */
-  function record(type: MockState['transactions'][number]['type'], changes: Array<[number, number]>, now: Date) {
+  function record(
+    type: MockState['transactions'][number]['type'],
+    changes: Array<[number, number]>,
+    now: Date,
+    extra: Pick<MockTransaction, 'performedBy' | 'sessionId' | 'reason' | 'originalTransactionId'> = {},
+  ) {
     const entries: MockEntry[] = changes.map(([userId, change]) => {
       const balanceBefore = balanceOf(userId);
       const balanceAfter = balanceBefore + change;
       state.wallets[userId] = balanceAfter;
       return { userId, change, balanceBefore, balanceAfter };
     });
-    const transaction = { id: nextId(), type, createdAt: toVietnamIso(now), entries };
+    const transaction: MockTransaction = { id: nextId(), type, createdAt: toVietnamIso(now), entries, ...extra };
     state.transactions.push(transaction);
     return transaction;
   }
@@ -681,7 +773,9 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           if (balanceOf(vehicle.userId) < fee) fail('INSUFFICIENT_POINTS');
           session.exitedAt = toVietnamIso(now);
           session.exitGuardId = guard.id;
-          const transaction = record('THANH_TOAN', [[vehicle.userId, -fee], [OWNER_ID, fee]], now);
+          const transaction = record('THANH_TOAN', [[vehicle.userId, -fee], [OWNER_ID, fee]], now, {
+            performedBy: guard.id, sessionId: session.id,
+          });
           return {
             transactionId: transaction.id, sessionId, fee, exitedAt: transaction.createdAt,
             balanceAfter: balanceOf(vehicle.userId),
@@ -710,7 +804,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           if (!student) return fail('STUDENT_NOT_FOUND');
           if (body.cashAmount <= 0 || body.cashAmount % CASH_PER_POINT !== 0) fail('INVALID_AMOUNT');
           const points = body.cashAmount / CASH_PER_POINT;
-          const transaction = record('DOI_DIEM', [[student.id, points]], new Date());
+          const transaction = record('DOI_DIEM', [[student.id, points]], new Date(), { performedBy: manager.id });
           const entry = transaction.entries[0];
           return {
             transactionId: transaction.id, studentCode, cashAmount: body.cashAmount, cashPerPoint: CASH_PER_POINT,
@@ -1182,7 +1276,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         if (request.points * CASH_PER_POINT > cashHeld()) fail('CASH_FUND_INSUFFICIENT');                // R16
         if (balanceOf(OWNER_ID) < request.points) fail('INSUFFICIENT_POINTS');
         moveWithdrawal(request, ['CHO_XU_LY'], 'DA_TRA');
-        const transaction = record('RUT_DIEM', [[OWNER_ID, -request.points]], new Date());
+        const transaction = record('RUT_DIEM', [[OWNER_ID, -request.points]], new Date(), { performedBy: manager.id });
         request.transactionId = transaction.id;
         request.processedBy = manager.id;
         request.processedAt = transaction.createdAt;
@@ -1227,7 +1321,9 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         const [from, to] = refund ? [OWNER_ID, student.id] : [student.id, OWNER_ID];
         return idempotent(key, `DIEU_CHINH|${manager.id}|${JSON.stringify(body)}`, () => {
           if (balanceOf(from) < body.points) fail('INSUFFICIENT_POINTS');
-          const transaction = record('DIEU_CHINH', [[from, -body.points], [to, body.points]], new Date());
+          const transaction = record('DIEU_CHINH', [[from, -body.points], [to, body.points]], new Date(), {
+            performedBy: manager.id, reason, originalTransactionId: body.originalTransactionId ?? null,
+          });
           return {
             transactionId: transaction.id, studentCode: student.studentCode ?? '', studentName: student.fullName,
             direction: body.direction, points: body.points, reason, originalTransactionId: body.originalTransactionId ?? null,
@@ -1237,5 +1333,158 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
       }),
 
     incidentPhotoUrl: (incidentId) => (state.incidents ?? []).find((incident) => incident.id === incidentId)?.photo ?? '',
+
+    // ===== Đợt 4a =====
+
+    searchStudents: (q) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        const fold = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+        const fragment = fold(q.trim());
+        if (fragment.length < 2) fail('VALIDATION_ERROR');
+        return state.users
+          .filter((user) => user.studentCode && (fold(user.studentCode).includes(fragment) || fold(user.fullName).includes(fragment)))
+          .sort((a, b) => (a.studentCode ?? '').localeCompare(b.studentCode ?? ''))
+          .slice(0, 20)
+          .map((user) => {
+            const vehicles = state.vehicles.filter((vehicle) => vehicle.userId === user.id);
+            return {
+              userId: user.id, studentCode: user.studentCode ?? '', fullName: user.fullName, status: user.status,
+              balance: balanceOf(user.id), activeVehicles: vehicles.filter(isActive).length,
+              parkedNow: vehicles.some((vehicle) => openSessionOf(vehicle.id) !== undefined),
+            };
+          });
+      }),
+
+    studentProfile: (rawCode) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        const code = rawCode.trim().toUpperCase();
+        const user = state.users.find((candidate) => candidate.studentCode === code);
+        if (!user) return fail('STUDENT_NOT_FOUND');
+        const vehicles = state.vehicles.filter((vehicle) => vehicle.userId === user.id);
+        const sessions = state.sessions
+          .filter((session) => vehicles.some((vehicle) => vehicle.id === session.vehicleId))
+          .sort((a, b) => b.enteredAt.localeCompare(a.enteredAt))
+          .slice(0, 10);
+        return {
+          student: {
+            userId: user.id, studentCode: code, fullName: user.fullName, email: user.email ?? null, phone: user.phone ?? null,
+            status: user.status, createdAt: vehicles[0]?.registeredAt ?? toVietnamIso(new Date()), balance: balanceOf(user.id),
+          },
+          vehicles: vehicles.map((vehicle) => ({
+            id: vehicle.id, plateNumber: vehicle.plateNumber,
+            vehicleTypeName: vehicle.vehicleTypeCode === 'XE_MAY' ? 'Xe máy' : vehicle.vehicleTypeCode === 'XE_DAP' ? 'Xe đạp' : 'Xe đạp điện',
+            status: vehicle.status ?? 'DANG_DUNG', registeredAt: vehicle.registeredAt,
+            parkedNow: openSessionOf(vehicle.id) !== undefined,
+          })),
+          recentSessions: sessions.map((session) => ({
+            id: session.id, plateNumber: vehicles.find((vehicle) => vehicle.id === session.vehicleId)?.plateNumber ?? '',
+            enteredAt: session.enteredAt, exitedAt: session.exitedAt,
+            fee: Math.abs(state.transactions.find((t) => t.sessionId === session.id)?.entries[0]?.change ?? 0) || null,
+          })),
+          recentTransactions: ledgerRows({ studentCode: code }).slice(0, 10).map(toLedger),
+        };
+      }),
+
+    ledger: (query) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        const limit = Math.min(100, Math.max(1, query.limit ?? 30));
+        const rows = ledgerRows(query).filter((t) => !query.before || t.id < query.before);
+        const items = rows.slice(0, limit).map(toLedger);
+        const hasMore = rows.length > limit;
+        return { items, hasMore, nextBefore: hasMore ? items[items.length - 1]?.id ?? null : null };
+      }),
+
+    exportLedger: (query) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        if (!query.from || !query.to || query.from > query.to
+          || (Date.parse(query.to) - Date.parse(query.from)) / 86_400_000 >= 93) fail('DATE_RANGE_INVALID');
+        const cell = (value: unknown) => {
+          if (value === null || value === undefined) return '';
+          const text = String(value);
+          return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+        };
+        const lines = [['Mã GD', 'Thời gian', 'Loại', 'Số điểm', 'Tiền mặt (đ)', 'Bên chuyển', 'MSSV bên chuyển', 'Bên nhận',
+          'MSSV bên nhận', 'Người thực hiện', 'Biển số', 'Lý do', 'GD gốc']];
+        ledgerRows(query).map(toLedger).forEach((item) => lines.push([
+          String(item.id), item.createdAt, item.type, String(item.points), item.cashAmount === null ? '' : String(item.cashAmount),
+          item.from?.fullName ?? '', item.from?.studentCode ?? '', item.to?.fullName ?? '', item.to?.studentCode ?? '',
+          item.performerName, item.plateNumber ?? '', item.reason ?? '', item.originalTransactionId === null ? '' : String(item.originalTransactionId),
+        ]));
+        return new Blob(['\uFEFF' + lines.map((line) => line.map(cell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+      }),
+
+    reconciliationDay: (date) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        requirePastOrToday(date);
+        const closed = (state.reconciliations ?? []).find((r) => r.date === date);
+        return { ...positionOn(date), closed: closed ? toClosed(closed) : null };
+      }),
+
+    reconciliationHistory: () =>
+      call(() => {
+        requireRole('QUAN_LY');
+        return [...(state.reconciliations ?? [])].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30).map(toClosed);
+      }),
+
+    closeReconciliation: (body) =>
+      call(() => {
+        const manager = requireRole('QUAN_LY');
+        requirePastOrToday(body.date);
+        if ((state.reconciliations ?? []).some((r) => r.date === body.date)) fail('ALREADY_RECONCILED');
+        if (!Number.isSafeInteger(body.countedCash) || body.countedCash < 0) fail('INVALID_AMOUNT');
+        const note = body.note?.trim() || null;
+        if (note && note.length > 500) fail('VALIDATION_ERROR');
+        const position = positionOn(body.date);
+        if (body.countedCash !== position.expectedCash && !note) fail('RECONCILIATION_NOTE_REQUIRED');
+        const record: MockReconciliation = {
+          date: body.date, cashIn: position.cashIn, cashOut: position.cashOut, expectedCash: position.expectedCash,
+          countedCash: body.countedCash, pointsBalanced: position.pointsBalanced, note, closedBy: manager.id,
+          closedAt: toVietnamIso(new Date()),
+        };
+        state.reconciliations = [...(state.reconciliations ?? []), record];
+        return toClosed(record);
+      }),
+
+    trafficStats: (days) =>
+      call(() => {
+        const user = currentUser();
+        if (user.role !== 'QUAN_LY' && user.role !== 'CHU_TAI_KHOAN') fail('FORBIDDEN');
+        if (![7, 30, 90].includes(days)) fail('VALIDATION_ERROR');
+        const today = toVietnamIso(new Date()).slice(0, 10);
+        const from = toVietnamIso(new Date(Date.now() - (days - 1) * 86_400_000)).slice(0, 10);
+        const count = (pick: (s: MockState['sessions'][number]) => string | null, sinceDay: string) => {
+          const hours = Array.from({ length: 24 }, () => 0);
+          state.sessions.forEach((session) => {
+            const at = pick(session);
+            if (at && at.slice(0, 10) >= sinceDay && at.slice(0, 10) <= today) {
+              const hour = Number(at.slice(11, 13));
+              hours[hour] = (hours[hour] ?? 0) + 1;
+            }
+          });
+          return hours;
+        };
+        const entries = count((s) => s.enteredAt, from);
+        const exits = count((s) => s.exitedAt, from);
+        const todayEntries = count((s) => s.enteredAt, today);
+        const todayExits = count((s) => s.exitedAt, today);
+        const round = (value: number) => Math.round(value * 10) / 10;
+        const totalEntries = entries.reduce((sum, value) => sum + value, 0);
+        const peakHours = entries.map((value, hour) => ({ value, hour })).filter((item) => item.value > 0)
+          .sort((a, b) => b.value - a.value || a.hour - b.hour).slice(0, 3).map((item) => item.hour);
+        return {
+          from, to: today, days,
+          hours: entries.map((value, hour) => ({
+            hour, averageEntries: round(value / days), averageExits: round((exits[hour] ?? 0) / days),
+            todayEntries: todayEntries[hour] ?? 0, todayExits: todayExits[hour] ?? 0,
+          })),
+          totalEntries, averageEntriesPerDay: round(totalEntries / days), peakHours,
+          parkedNow: state.sessions.filter((session) => session.exitedAt === null).length,
+        };
+      }),
   };
 }

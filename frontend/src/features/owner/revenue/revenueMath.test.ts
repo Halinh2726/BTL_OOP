@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { axisScale, eachDay, fillDays, labelEvery, longDate, matchingPreset, niceStep, presetRange, tickLabel, vietnamToday } from './revenueMath';
+import { eachDay, fillDays, longDate, matchingPreset, presetRange, vietnamToday } from './revenueMath';
 
 describe('revenueMath — tính toán cho biểu đồ doanh thu', () => {
   it('eachDay gồm cả hai đầu, qua được cuối tháng và năm nhuận', () => {
@@ -25,24 +25,6 @@ describe('revenueMath — tính toán cho biểu đồ doanh thu', () => {
 
   it('vietnamToday dùng giờ Việt Nam: 18:30 UTC đã là ngày hôm sau', () => {
     expect(vietnamToday(Date.UTC(2026, 10, 18, 18, 30))).toBe('2026-11-19');
-  });
-
-  it('niceStep và axisScale cho số tròn; một trục chung cho cột lên và xuống', () => {
-    expect(niceStep(24000)).toBe(5000);
-    expect(niceStep(7)).toBe(2);
-    expect(axisScale(24000)).toEqual({ min: 0, max: 25000, ticks: [0, 5000, 10000, 15000, 20000, 25000] });
-    const mixed = axisScale(50000, 3000);
-    expect(mixed.min).toBeLessThan(0);
-    expect(mixed.ticks).toContain(0);
-    expect(mixed.max).toBeGreaterThanOrEqual(50000);
-    expect(axisScale(0).max).toBeGreaterThan(0); // không có dữ liệu: vẫn vẽ được trục
-  });
-
-  it('nhãn trục: đầy đủ dưới 10.000, rút gọn khi trục chạm 10.000', () => {
-    expect(tickLabel(2000, 8000)).toBe('2.000');
-    expect(tickLabel(20000, 25000)).not.toBe('20.000');
-    expect(labelEvery(50)).toBe(1);
-    expect(labelEvery(9)).toBe(5);
   });
 
   it('longDate có thứ trong tuần', () => {

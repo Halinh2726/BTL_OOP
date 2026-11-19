@@ -1,4 +1,12 @@
 import type {
+  ClosedReconciliation,
+  CloseReconciliationRequest,
+  LedgerPage,
+  LedgerQuery,
+  ReconciliationDay,
+  StudentProfileView,
+  StudentSearchRow,
+  TrafficReport,
   AdjustRequest,
   AdjustResult,
   AuditPage,
@@ -141,4 +149,18 @@ export interface ApiClient {
   rejectWithdrawalRequest(id: number, note: string): Promise<WithdrawalView>;
   resolveWithdrawalRequest(id: number, note: string): Promise<WithdrawalView>;
   adjustPoints(body: AdjustRequest, idempotencyKey: string): Promise<Idempotent<AdjustResult>>;
+
+  // Đợt 4a — giám sát & đối soát
+  /** Tìm sinh viên theo một đoạn MSSV hoặc họ tên (ít nhất 2 ký tự). */
+  searchStudents(q: string): Promise<StudentSearchRow[]>;
+  studentProfile(studentCode: string): Promise<StudentProfileView>;
+  /** Sổ giao dịch toàn hệ thống, mới nhất trước, phân trang bằng `before`. */
+  ledger(query: LedgerQuery): Promise<LedgerPage>;
+  /** File CSV của sổ giao dịch (bắt buộc from / to, tối đa 93 ngày). */
+  exportLedger(query: Omit<LedgerQuery, 'before' | 'limit'>): Promise<Blob>;
+  reconciliationDay(date: string): Promise<ReconciliationDay>;
+  reconciliationHistory(): Promise<ClosedReconciliation[]>;
+  closeReconciliation(body: CloseReconciliationRequest): Promise<ClosedReconciliation>;
+  /** Quản lý và chủ bãi xe: lượt xe theo giờ, trung bình `days` ngày (7, 30, 90). */
+  trafficStats(days: number): Promise<TrafficReport>;
 }

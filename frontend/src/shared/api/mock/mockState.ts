@@ -126,6 +126,24 @@ export interface MockTransaction {
   type: TransactionType;
   createdAt: string;
   entries: MockEntry[];
+  /** Đợt 4a — thiếu với dữ liệu cũ: suy ra theo loại (bảo vệ thu phí, quản lý làm phần còn lại). */
+  performedBy?: number;
+  sessionId?: number;
+  reason?: string;
+  originalTransactionId?: number | null;
+}
+
+/** Đợt 4a — biên bản đối soát cuối ngày. */
+export interface MockReconciliation {
+  date: string;
+  cashIn: number;
+  cashOut: number;
+  expectedCash: number;
+  countedCash: number;
+  pointsBalanced: boolean;
+  note: string | null;
+  closedBy: number;
+  closedAt: string;
 }
 
 export interface MockIdempotencyRecord {
@@ -152,6 +170,8 @@ export interface MockState {
   incidents?: MockIncident[];
   /** Đợt 3 */
   withdrawals?: MockWithdrawal[];
+  /** Đợt 4a */
+  reconciliations?: MockReconciliation[];
 }
 
 const HOUR = 60 * 60 * 1000;
@@ -230,5 +250,6 @@ export function seedState(now = new Date()): MockState {
     shifts: [],
     incidents: [],
     withdrawals: [],
+    reconciliations: [],
   };
 }

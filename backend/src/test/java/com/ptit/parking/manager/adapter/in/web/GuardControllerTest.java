@@ -58,7 +58,7 @@ class GuardControllerTest {
 
     @Test
     void taoThanhCong_201_khongTraMatKhau() throws Exception {
-        when(createGuard.create(new CreateGuardUseCase.Command("Ngô Văn H", "0912345678", "baove03", "MatKhau@123")))
+        when(createGuard.create(new CreateGuardUseCase.Command(1L, "Ngô Văn H", "0912345678", "baove03", "MatKhau@123")))
                 .thenReturn(new Guard(6L, "baove03", "$2a$12$hash", "Ngô Văn H", AccountStatus.HOAT_DONG, "0912345678"));
 
         mvc.perform(post(URL).with(csrf()).with(authentication(manager("GUARD_CREATE")))
@@ -125,7 +125,7 @@ class GuardControllerTest {
 
     @Test
     void khoa_200_traBaoVeSauKhiCapNhat() throws Exception {
-        when(changeGuardStatus.change(new ChangeGuardStatusUseCase.Command(4L, AccountStatus.BI_KHOA)))
+        when(changeGuardStatus.change(new ChangeGuardStatusUseCase.Command(1L, 4L, AccountStatus.BI_KHOA)))
                 .thenReturn(LOCKED);
 
         mvc.perform(changeStatus(4, """

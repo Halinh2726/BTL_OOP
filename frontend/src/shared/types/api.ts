@@ -506,3 +506,134 @@ export interface AdjustResult {
   originalTransactionId: number | null;
   createdAt: string;
 }
+
+// ===== Đợt 4a — giám sát & đối soát của quản lý =====
+
+/** Một bên của giao dịch (ví nguồn / ví đích). */
+export interface LedgerParty {
+  fullName: string;
+  studentCode: string | null;
+  role: Role;
+}
+
+/** Một dòng sổ giao dịch toàn hệ thống. `from` null với đổi điểm, `to` null với rút điểm. */
+export interface LedgerItem {
+  id: number;
+  type: TransactionType;
+  points: number;
+  cashAmount: number | null;
+  from: LedgerParty | null;
+  to: LedgerParty | null;
+  performerName: string;
+  performerRole: Role;
+  createdAt: string;
+  plateNumber: string | null;
+  reason: string | null;
+  originalTransactionId: number | null;
+}
+
+export interface LedgerPage {
+  items: LedgerItem[];
+  hasMore: boolean;
+  nextBefore: number | null;
+}
+
+/** Lọc sổ giao dịch; ngày dạng "yyyy-mm-dd" (giờ Việt Nam). */
+export interface LedgerQuery {
+  from?: string;
+  to?: string;
+  type?: TransactionType;
+  studentCode?: string;
+  before?: number;
+  limit?: number;
+}
+
+export interface StudentSearchRow {
+  userId: number;
+  studentCode: string;
+  fullName: string;
+  status: GuardStatus;
+  balance: number;
+  activeVehicles: number;
+  parkedNow: boolean;
+}
+
+export interface StudentProfileView {
+  student: {
+    userId: number;
+    studentCode: string;
+    fullName: string;
+    email: string | null;
+    phone: string | null;
+    status: GuardStatus;
+    createdAt: string;
+    balance: number;
+  };
+  vehicles: Array<{
+    id: number;
+    plateNumber: string;
+    vehicleTypeName: string;
+    status: VehicleStatus;
+    registeredAt: string;
+    parkedNow: boolean;
+  }>;
+  recentSessions: Array<{ id: number; plateNumber: string; enteredAt: string; exitedAt: string | null; fee: number | null }>;
+  recentTransactions: LedgerItem[];
+}
+
+export type ReconciliationOutcome = 'KHOP' | 'THUA' | 'THIEU';
+
+export interface ClosedReconciliation {
+  date: string;
+  cashIn: number;
+  cashOut: number;
+  expectedCash: number;
+  countedCash: number;
+  /** Dương: thừa; âm: thiếu so với sổ sách. */
+  discrepancy: number;
+  outcome: ReconciliationOutcome;
+  pointsBalanced: boolean;
+  note: string | null;
+  closedByName: string;
+  closedAt: string;
+}
+
+/** Sổ sách tiền mặt của một ngày (R13) và kết luận bảo toàn điểm (R12). */
+export interface ReconciliationDay {
+  date: string;
+  openingCash: number;
+  cashIn: number;
+  cashOut: number;
+  expectedCash: number;
+  deposits: number;
+  withdrawals: number;
+  payments: number;
+  revenue: number;
+  pointsBalanced: boolean;
+  closed: ClosedReconciliation | null;
+}
+
+export interface CloseReconciliationRequest {
+  date: string;
+  countedCash: number;
+  note?: string;
+}
+
+export interface TrafficHour {
+  hour: number;
+  averageEntries: number;
+  averageExits: number;
+  todayEntries: number;
+  todayExits: number;
+}
+
+export interface TrafficReport {
+  from: string;
+  to: string;
+  days: number;
+  hours: TrafficHour[];
+  totalEntries: number;
+  averageEntriesPerDay: number;
+  peakHours: number[];
+  parkedNow: number;
+}
