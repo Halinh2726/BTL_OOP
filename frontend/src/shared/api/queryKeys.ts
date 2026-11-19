@@ -34,6 +34,16 @@ export const queryKeys = {
   reconciliationHistory: ['manager', 'reconciliation', 'history'] as const,
   reconciliationAll: ['manager', 'reconciliation'] as const,
   trafficStats: (days: number) => ['stats', 'traffic', days] as const,
+  myComplaints: ['me', 'complaints'] as const,
+  complaintSessions: ['me', 'complaint-sessions'] as const,
+  managerComplaints: (status: string | undefined) => ['manager', 'complaints', status ?? 'OPEN'] as const,
+  managerComplaintsAll: ['manager', 'complaints'] as const,
+  managerIncidents: (status: string | undefined) => ['manager', 'incidents', status ?? 'OPEN'] as const,
+  managerIncidentsAll: ['manager', 'incidents'] as const,
+  ownerCompensations: ['owner', 'compensations'] as const,
+  shiftWeek: (from: string) => ['manager', 'shift-plan', from] as const,
+  shiftWeekAll: ['manager', 'shift-plan'] as const,
+  mySchedule: ['guard', 'my-schedule'] as const,
   guardTimesheet: (from: string, to: string, guardId: number | undefined) =>
     ['manager', 'timesheet', from, to, guardId ?? 'ALL'] as const,
 };

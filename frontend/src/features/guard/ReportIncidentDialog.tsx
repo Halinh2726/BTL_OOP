@@ -12,7 +12,7 @@ import { SelectField, TextField } from '../../shared/components/Field';
 import { useFieldErrors } from '../../shared/hooks/useFieldErrors';
 import type { IncidentItem, IncidentType } from '../../shared/types/api';
 import { INCIDENT_TYPE_LABELS, normalizePlate } from '../../shared/utils/format';
-import { resizeImage, type PreparedPhoto } from './resizeImage';
+import { resizeImage, type PreparedPhoto } from '../../shared/utils/resizeImage';
 
 const TYPES = Object.keys(INCIDENT_TYPE_LABELS) as IncidentType[];
 

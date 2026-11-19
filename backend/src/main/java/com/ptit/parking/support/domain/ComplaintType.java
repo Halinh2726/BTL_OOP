@@ -1,0 +1,34 @@
+package com.ptit.parking.support.domain;
+
+/**
+ * Loại khiếu nại (khớp ck_complaints_type). Mỗi loại tự biết được giải quyết bằng tiền theo cách nào — nơi dùng không
+ * cần if/else theo từng loại:
+ * <ul>
+ *   <li>Thu phí sai: quản lý tự HOÀN PHÍ (giao dịch điều chỉnh) khi kết luận.</li>
+ *   <li>Xe hư hỏng, mất đồ: quản lý ĐỀ XUẤT bồi thường, chủ bãi xe DUYỆT.</li>
+ * </ul>
+ */
+public enum ComplaintType {
+    THU_PHI_SAI(true, false),
+    XE_HU_HONG(false, true),
+    MAT_DO(false, true),
+    KHAC(false, false);
+
+    private final boolean refundable;
+    private final boolean compensable;
+
+    ComplaintType(boolean refundable, boolean compensable) {
+        this.refundable = refundable;
+        this.compensable = compensable;
+    }
+
+    /** Quản lý được hoàn phí ngay khi kết luận. */
+    public boolean allowsRefund() {
+        return refundable;
+    }
+
+    /** Được đề xuất bồi thường (cần chủ bãi xe duyệt). */
+    public boolean allowsCompensation() {
+        return compensable;
+    }
+}

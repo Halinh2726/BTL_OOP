@@ -1,4 +1,14 @@
 import type {
+  CompensationDecision,
+  ComplaintSession,
+  ComplaintStatus,
+  ComplaintView,
+  IncidentStatus,
+  ManagedIncident,
+  PlannedShift,
+  ShiftSlot,
+  ShiftWeek,
+  SubmitComplaintRequest,
   ClosedReconciliation,
   CloseReconciliationRequest,
   LedgerPage,
@@ -163,4 +173,37 @@ export interface ApiClient {
   closeReconciliation(body: CloseReconciliationRequest): Promise<ClosedReconciliation>;
   /** Quản lý và chủ bãi xe: lượt xe theo giờ, trung bình `days` ngày (7, 30, 90). */
   trafficStats(days: number): Promise<TrafficReport>;
+
+  // Đợt 4b — sinh viên: khiếu nại
+  myComplaints(): Promise<ComplaintView[]>;
+  submitComplaint(body: SubmitComplaintRequest): Promise<ComplaintView>;
+  cancelComplaint(id: number): Promise<ComplaintView>;
+  /** Các lượt gửi gần đây để chọn khi gửi khiếu nại. */
+  complaintSessions(): Promise<ComplaintSession[]>;
+  /** Địa chỉ ảnh khiếu nại: `manager` = quản lý xem, ngược lại là sinh viên xem ảnh của mình. */
+  complaintPhotoUrl(id: number, manager?: boolean): string;
+
+  // Đợt 4b — quản lý: xử lý khiếu nại và sự cố
+  managerComplaints(status?: ComplaintStatus): Promise<ComplaintView[]>;
+  startComplaint(id: number): Promise<ComplaintView>;
+  /** refundPoints > 0: hoàn phí (chỉ thu phí sai, tối đa bằng phí đã thu). */
+  resolveComplaint(id: number, note: string, refundPoints: number): Promise<ComplaintView>;
+  rejectComplaint(id: number, note: string): Promise<ComplaintView>;
+  proposeCompensation(id: number, points: number, note: string): Promise<ComplaintView>;
+  managerIncidents(status?: IncidentStatus): Promise<ManagedIncident[]>;
+  startIncident(id: number): Promise<ManagedIncident>;
+  resolveIncident(id: number, note: string): Promise<ManagedIncident>;
+  rejectIncident(id: number, note: string): Promise<ManagedIncident>;
+  managerIncidentPhotoUrl(id: number): string;
+
+  // Đợt 4b — chủ bãi xe: bồi thường
+  ownerCompensations(): Promise<ComplaintView[]>;
+  approveCompensation(id: number, note: string): Promise<CompensationDecision>;
+  rejectCompensation(id: number, note: string): Promise<ComplaintView>;
+
+  // Đợt 4b — phân ca
+  shiftWeek(from?: string): Promise<ShiftWeek>;
+  assignShift(body: { date: string; slot: ShiftSlot; guardId: number }): Promise<PlannedShift>;
+  removeShift(id: number): Promise<void>;
+  mySchedule(): Promise<PlannedShift[]>;
 }

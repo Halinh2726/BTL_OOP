@@ -1,4 +1,7 @@
 import type {
+  ComplaintStatus,
+  ComplaintType,
+  ShiftSlot,
   AuditAction,
   GuardStatus,
   IncidentStatus,
@@ -111,6 +114,41 @@ export interface MockIncident {
   /** Ảnh dạng data URL để đặt thẳng vào thẻ img. */
   photo: string | null;
   resolution: string | null;
+  /** Đợt 4b — quản lý xử lý. */
+  handledBy?: number | null;
+  handledAt?: string | null;
+}
+
+/** Đợt 4b — khiếu nại của sinh viên. */
+export interface MockComplaint {
+  id: number;
+  studentId: number;
+  type: ComplaintType;
+  sessionId: number | null;
+  description: string;
+  status: ComplaintStatus;
+  createdAt: string;
+  photo: string | null;
+  cancelledAt: string | null;
+  handledBy: number | null;
+  handledAt: string | null;
+  resolution: string | null;
+  refundTransactionId: number | null;
+  proposedPoints: number | null;
+  proposedBy: number | null;
+  proposedAt: string | null;
+  decidedBy: number | null;
+  decidedAt: string | null;
+  decisionNote: string | null;
+  compensationTransactionId: number | null;
+}
+
+/** Đợt 4b — một ca đã xếp. */
+export interface MockAssignment {
+  id: number;
+  date: string;
+  slot: ShiftSlot;
+  guardId: number;
 }
 
 /** Một bút toán trên ví của một người dùng. Giao dịch thanh toán có hai bút toán: sinh viên (−) và chủ tài khoản (+). */
@@ -172,6 +210,9 @@ export interface MockState {
   withdrawals?: MockWithdrawal[];
   /** Đợt 4a */
   reconciliations?: MockReconciliation[];
+  /** Đợt 4b */
+  complaints?: MockComplaint[];
+  assignments?: MockAssignment[];
 }
 
 const HOUR = 60 * 60 * 1000;
@@ -228,13 +269,13 @@ export function seedState(now = new Date()): MockState {
       { id: 1, type: 'DOI_DIEM', createdAt: at(24 * 5), entries: [{ userId: STUDENT_ID, change: 50000, balanceBefore: 0, balanceAfter: 50000 }] },
       { id: 2, type: 'DOI_DIEM', createdAt: at(24 * 5 - 1), entries: [{ userId: STUDENT2_ID, change: 2000, balanceBefore: 0, balanceAfter: 2000 }] },
       {
-        id: 3, type: 'THANH_TOAN', createdAt: at(24 * 3 + 2), entries: [
+        id: 3, type: 'THANH_TOAN', createdAt: at(24 * 3 + 2), sessionId: 1, performedBy: GUARD_ID, entries: [
           { userId: STUDENT_ID, change: -3000, balanceBefore: 50000, balanceAfter: 47000 },
           { userId: OWNER_ID, change: 3000, balanceBefore: 0, balanceAfter: 3000 },
         ],
       },
       {
-        id: 4, type: 'THANH_TOAN', createdAt: at(24 * 2 + 3), entries: [
+        id: 4, type: 'THANH_TOAN', createdAt: at(24 * 2 + 3), sessionId: 2, performedBy: GUARD_ID, entries: [
           { userId: STUDENT_ID, change: -3000, balanceBefore: 47000, balanceAfter: 44000 },
           { userId: OWNER_ID, change: 3000, balanceBefore: 3000, balanceAfter: 6000 },
         ],
@@ -251,5 +292,7 @@ export function seedState(now = new Date()): MockState {
     incidents: [],
     withdrawals: [],
     reconciliations: [],
+    complaints: [],
+    assignments: [],
   };
 }

@@ -14,6 +14,7 @@ import { INCIDENT_TYPE_LABELS, formatCash, formatDateTime, formatDuration, forma
 import { ActivityColumns } from './ActivityColumns';
 import { CashDifference } from './CashDifference';
 import { CashField, readCash } from './CashField';
+import { MyScheduleCard } from './MyScheduleCard';
 import { ShiftHistoryCard } from './ShiftHistoryCard';
 
 /**
@@ -35,6 +36,7 @@ export function ShiftTab() {
       ) : (
         <StartShiftCard pending={pendingHandovers} openIncidents={openIncidents} />
       )}
+      <MyScheduleCard />
       <MyActivityCard />
       <ShiftHistoryCard />
     </div>

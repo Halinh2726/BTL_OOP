@@ -1,4 +1,9 @@
 import type {
+  ComplaintStatus,
+  ComplaintView,
+  ManagedIncident,
+  PlannedShift,
+  ShiftSlot,
   ClosedReconciliation,
   LedgerItem,
   LedgerParty,
@@ -35,6 +40,8 @@ import {
   type MockAuditEntry,
   type MockIncident,
   type MockReconciliation,
+  type MockComplaint,
+  type MockAssignment,
   type MockTransaction,
   type MockShift,
   type MockWithdrawal,
@@ -78,6 +85,18 @@ const ERRORS = {
   ALREADY_RECONCILED: [409, 'Ngày này đã được chốt đối soát. Biên bản đã chốt không sửa được.'],
   RECONCILIATION_NOTE_REQUIRED: [422, 'Tiền đếm được lệch với sổ sách: bắt buộc ghi giải trình.'],
   RECONCILIATION_DATE_INVALID: [422, 'Chỉ đối soát được ngày hôm nay hoặc ngày đã qua.'],
+  COMPLAINT_NOT_FOUND: [404, 'Không tìm thấy khiếu nại.'],
+  PARKING_SESSION_NOT_FOUND: [404, 'Không tìm thấy lượt gửi xe này trong lịch sử của bạn.'],
+  SHIFT_ASSIGNMENT_NOT_FOUND: [404, 'Không tìm thấy ca đã xếp.'],
+  COMPLAINT_STATUS_CONFLICT: [409, 'Khiếu nại không ở trạng thái cho phép thao tác này.'],
+  SHIFT_ALREADY_ASSIGNED: [409, 'Bảo vệ này đã được xếp vào ca đó.'],
+  INCIDENT_STATUS_CONFLICT: [409, 'Sự cố không ở trạng thái cho phép thao tác này.'],
+  COMPLAINT_NOT_COMPENSABLE: [422, 'Chỉ khiếu nại xe hư hỏng hoặc mất đồ mới được đề xuất bồi thường.'],
+  REFUND_NOT_ALLOWED: [422, 'Chỉ hoàn phí cho khiếu nại thu phí sai có lượt gửi đã thanh toán.'],
+  REFUND_EXCEEDS_FEE: [422, 'Số điểm hoàn vượt quá phí đã thu của lượt gửi.'],
+  TOO_MANY_OPEN_COMPLAINTS: [422, 'Bạn đang có 5 khiếu nại chưa xử lý xong. Vui lòng chờ kết quả trước khi gửi thêm.'],
+  SHIFT_SLOT_PASSED: [422, 'Ca này đã bắt đầu hoặc đã kết thúc: không xếp / gỡ được nữa.'],
+  GUARD_INACTIVE: [422, 'Bảo vệ đang bị khóa tài khoản, không xếp ca được.'],
   DATE_RANGE_INVALID: [422, 'Khoảng ngày không hợp lệ: ngày bắt đầu phải trước ngày kết thúc, tối đa 93 ngày.'],
   PLATE_NOT_FOUND: [404, 'Biển số chưa được đăng ký.'],
   NO_OPEN_SESSION: [404, 'Xe không có lượt gửi đang mở.'],
@@ -401,6 +420,116 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         days.set(date, day);
       });
     return [...days.values()].sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  // ===== Đợt 4b: helpers =====
+
+  const COMPLAINT_MOVES: Record<ComplaintStatus, ComplaintStatus[]> = {
+    MOI: ['DANG_XU_LY', 'TU_CHOI', 'DA_HUY'],
+    DANG_XU_LY: ['DA_XU_LY', 'TU_CHOI', 'CHO_DUYET_BOI_THUONG'],
+    CHO_DUYET_BOI_THUONG: ['DA_BOI_THUONG', 'KHONG_BOI_THUONG'],
+    DA_XU_LY: [], TU_CHOI: [], DA_HUY: [], DA_BOI_THUONG: [], KHONG_BOI_THUONG: [],
+  };
+
+  function complaintOf(id: number): MockComplaint {
+    const found = (state.complaints ?? []).find((c) => c.id === id);
+    if (!found) return fail('COMPLAINT_NOT_FOUND');
+    return found;
+  }
+
+  function moveComplaint(c: MockComplaint, next: ComplaintStatus): void {
+    if (!COMPLAINT_MOVES[c.status].includes(next)) fail('COMPLAINT_STATUS_CONFLICT');
+    c.status = next;
+  }
+
+  function requireText(text: string | undefined, max = 1000): string {
+    const value = (text ?? '').trim();
+    if (!value || value.length > max) fail('VALIDATION_ERROR');
+    return value;
+  }
+
+  function sessionInfo(sessionId: number | null) {
+    const session = state.sessions.find((s) => s.id === sessionId);
+    if (!session) return null;
+    const payment = state.transactions.find((t) => t.sessionId === session.id);
+    return {
+      id: session.id, studentId: state.vehicles.find((v) => v.id === session.vehicleId)?.userId ?? 0,
+      plateNumber: state.vehicles.find((v) => v.id === session.vehicleId)?.plateNumber ?? '',
+      enteredAt: session.enteredAt, exitedAt: session.exitedAt,
+      fee: payment ? Math.abs(payment.entries[0]?.change ?? 0) : null, paymentId: payment?.id ?? null,
+    };
+  }
+
+  function toComplaint(c: MockComplaint): ComplaintView {
+    const student = state.users.find((user) => user.id === c.studentId);
+    const session = sessionInfo(c.sessionId);
+    return {
+      id: c.id, type: c.type, status: c.status, description: c.description, createdAt: c.createdAt,
+      hasPhoto: c.photo !== null, studentCode: student?.studentCode ?? null, studentName: student?.fullName ?? null,
+      session: session && { id: session.id, plateNumber: session.plateNumber, enteredAt: session.enteredAt, exitedAt: session.exitedAt, fee: session.fee },
+      handlerName: c.handledBy ? nameOf(c.handledBy) : null, handledAt: c.handledAt, resolution: c.resolution,
+      refundTransactionId: c.refundTransactionId, proposedPoints: c.proposedPoints,
+      proposerName: c.proposedBy ? nameOf(c.proposedBy) : null, proposedAt: c.proposedAt,
+      deciderName: c.decidedBy ? nameOf(c.decidedBy) : null, decidedAt: c.decidedAt, decisionNote: c.decisionNote,
+      compensationTransactionId: c.compensationTransactionId, cancelledAt: c.cancelledAt,
+    };
+  }
+
+  /** Trả điểm từ ví chủ bãi sang ví sinh viên bằng giao dịch điều chỉnh (không tạo điểm mới). */
+  function payStudent(studentId: number, points: number, performer: number, reason: string, original: number | null) {
+    if (balanceOf(OWNER_ID) < points) fail('INSUFFICIENT_POINTS');
+    return record('DIEU_CHINH', [[OWNER_ID, -points], [studentId, points]], new Date(), {
+      performedBy: performer, reason, originalTransactionId: original,
+    }).id;
+  }
+
+  function toManagedIncident(incident: MockIncident): ManagedIncident {
+    return {
+      ...toIncident(incident), handlerName: incident.handledBy ? nameOf(incident.handledBy) : null,
+      handledAt: incident.handledAt ?? null,
+    };
+  }
+
+  function incidentOf(id: number): MockIncident {
+    const found = (state.incidents ?? []).find((incident) => incident.id === id);
+    if (!found) return fail('INCIDENT_NOT_FOUND');
+    return found;
+  }
+
+  const SLOT_HOURS: Record<ShiftSlot, [number, number]> = { SANG: [6, 14], CHIEU: [14, 22], DEM: [22, 6] };
+
+  function slotWindow(date: string, slot: ShiftSlot): [number, number] {
+    const [startHour, endHour] = SLOT_HOURS[slot];
+    const start = Date.parse(`${date}T${String(startHour).padStart(2, '0')}:00:00+07:00`);
+    const endDay = endHour > startHour ? date : toVietnamIso(new Date(start + 86_400_000)).slice(0, 10);
+    return [start, Date.parse(`${endDay}T${String(endHour).padStart(2, '0')}:00:00+07:00`)];
+  }
+
+  function toPlanned(a: MockAssignment): PlannedShift {
+    const [start, end] = slotWindow(a.date, a.slot);
+    const now = Date.now();
+    const actual = (state.shifts ?? [])
+      .filter((shift) => shift.guardId === a.guardId)
+      .map((shift) => Date.parse(shift.startedAt))
+      .filter((at) => at >= start - 3_600_000 && at < end)
+      .sort((x, y) => x - y)[0];
+    const late = actual === undefined ? 0 : Math.max(0, Math.floor((actual - start) / 60_000));
+    const attendance = actual !== undefined ? (late > 15 ? 'DI_MUON' : 'DUNG_GIO')
+      : now < start ? 'SAP_TOI' : now < end ? 'CHUA_NHAN_CA' : 'VANG';
+    return {
+      id: a.id, date: a.date, slot: a.slot, startsAt: toVietnamIso(new Date(start)), endsAt: toVietnamIso(new Date(end)),
+      guardId: a.guardId, guardName: nameOf(a.guardId), attendance,
+      actualStart: actual === undefined ? null : toVietnamIso(new Date(actual)), lateMinutes: late,
+    };
+  }
+
+  const SLOT_ORDER: ShiftSlot[] = ['SANG', 'CHIEU', 'DEM'];
+  function byDateSlot(a: MockAssignment, b: MockAssignment): number {
+    return a.date.localeCompare(b.date) || SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot);
+  }
+
+  function addDays(date: string, days: number): string {
+    return toVietnamIso(new Date(Date.parse(`${date}T12:00:00+07:00`) + days * 86_400_000)).slice(0, 10);
   }
 
   // ===== Đợt 4a: helpers =====
@@ -1448,6 +1577,233 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         };
         state.reconciliations = [...(state.reconciliations ?? []), record];
         return toClosed(record);
+      }),
+
+    // ===== Đợt 4b =====
+
+    myComplaints: () =>
+      call(() => {
+        const student = requireRole('SINH_VIEN');
+        return (state.complaints ?? []).filter((c) => c.studentId === student.id).sort((a, b) => b.id - a.id).map(toComplaint);
+      }),
+
+    submitComplaint: (body) =>
+      call(() => {
+        const student = requireRole('SINH_VIEN');
+        const description = requireText(body.description);
+        if (body.sessionId !== undefined && sessionInfo(body.sessionId)?.studentId !== student.id) fail('PARKING_SESSION_NOT_FOUND');
+        const mine = (state.complaints ?? []).filter((c) => c.studentId === student.id);
+        if (mine.filter((c) => COMPLAINT_MOVES[c.status].length > 0).length >= 5) fail('TOO_MANY_OPEN_COMPLAINTS');
+        const complaint: MockComplaint = {
+          id: nextId(), studentId: student.id, type: body.type, sessionId: body.sessionId ?? null, description,
+          status: 'MOI', createdAt: toVietnamIso(new Date()), photo: body.photoBase64 ?? null, cancelledAt: null,
+          handledBy: null, handledAt: null, resolution: null, refundTransactionId: null, proposedPoints: null,
+          proposedBy: null, proposedAt: null, decidedBy: null, decidedAt: null, decisionNote: null,
+          compensationTransactionId: null,
+        };
+        state.complaints = [...(state.complaints ?? []), complaint];
+        return toComplaint(complaint);
+      }),
+
+    cancelComplaint: (id) =>
+      call(() => {
+        const student = requireRole('SINH_VIEN');
+        const complaint = complaintOf(id);
+        if (complaint.studentId !== student.id) fail('COMPLAINT_NOT_FOUND');
+        moveComplaint(complaint, 'DA_HUY');
+        complaint.cancelledAt = toVietnamIso(new Date());
+        return toComplaint(complaint);
+      }),
+
+    complaintSessions: () =>
+      call(() => {
+        const student = requireRole('SINH_VIEN');
+        const mine = new Set(state.vehicles.filter((v) => v.userId === student.id).map((v) => v.id));
+        return state.sessions.filter((s) => mine.has(s.vehicleId)).sort((a, b) => b.enteredAt.localeCompare(a.enteredAt))
+          .slice(0, 10).map((s) => {
+            const info = sessionInfo(s.id);
+            return { id: s.id, plateNumber: info?.plateNumber ?? '', enteredAt: s.enteredAt, exitedAt: s.exitedAt, fee: info?.fee ?? null };
+          });
+      }),
+
+    complaintPhotoUrl: (id) => (state.complaints ?? []).find((c) => c.id === id)?.photo ?? '',
+
+    managerComplaints: (status) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        const open: ComplaintStatus[] = ['MOI', 'DANG_XU_LY', 'CHO_DUYET_BOI_THUONG'];
+        return (state.complaints ?? []).filter((c) => (status ? c.status === status : open.includes(c.status)))
+          .sort((a, b) => b.id - a.id).map(toComplaint);
+      }),
+
+    startComplaint: (id) =>
+      call(() => {
+        const manager = requireRole('QUAN_LY');
+        const complaint = complaintOf(id);
+        moveComplaint(complaint, 'DANG_XU_LY');
+        complaint.handledBy = manager.id;
+        complaint.handledAt = toVietnamIso(new Date());
+        return toComplaint(complaint);
+      }),
+
+    resolveComplaint: (id, note, refundPoints) =>
+      call(() => {
+        const manager = requireRole('QUAN_LY');
+        const complaint = complaintOf(id);
+        const text = requireText(note);
+        let refundId: number | null = null;
+        if (refundPoints > 0) {
+          const session = sessionInfo(complaint.sessionId);
+          if (complaint.type !== 'THU_PHI_SAI' || !session || session.fee === null) fail('REFUND_NOT_ALLOWED');
+          if (refundPoints > (session?.fee ?? 0)) fail('REFUND_EXCEEDS_FEE');
+          if (!COMPLAINT_MOVES[complaint.status].includes('DA_XU_LY')) fail('COMPLAINT_STATUS_CONFLICT');
+          refundId = payStudent(complaint.studentId, refundPoints, manager.id, `Hoàn phí theo khiếu nại #${complaint.id}`, session?.paymentId ?? null);
+        }
+        moveComplaint(complaint, 'DA_XU_LY');
+        Object.assign(complaint, { resolution: text, refundTransactionId: refundId, handledBy: manager.id, handledAt: toVietnamIso(new Date()) });
+        return toComplaint(complaint);
+      }),
+
+    rejectComplaint: (id, note) =>
+      call(() => {
+        const manager = requireRole('QUAN_LY');
+        const complaint = complaintOf(id);
+        const text = requireText(note);
+        moveComplaint(complaint, 'TU_CHOI');
+        Object.assign(complaint, { resolution: text, handledBy: manager.id, handledAt: toVietnamIso(new Date()) });
+        return toComplaint(complaint);
+      }),
+
+    proposeCompensation: (id, points, note) =>
+      call(() => {
+        const manager = requireRole('QUAN_LY');
+        const complaint = complaintOf(id);
+        if (complaint.type !== 'XE_HU_HONG' && complaint.type !== 'MAT_DO') fail('COMPLAINT_NOT_COMPENSABLE');
+        if (!Number.isSafeInteger(points) || points <= 0 || points > 10_000_000) fail('INVALID_AMOUNT');
+        const text = requireText(note);
+        moveComplaint(complaint, 'CHO_DUYET_BOI_THUONG');
+        Object.assign(complaint, { resolution: text, proposedPoints: points, proposedBy: manager.id, proposedAt: toVietnamIso(new Date()) });
+        return toComplaint(complaint);
+      }),
+
+    managerIncidents: (status) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        return (state.incidents ?? []).filter((i) => (status ? i.status === status : i.status === 'MOI' || i.status === 'DANG_XU_LY'))
+          .sort((a, b) => b.id - a.id).map(toManagedIncident);
+      }),
+
+    startIncident: (id) =>
+      call(() => {
+        const manager = requireRole('QUAN_LY');
+        const incident = incidentOf(id);
+        if (incident.status !== 'MOI') fail('INCIDENT_STATUS_CONFLICT');
+        Object.assign(incident, { status: 'DANG_XU_LY', handledBy: manager.id, handledAt: toVietnamIso(new Date()) });
+        return toManagedIncident(incident);
+      }),
+
+    resolveIncident: (id, note) =>
+      call(() => {
+        const manager = requireRole('QUAN_LY');
+        const incident = incidentOf(id);
+        const text = requireText(note);
+        if (incident.status === 'DA_XU_LY' || incident.status === 'TU_CHOI') fail('INCIDENT_STATUS_CONFLICT');
+        Object.assign(incident, { status: 'DA_XU_LY', resolution: text, handledBy: manager.id, handledAt: toVietnamIso(new Date()) });
+        return toManagedIncident(incident);
+      }),
+
+    rejectIncident: (id, note) =>
+      call(() => {
+        const manager = requireRole('QUAN_LY');
+        const incident = incidentOf(id);
+        const text = requireText(note);
+        if (incident.status === 'DA_XU_LY' || incident.status === 'TU_CHOI') fail('INCIDENT_STATUS_CONFLICT');
+        Object.assign(incident, { status: 'TU_CHOI', resolution: text, handledBy: manager.id, handledAt: toVietnamIso(new Date()) });
+        return toManagedIncident(incident);
+      }),
+
+    managerIncidentPhotoUrl: (id) => (state.incidents ?? []).find((incident) => incident.id === id)?.photo ?? '',
+
+    ownerCompensations: () =>
+      call(() => {
+        requireRole('CHU_TAI_KHOAN');
+        const related: ComplaintStatus[] = ['CHO_DUYET_BOI_THUONG', 'DA_BOI_THUONG', 'KHONG_BOI_THUONG'];
+        return (state.complaints ?? []).filter((c) => related.includes(c.status))
+          .sort((a, b) => Number(b.status === 'CHO_DUYET_BOI_THUONG') - Number(a.status === 'CHO_DUYET_BOI_THUONG') || b.id - a.id)
+          .map(toComplaint);
+      }),
+
+    approveCompensation: (id, note) =>
+      call(() => {
+        const owner = requireRole('CHU_TAI_KHOAN');
+        const complaint = complaintOf(id);
+        if (complaint.status === 'DA_BOI_THUONG') return { complaint: toComplaint(complaint), replayed: true };
+        if (complaint.proposedBy === owner.id) fail('SELF_PROCESSING_FORBIDDEN');
+        if (complaint.status !== 'CHO_DUYET_BOI_THUONG') fail('COMPLAINT_STATUS_CONFLICT');
+        const transactionId = payStudent(complaint.studentId, complaint.proposedPoints ?? 0, owner.id, `Bồi thường theo khiếu nại #${complaint.id}`, null);
+        moveComplaint(complaint, 'DA_BOI_THUONG');
+        Object.assign(complaint, {
+          decidedBy: owner.id, decidedAt: toVietnamIso(new Date()), decisionNote: note.trim() || null,
+          compensationTransactionId: transactionId,
+        });
+        return { complaint: toComplaint(complaint), replayed: false };
+      }),
+
+    rejectCompensation: (id, note) =>
+      call(() => {
+        const owner = requireRole('CHU_TAI_KHOAN');
+        const complaint = complaintOf(id);
+        const text = requireText(note, 500);
+        moveComplaint(complaint, 'KHONG_BOI_THUONG');
+        Object.assign(complaint, { decidedBy: owner.id, decidedAt: toVietnamIso(new Date()), decisionNote: text });
+        return toComplaint(complaint);
+      }),
+
+    shiftWeek: (from) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        const start = from ?? toVietnamIso(new Date()).slice(0, 10);
+        const end = addDays(start, 6);
+        return {
+          from: start, to: end,
+          guards: state.users.filter((user) => user.role === 'BAO_VE')
+            .map((user) => ({ id: user.id, fullName: user.fullName, active: user.status === 'HOAT_DONG' })),
+          shifts: (state.assignments ?? []).filter((a) => a.date >= start && a.date <= end).sort(byDateSlot).map(toPlanned),
+        };
+      }),
+
+    assignShift: (body) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        const guard = state.users.find((user) => user.id === body.guardId && user.role === 'BAO_VE');
+        if (!guard) return fail('GUARD_NOT_FOUND');
+        if (guard.status !== 'HOAT_DONG') fail('GUARD_INACTIVE');
+        if (Date.now() >= slotWindow(body.date, body.slot)[1]) fail('SHIFT_SLOT_PASSED');
+        if ((state.assignments ?? []).some((a) => a.date === body.date && a.slot === body.slot && a.guardId === body.guardId)) {
+          fail('SHIFT_ALREADY_ASSIGNED');
+        }
+        const assignment: MockAssignment = { id: nextId(), date: body.date, slot: body.slot, guardId: body.guardId };
+        state.assignments = [...(state.assignments ?? []), assignment];
+        return toPlanned(assignment);
+      }),
+
+    removeShift: (id) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        const assignment = (state.assignments ?? []).find((a) => a.id === id);
+        if (!assignment) return fail('SHIFT_ASSIGNMENT_NOT_FOUND');
+        if (Date.now() >= slotWindow(assignment.date, assignment.slot)[0]) fail('SHIFT_SLOT_PASSED');
+        state.assignments = (state.assignments ?? []).filter((a) => a.id !== id);
+      }),
+
+    mySchedule: () =>
+      call(() => {
+        const guard = requireRole('BAO_VE');
+        const today = toVietnamIso(new Date()).slice(0, 10);
+        const from = addDays(today, -7);
+        const to = addDays(today, 14);
+        return (state.assignments ?? []).filter((a) => a.guardId === guard.id && a.date >= from && a.date <= to)
+          .sort(byDateSlot).map(toPlanned);
       }),
 
     trafficStats: (days) =>

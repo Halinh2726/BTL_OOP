@@ -30,6 +30,9 @@ public enum ErrorCode {
     INCIDENT_NOT_FOUND(404, "Không tìm thấy sự cố."),
     WITHDRAWAL_NOT_FOUND(404, "Không tìm thấy yêu cầu rút điểm."),
     TRANSACTION_NOT_FOUND(404, "Không tìm thấy giao dịch gốc."),
+    COMPLAINT_NOT_FOUND(404, "Không tìm thấy khiếu nại."),
+    PARKING_SESSION_NOT_FOUND(404, "Không tìm thấy lượt gửi xe này trong lịch sử của bạn."),
+    SHIFT_ASSIGNMENT_NOT_FOUND(404, "Không tìm thấy ca đã xếp."),
 
     // 409 — xung đột dữ liệu
     STUDENT_CODE_EXISTS(409, "MSSV đã tồn tại"),
@@ -46,6 +49,8 @@ public enum ErrorCode {
     HANDOVER_PENDING(409, "Có biên bản bàn giao ca chưa được xác nhận. Xem lại rồi bấm Nhận ca."),
     INCIDENT_STATUS_CONFLICT(409, "Sự cố không ở trạng thái cho phép thao tác này."),
     WITHDRAWAL_STATUS_CONFLICT(409, "Yêu cầu rút điểm không ở trạng thái cho phép thao tác này."),
+    COMPLAINT_STATUS_CONFLICT(409, "Khiếu nại không ở trạng thái cho phép thao tác này."),
+    SHIFT_ALREADY_ASSIGNED(409, "Bảo vệ này đã được xếp vào ca đó."),
     ALREADY_RECONCILED(409, "Ngày này đã được chốt đối soát. Biên bản đã chốt không sửa được."),
 
     // 422 — vi phạm quy tắc nghiệp vụ
@@ -65,6 +70,12 @@ public enum ErrorCode {
     CASH_FUND_INSUFFICIENT(422, "Quỹ tiền mặt hiện không đủ để trả yêu cầu này."),
     RECONCILIATION_NOTE_REQUIRED(422, "Tiền đếm được lệch với sổ sách: bắt buộc ghi giải trình."),
     RECONCILIATION_DATE_INVALID(422, "Chỉ đối soát được ngày hôm nay hoặc ngày đã qua."),
+    COMPLAINT_NOT_COMPENSABLE(422, "Chỉ khiếu nại xe hư hỏng hoặc mất đồ mới được đề xuất bồi thường."),
+    REFUND_NOT_ALLOWED(422, "Chỉ hoàn phí cho khiếu nại thu phí sai có lượt gửi đã thanh toán."),
+    REFUND_EXCEEDS_FEE(422, "Số điểm hoàn vượt quá phí đã thu của lượt gửi."),
+    TOO_MANY_OPEN_COMPLAINTS(422, "Bạn đang có 5 khiếu nại chưa xử lý xong. Vui lòng chờ kết quả trước khi gửi thêm."),
+    SHIFT_SLOT_PASSED(422, "Ca này đã bắt đầu hoặc đã kết thúc: không xếp / gỡ được nữa."),
+    GUARD_INACTIVE(422, "Bảo vệ đang bị khóa tài khoản, không xếp ca được."),
     DATE_RANGE_INVALID(422, "Khoảng ngày không hợp lệ: ngày bắt đầu phải trước ngày kết thúc, tối đa 93 ngày."),
 
     // 429 / 500

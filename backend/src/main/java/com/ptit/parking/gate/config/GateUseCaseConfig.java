@@ -1,8 +1,12 @@
 package com.ptit.parking.gate.config;
 
 import com.ptit.parking.gate.application.port.out.GateActivityQuery;
+import com.ptit.parking.gate.application.port.out.GuardRoster;
 import com.ptit.parking.gate.application.port.out.IncidentRepository;
+import com.ptit.parking.gate.application.port.out.ShiftAssignmentRepository;
 import com.ptit.parking.gate.application.port.out.ShiftRepository;
+import com.ptit.parking.gate.application.usecase.HandleIncidentUseCase;
+import com.ptit.parking.gate.application.usecase.ShiftPlanUseCase;
 import com.ptit.parking.gate.application.usecase.ReportIncidentUseCase;
 import com.ptit.parking.gate.application.usecase.ShiftAttendanceUseCase;
 import com.ptit.parking.gate.application.usecase.ShiftHandoverUseCase;
@@ -42,5 +46,19 @@ public class GateUseCaseConfig {
     ReportIncidentUseCase reportIncidentUseCase(IncidentRepository incidents, TransactionRunner transactions,
                                                 Clock clock) {
         return new ReportIncidentUseCase(incidents, transactions, clock);
+    }
+
+    /** Đợt 4b — quản lý xử lý sự cố bảo vệ báo. */
+    @Bean
+    HandleIncidentUseCase handleIncidentUseCase(IncidentRepository incidents, TransactionRunner transactions,
+                                                Clock clock) {
+        return new HandleIncidentUseCase(incidents, transactions, clock);
+    }
+
+    /** Đợt 4b — phân ca và đối chiếu chuyên cần. */
+    @Bean
+    ShiftPlanUseCase shiftPlanUseCase(ShiftAssignmentRepository assignments, ShiftRepository shifts, GuardRoster roster,
+                                      TransactionRunner transactions, Clock clock) {
+        return new ShiftPlanUseCase(assignments, shifts, roster, transactions, clock);
     }
 }
