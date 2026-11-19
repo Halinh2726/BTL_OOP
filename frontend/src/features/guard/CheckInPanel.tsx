@@ -4,7 +4,7 @@ import { Alert } from '../../shared/components/Alert';
 import { Button } from '../../shared/components/Button';
 import { Card, InfoRow } from '../../shared/components/Card';
 import { useVehicleTypeName } from '../../shared/hooks/useVehicleTypeName';
-import { formatDateTime, formatPlate, formatPoints } from '../../shared/utils/format';
+import { formatDateTime, formatDay, formatPlate, formatPoints } from '../../shared/utils/format';
 import { ContinuousScanPanel } from './continuous/ContinuousScanPanel';
 import { checkInFlow } from './continuous/gateFlows';
 import { useGuardPreferences } from './guardPreferences';
@@ -88,7 +88,11 @@ export function CheckInPanel() {
                 <InfoRow label="MSSV" value={data.studentCode} />
                 <InfoRow label="Loại xe" value={typeName(data.vehicleTypeCode)} />
                 <InfoRow label="Số điểm hiện có" value={data.balance === null ? '—' : formatPoints(data.balance)} />
-                <InfoRow label="Mức phí tối thiểu" value={formatPoints(data.minFee)} />
+                {data.passValidUntil ? (
+                  <InfoRow label="Vé tháng" value={<span className="font-semibold text-emerald-700">Còn hiệu lực đến {formatDay(data.passValidUntil)}</span>} />
+                ) : (
+                  <InfoRow label="Mức phí tối thiểu" value={formatPoints(data.minFee)} />
+                )}
               </dl>
             )}
             {checkIn.isError && <Alert tone="error">{errorMessage(checkIn.error)}</Alert>}

@@ -80,6 +80,11 @@ class ParkingSessionJdbcAdapter implements ParkingSessionRepository {
                 .optional();
     }
 
+    @Override
+    public Optional<ParkingSession> findById(long sessionId) {
+        return jdbc.sql(SELECT + "WHERE id = :id").param("id", sessionId).query(ParkingSessionJdbcAdapter::map).optional();
+    }
+
     /** Chỉ cập nhật lượt CÒN đang gửi: lượt đã ra thì không ghi đè giờ ra / bảo vệ cho ra lần hai. */
     @Override
     public void saveExit(ParkingSession session) {

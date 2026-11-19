@@ -34,7 +34,7 @@ class CheckInController {
 
     /** Response của API #12. Thông tin chủ xe là null khi biển số chưa đăng ký. */
     record PreviewResponse(String plateNumber, String vehicleTypeCode, String studentCode, String fullName,
-                           Long balance, long minFee, boolean allowed, String reason) {
+                           Long balance, long minFee, boolean allowed, String reason, String passValidUntil) {
 
         static PreviewResponse from(Preview preview) {
             VehicleOwner owner = preview.owner();
@@ -44,7 +44,8 @@ class CheckInController {
                     owner == null ? null : owner.studentCode(),
                     owner == null ? null : owner.fullName(),
                     preview.balance(), preview.minFee(), preview.allowed(),
-                    preview.reason() == null ? null : preview.reason().name());
+                    preview.reason() == null ? null : preview.reason().name(),
+                    preview.passValidUntil() == null ? null : preview.passValidUntil().toString());
         }
     }
 

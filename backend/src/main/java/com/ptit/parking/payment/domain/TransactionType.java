@@ -6,5 +6,7 @@ public enum TransactionType {
     THANH_TOAN,
     RUT_DIEM,
     /** Đợt 3: chuyển điểm sửa sai sót, có lý do — xem PointAdjustment. */
-    DIEU_CHINH
+    DIEU_CHINH,
+    /** Đợt 5: sinh viên mua vé tháng — xem PassPurchase. */
+    MUA_VE
 }

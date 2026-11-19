@@ -17,7 +17,7 @@ export function OwnerPage() {
       <CompensationsCard />
       <RevenueCard />
       <TrafficStatsCard />
-      <TransactionHistory defaultType="THANH_TOAN" types={['THANH_TOAN', 'RUT_DIEM', 'DIEU_CHINH']} />
+      <TransactionHistory defaultType="THANH_TOAN" types={['THANH_TOAN', 'MUA_VE', 'RUT_DIEM', 'DIEU_CHINH']} />
     </div>
   );
 }

@@ -51,7 +51,7 @@ class OwnerFinanceJdbcAdapter implements OwnerFinanceQuery {
         return jdbc.sql("""
                 SELECT DATE(CONVERT_TZ(t.created_at, '+00:00', :offset)) AS day,
                        SUM(t.type = 'THANH_TOAN') AS payments,
-                       COALESCE(SUM(CASE WHEN t.type = 'THANH_TOAN' AND t.target_wallet_id = :owner THEN t.points END), 0) AS revenue,
+                       COALESCE(SUM(CASE WHEN t.type IN ('THANH_TOAN', 'MUA_VE') AND t.target_wallet_id = :owner THEN t.points END), 0) AS revenue,
                        COALESCE(SUM(CASE WHEN t.type = 'DIEU_CHINH' AND t.target_wallet_id = :owner THEN t.points
                                          WHEN t.type = 'DIEU_CHINH' AND t.source_wallet_id = :owner THEN -t.points END), 0) AS adjustments,
                        COALESCE(SUM(CASE WHEN t.type = 'DOI_DIEM' THEN c.cash_amount END), 0) AS cash_in,

@@ -1,5 +1,7 @@
 package com.ptit.parking.owner.application.usecase;
 
+import com.ptit.parking.owner.application.event.WithdrawalChanged;
+import com.ptit.parking.shared.application.port.out.EventPublisher;
 import com.ptit.parking.owner.application.port.out.OwnerFinanceQuery;
 import com.ptit.parking.owner.application.port.out.WithdrawalRequestRepository;
 import com.ptit.parking.owner.domain.WithdrawalRequest;
@@ -43,16 +45,18 @@ public class ProcessWithdrawalUseCase {
     private final WalletRepository wallets;
     private final PointTransactionRepository ledger;
     private final TransactionRunner transactions;
+    private final EventPublisher events;
     private final Clock clock;
 
     public ProcessWithdrawalUseCase(WithdrawalRequestRepository requests, OwnerFinanceQuery finance,
                                     WalletRepository wallets, PointTransactionRepository ledger,
-                                    TransactionRunner transactions, Clock clock) {
+                                    TransactionRunner transactions, EventPublisher events, Clock clock) {
         this.requests = requests;
         this.finance = finance;
         this.wallets = wallets;
         this.ledger = ledger;
         this.transactions = transactions;
+        this.events = events;
         this.clock = clock;
     }
 
@@ -88,7 +92,9 @@ public class ProcessWithdrawalUseCase {
             long transactionId = ledger.save(withdrawal,
                     RequestFingerprint.of(TransactionType.RUT_DIEM, managerId, "request", requestId));
             request.markPaid(managerId, transactionId, now);
-            return new PaidResult(requests.save(request), false);
+            WithdrawalRequest saved = requests.save(request);
+            events.publish(WithdrawalChanged.of(saved));                     // Đợt 5: báo chủ bãi xác nhận
+            return new PaidResult(saved, false);
         });
     }
 
@@ -96,7 +102,9 @@ public class ProcessWithdrawalUseCase {
         return transactions.inTransaction(() -> {
             WithdrawalRequest request = locked(requestId);
             request.reject(managerId, reason, clock.instant());
-            return requests.save(request);
+            WithdrawalRequest saved = requests.save(request);
+            events.publish(WithdrawalChanged.of(saved));
+            return saved;
         });
     }
 
@@ -104,7 +112,9 @@ public class ProcessWithdrawalUseCase {
         return transactions.inTransaction(() -> {
             WithdrawalRequest request = locked(requestId);
             request.resolveComplaint(managerId, note, clock.instant());
-            return requests.save(request);
+            WithdrawalRequest saved = requests.save(request);
+            events.publish(WithdrawalChanged.of(saved));
+            return saved;
         });
     }
 

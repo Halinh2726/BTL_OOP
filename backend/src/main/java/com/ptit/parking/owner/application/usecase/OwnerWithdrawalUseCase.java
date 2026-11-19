@@ -1,5 +1,7 @@
 package com.ptit.parking.owner.application.usecase;
 
+import com.ptit.parking.owner.application.event.WithdrawalChanged;
+import com.ptit.parking.shared.application.port.out.EventPublisher;
 import com.ptit.parking.catalog.application.port.out.ExchangeRateRepository;
 import com.ptit.parking.owner.application.port.out.OwnerFinanceQuery;
 import com.ptit.parking.owner.application.port.out.WithdrawalRequestRepository;
@@ -27,16 +29,18 @@ public class OwnerWithdrawalUseCase {
     private final WalletRepository wallets;
     private final ExchangeRateRepository exchangeRates;
     private final TransactionRunner transactions;
+    private final EventPublisher events;
     private final Clock clock;
 
     public OwnerWithdrawalUseCase(WithdrawalRequestRepository requests, OwnerFinanceQuery finance,
                                   WalletRepository wallets, ExchangeRateRepository exchangeRates,
-                                  TransactionRunner transactions, Clock clock) {
+                                  TransactionRunner transactions, EventPublisher events, Clock clock) {
         this.requests = requests;
         this.finance = finance;
         this.wallets = wallets;
         this.exchangeRates = exchangeRates;
         this.transactions = transactions;
+        this.events = events;
         this.clock = clock;
     }
 
@@ -50,7 +54,9 @@ public class OwnerWithdrawalUseCase {
             if (reserved + points > wallet.balance()) {                    // R15
                 throw new DomainException(ErrorCode.WITHDRAWAL_EXCEEDS_AVAILABLE);
             }
-            return requests.save(request);
+            WithdrawalRequest saved = requests.save(request);
+            events.publish(WithdrawalChanged.of(saved));                     // Đợt 5: báo quản lý
+            return saved;
         });
     }
 
@@ -75,7 +81,9 @@ public class OwnerWithdrawalUseCase {
             WithdrawalRequest request = requests.lockById(requestId)
                     .orElseThrow(() -> new DomainException(ErrorCode.WITHDRAWAL_NOT_FOUND));
             action.accept(request);                        // domain tự kiểm tra đúng người, đúng trạng thái
-            return requests.save(request);
+            WithdrawalRequest saved = requests.save(request);
+            events.publish(WithdrawalChanged.of(saved));
+            return saved;
         });
     }
 

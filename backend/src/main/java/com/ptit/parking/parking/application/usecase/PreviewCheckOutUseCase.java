@@ -4,6 +4,8 @@ import com.ptit.parking.parking.application.port.out.ParkingSessionRepository;
 import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory;
 import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory.VehicleOwner;
 import com.ptit.parking.parking.domain.FeePolicy;
+import com.ptit.parking.parking.domain.FeeQuote;
+import java.time.LocalDate;
 import com.ptit.parking.parking.domain.ParkingSession;
 import com.ptit.parking.payment.application.port.out.WalletRepository;
 import com.ptit.parking.payment.domain.Wallet;
@@ -27,7 +29,14 @@ public class PreviewCheckOutUseCase {
      * {@code reason} null khi được cho ra.
      */
     public record Preview(VehicleOwner owner, ParkingSession session, Long balance, Long fee,
-                          boolean allowed, ErrorCode reason) {}
+                          boolean allowed, ErrorCode reason, LocalDate passValidUntil) {
+
+        /** Đợt 5: {@code passValidUntil} khác null khi xe có vé tháng (phí 0). */
+        public Preview(VehicleOwner owner, ParkingSession session, Long balance, Long fee, boolean allowed,
+                       ErrorCode reason) {
+            this(owner, session, balance, fee, allowed, reason, null);
+        }
+    }
 
     private final VehicleOwnerDirectory vehicles;
     private final ParkingSessionRepository sessions;
@@ -59,9 +68,10 @@ public class PreviewCheckOutUseCase {
         if (open.isEmpty()) {
             return new Preview(owner, null, wallet.balance(), null, false, ErrorCode.NO_OPEN_SESSION);
         }
-        long fee = feePolicy.feeAt(ZonedDateTime.now(clock));               // R03: phí theo giờ RA — ở đây là bây giờ
-        boolean enough = wallet.hasAtLeast(fee);
-        return new Preview(owner, open.get(), wallet.balance(), fee, enough,
-                enough ? null : ErrorCode.INSUFFICIENT_POINTS);
+        // R03: phí theo giờ RA — ở đây là bây giờ; Đợt 5: xe có vé tháng thì phí 0
+        FeeQuote quote = feePolicy.quote(owner.vehicleId(), ZonedDateTime.now(clock));
+        boolean enough = wallet.hasAtLeast(quote.points());
+        return new Preview(owner, open.get(), wallet.balance(), quote.points(), enough,
+                enough ? null : ErrorCode.INSUFFICIENT_POINTS, quote.passValidUntil());
     }
 }

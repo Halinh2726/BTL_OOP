@@ -45,6 +45,7 @@ record LedgerCsvReport(LocalDate from, LocalDate to, List<Entry> entries, ZoneId
             case THANH_TOAN -> "Thanh toán phí gửi xe";
             case RUT_DIEM -> "Rút điểm";
             case DIEU_CHINH -> "Điều chỉnh";
+            case MUA_VE -> "Mua vé tháng";
         };
     }
 

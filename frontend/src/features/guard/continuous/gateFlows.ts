@@ -1,5 +1,5 @@
 import { api } from '../../../shared/api';
-import { formatDateTime, formatPlate, formatPoints } from '../../../shared/utils/format';
+import { formatDateTime, formatDay, formatPlate, formatPoints } from '../../../shared/utils/format';
 import type { Outcome, Verdict } from './scanMachine';
 
 /**
@@ -67,7 +67,8 @@ export const checkOutFlow: GateFlow = {
       fullName: result.fullName,
       studentCode: result.studentCode,
       vehicleTypeCode: result.vehicleTypeCode,
-      detail: result.fee === null ? null : `Phí: ${formatPoints(result.fee)}`,
+      detail: result.passValidUntil ? `Vé tháng đến ${formatDay(result.passValidUntil)} — miễn phí`
+        : result.fee === null ? null : `Phí: ${formatPoints(result.fee)}`,
       shortfall: result.fee === null || result.balance === null ? null : result.fee - result.balance,
     };
   },
@@ -79,7 +80,7 @@ export const checkOutFlow: GateFlow = {
     return {
       title: 'Đã cho xe ra',
       lines: [
-        ['Phí đã trừ', formatPoints(data.fee)],
+        data.transactionId === null ? ['Vé tháng', `Miễn phí — đến ${formatDay(data.passValidUntil ?? '')}`] : ['Phí đã trừ', formatPoints(data.fee)],
         ['Điểm còn lại', formatPoints(data.balanceAfter)],
         ['Giờ ra', formatDateTime(data.exitedAt)],
       ],

@@ -26,6 +26,9 @@ public interface ParkingSessionRepository {
      */
     Optional<ParkingSession> lockById(long sessionId);
 
+    /** Đợt 5 — đọc KHÔNG khóa (chọn đường đi trước khi vào transaction). */
+    Optional<ParkingSession> findById(long sessionId);
+
     /** Ghi việc xe ra của một lượt vừa {@link ParkingSession#close đóng} (giờ ra, bảo vệ cho ra, DA_RA). */
     void saveExit(ParkingSession session);
 

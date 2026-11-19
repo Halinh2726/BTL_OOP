@@ -1,5 +1,6 @@
 package com.ptit.parking.gate.config;
 
+import com.ptit.parking.shared.application.port.out.EventPublisher;
 import com.ptit.parking.gate.application.port.out.GateActivityQuery;
 import com.ptit.parking.gate.application.port.out.GuardRoster;
 import com.ptit.parking.gate.application.port.out.IncidentRepository;
@@ -58,7 +59,7 @@ public class GateUseCaseConfig {
     /** Đợt 4b — phân ca và đối chiếu chuyên cần. */
     @Bean
     ShiftPlanUseCase shiftPlanUseCase(ShiftAssignmentRepository assignments, ShiftRepository shifts, GuardRoster roster,
-                                      TransactionRunner transactions, Clock clock) {
-        return new ShiftPlanUseCase(assignments, shifts, roster, transactions, clock);
+                                      TransactionRunner transactions, EventPublisher events, Clock clock) {
+        return new ShiftPlanUseCase(assignments, shifts, roster, transactions, events, clock);
     }
 }

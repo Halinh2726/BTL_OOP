@@ -44,6 +44,8 @@ export const queryKeys = {
   shiftWeek: (from: string) => ['manager', 'shift-plan', from] as const,
   shiftWeekAll: ['manager', 'shift-plan'] as const,
   mySchedule: ['guard', 'my-schedule'] as const,
+  myPasses: ['me', 'passes'] as const,
+  notifications: ['me', 'notifications'] as const,
   guardTimesheet: (from: string, to: string, guardId: number | undefined) =>
     ['manager', 'timesheet', from, to, guardId ?? 'ALL'] as const,
 };

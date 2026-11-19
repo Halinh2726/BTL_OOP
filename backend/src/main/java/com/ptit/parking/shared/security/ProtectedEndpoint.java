@@ -9,6 +9,7 @@ import static com.ptit.parking.shared.security.Permission.ACCOUNT_MANAGE;
 import static com.ptit.parking.shared.security.Permission.CASE_HANDLE;
 import static com.ptit.parking.shared.security.Permission.COMPENSATION_APPROVE;
 import static com.ptit.parking.shared.security.Permission.COMPLAINT_SUBMIT;
+import static com.ptit.parking.shared.security.Permission.PASS_BUY;
 import static com.ptit.parking.shared.security.Permission.SHIFT_PLAN;
 import static com.ptit.parking.shared.security.Permission.CASH_DEPOSIT;
 import static com.ptit.parking.shared.security.Permission.CASH_RECONCILE;
@@ -89,6 +90,9 @@ public enum ProtectedEndpoint {
     SHIFT_ASSIGN       (HttpMethod.POST,  "/api/v1/manager/shift-plan",         SHIFT_PLAN),
     SHIFT_UNASSIGN     (HttpMethod.DELETE, "/api/v1/manager/shift-plan/*",      SHIFT_PLAN),
     MY_SCHEDULE        (HttpMethod.GET,   "/api/v1/guard/my-schedule",          PARKING_CHECK_IN, PARKING_CHECK_OUT),
+    // Đợt 5 — vé tháng (thông báo /me/notifications chỉ cần đăng nhập: mọi vai trò đều có hộp thư)
+    MY_PASSES          (HttpMethod.GET,   "/api/v1/me/passes",                  PASS_BUY),
+    BUY_PASS           (HttpMethod.POST,  "/api/v1/me/passes",                  PASS_BUY),
     REPORT_INCIDENT    (HttpMethod.POST,  "/api/v1/guard/incidents",          INCIDENT_REPORT),    // Đợt 2
     MY_INCIDENTS       (HttpMethod.GET,   "/api/v1/guard/incidents",          INCIDENT_REPORT),    // Đợt 2
     INCIDENT_PHOTO     (HttpMethod.GET,   "/api/v1/guard/incidents/*/photo",  INCIDENT_REPORT),    // Đợt 2

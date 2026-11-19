@@ -25,5 +25,6 @@ public enum Permission {
     COMPLAINT_SUBMIT,
     CASE_HANDLE,
     COMPENSATION_APPROVE,
-    SHIFT_PLAN
+    SHIFT_PLAN,
+    PASS_BUY
 }

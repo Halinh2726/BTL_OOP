@@ -55,7 +55,8 @@ public class CheckInUseCase {
                 throw new DomainException(ErrorCode.SESSION_ALREADY_OPEN);                 // R05
             }
             Wallet wallet = wallets.findByUserId(vehicle.studentUserId()).orElseThrow();
-            if (!wallet.hasAtLeast(feePolicy.minimumFee())) {
+            // R04; Đợt 5: xe có vé tháng thì mức tối thiểu là 0
+            if (!wallet.hasAtLeast(feePolicy.minimumFeeFor(vehicle.vehicleId(), clock.instant().atZone(clock.getZone())))) {
                 throw new DomainException(ErrorCode.INSUFFICIENT_POINTS);                  // R04: chỉ kiểm tra, không trừ
             }
             ParkingSession session = ParkingSession.open(vehicle.vehicleId(), command.guardId(), clock.instant());

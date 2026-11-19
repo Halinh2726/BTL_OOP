@@ -1,5 +1,7 @@
 package com.ptit.parking.gate.application.usecase;
 
+import com.ptit.parking.gate.application.event.ShiftScheduleChanged;
+import com.ptit.parking.shared.application.port.out.EventPublisher;
 import com.ptit.parking.gate.application.port.out.GuardRoster;
 import com.ptit.parking.gate.application.port.out.GuardRoster.GuardInfo;
 import com.ptit.parking.gate.application.port.out.ShiftAssignmentRepository;
@@ -39,14 +41,16 @@ public class ShiftPlanUseCase {
     private final ShiftRepository shifts;
     private final GuardRoster roster;
     private final TransactionRunner transactions;
+    private final EventPublisher events;
     private final Clock clock;
 
     public ShiftPlanUseCase(ShiftAssignmentRepository assignments, ShiftRepository shifts, GuardRoster roster,
-                            TransactionRunner transactions, Clock clock) {
+                            TransactionRunner transactions, EventPublisher events, Clock clock) {
         this.assignments = assignments;
         this.shifts = shifts;
         this.roster = roster;
         this.transactions = transactions;
+        this.events = events;
         this.clock = clock;
     }
 
@@ -65,7 +69,11 @@ public class ShiftPlanUseCase {
         }
         ShiftAssignment plan = ShiftAssignment.plan(date, slot, guardId, managerId, clock.instant(), clock.getZone());
         // Xếp trùng (cùng ngày, cùng ca, cùng bảo vệ): UNIQUE uq_shift_assignments -> SHIFT_ALREADY_ASSIGNED
-        ShiftAssignment saved = transactions.inTransaction(() -> assignments.insert(plan));
+        ShiftAssignment saved = transactions.inTransaction(() -> {
+            ShiftAssignment inserted = assignments.insert(plan);
+            events.publish(new ShiftScheduleChanged(guardId, date, slot, true));      // Đợt 5: báo bảo vệ
+            return inserted;
+        });
         // Ca đang diễn ra có thể đã được bảo vệ nhận từ trước: đối chiếu ngay với giờ nhận ca thực tế
         ZoneId zone = clock.getZone();
         List<Instant> starts = shifts.findStartedBetween(saved.startsAt(zone).minus(ShiftAssignment.EARLY),
@@ -79,6 +87,7 @@ public class ShiftPlanUseCase {
                     .orElseThrow(() -> new DomainException(ErrorCode.SHIFT_ASSIGNMENT_NOT_FOUND));
             assignment.requireRemovable(clock.instant(), clock.getZone());
             assignments.delete(assignmentId);
+            events.publish(new ShiftScheduleChanged(assignment.guardId(), assignment.workDate(), assignment.slot(), false));
             return null;
         });
     }

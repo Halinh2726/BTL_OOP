@@ -15,7 +15,10 @@ import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory;
 import com.ptit.parking.parking.application.usecase.CheckInUseCase;
 import com.ptit.parking.parking.application.usecase.PreviewCheckInUseCase;
 import com.ptit.parking.parking.application.usecase.PreviewCheckOutUseCase;
+import com.ptit.parking.parking.application.PassAwareFeePolicy;
+import com.ptit.parking.parking.application.port.out.PassCoverage;
 import com.ptit.parking.parking.domain.FeePolicy;
+import com.ptit.parking.shared.application.port.out.EventPublisher;
 import com.ptit.parking.parking.domain.TimeSlotFeePolicy;
 import com.ptit.parking.payment.application.port.out.WalletRepository;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
@@ -31,14 +34,16 @@ public class ParkingUseCaseConfig {
      * khi khởi động. Bảng giá thiếu khung 00:00 thì ứng dụng không khởi động được — lỗi lộ ra ngay, không âm thầm tính sai.
      */
     @Bean
-    FeePolicy feePolicy(FeeRuleRepository feeRules, Clock clock) {
-        return new TimeSlotFeePolicy(feeRules.allFeeRules(), clock.getZone());
+    FeePolicy feePolicy(FeeRuleRepository feeRules, PassCoverage passes, Clock clock) {
+        // Đợt 5 — Decorator: vé tháng BỌC bảng giá theo giờ; xe vào / xe ra không phải sửa
+        return new PassAwareFeePolicy(new TimeSlotFeePolicy(feeRules.allFeeRules(), clock.getZone()), passes,
+                clock.getZone());
     }
 
     @Bean
     PreviewCheckInUseCase previewCheckInUseCase(VehicleOwnerDirectory vehicles, ParkingSessionRepository sessions,
-                                                WalletRepository wallets, FeePolicy feePolicy) {
-        return new PreviewCheckInUseCase(vehicles, sessions, wallets, feePolicy);
+                                                WalletRepository wallets, FeePolicy feePolicy, Clock clock) {
+        return new PreviewCheckInUseCase(vehicles, sessions, wallets, feePolicy, clock);
     }
 
     
@@ -63,8 +68,10 @@ public class ParkingUseCaseConfig {
     @Bean
     CheckOutUseCase checkOutUseCase(ParkingSessionRepository sessions, VehicleOwnerDirectory vehicles,
                                     PayParkingFeeUseCase payParkingFee, IdempotencyGuard idempotency,
-                                    FeePolicy feePolicy, Clock clock) {
-        return new CheckOutUseCase(sessions, vehicles, payParkingFee, idempotency, feePolicy, clock);
+                                    FeePolicy feePolicy, WalletRepository wallets, TransactionRunner transactions,
+                                    EventPublisher events, Clock clock) {
+        return new CheckOutUseCase(sessions, vehicles, payParkingFee, idempotency, feePolicy, wallets, transactions,
+                events, clock);
     }
 
 }

@@ -1,5 +1,6 @@
 package com.ptit.parking.support.application.usecase;
 
+import com.ptit.parking.shared.application.port.out.EventPublisher;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyCollection;
@@ -87,8 +88,10 @@ class ComplaintUseCasesTest {
     private final FakeComplaints complaints = new FakeComplaints();
     private final ComplaintDirectory directory = mock(ComplaintDirectory.class);
     private final PointPayout payout = mock(PointPayout.class);
-    private final StudentComplaintUseCase students = new StudentComplaintUseCase(complaints, directory, DIRECTLY, CLOCK);
-    private final HandleComplaintUseCase handling = new HandleComplaintUseCase(complaints, directory, payout, DIRECTLY, CLOCK);
+    private final StudentComplaintUseCase students = new StudentComplaintUseCase(complaints, directory, DIRECTLY,
+            EventPublisher.NONE, CLOCK);
+    private final HandleComplaintUseCase handling = new HandleComplaintUseCase(complaints, directory, payout, DIRECTLY,
+            EventPublisher.NONE, CLOCK);
 
     @BeforeEach
     void directoryReturnsNothingSpecial() {

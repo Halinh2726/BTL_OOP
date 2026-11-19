@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import { useCurrentUser, useSession } from '../features/auth/session';
+import { NotificationBell } from '../features/notifications/NotificationBell';
 import { Button } from '../shared/components/Button';
 import { Logo } from '../shared/components/Logo';
 import { MockBadge } from '../shared/components/MockBadge';
@@ -30,7 +31,8 @@ export function AppLayout() {
               <p className="truncate text-xs text-slate-500">Hệ thống thanh toán phí gửi xe</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <NotificationBell />
             <Link
               to="/account"
               title="Thông tin cá nhân, đổi mật khẩu"
