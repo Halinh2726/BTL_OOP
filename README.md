@@ -1,204 +1,335 @@
-# Hệ thống thanh toán phí gửi xe bằng điểm
+# HỆ THỐNG THANH TOÁN PHÍ GỬI XE BẰNG ĐIỂM
 
-Bài tập lớn môn Lập trình hướng đối tượng. Sinh viên đổi tiền mặt lấy điểm, mỗi lần gửi xe hệ thống
-**tự trừ điểm** khi bảo vệ xác nhận xe ra và cộng cho chủ tài khoản bãi xe; chủ tài khoản rút điểm ra tiền mặt qua quản lý.
+**Bài tập lớn môn Lập trình hướng đối tượng (OOP)**  
+**Mã nguồn:** [Halinh2726/BTL_OOP](https://github.com/Halinh2726/BTL_OOP)
 
-| Vai trò | Làm được gì |
+Dự án xây dựng một hệ thống quản lý gửi xe và thanh toán phí bằng **điểm điện tử**. Sinh viên đổi tiền mặt thành điểm, sử dụng điểm để thanh toán khi lấy xe; số điểm thu được chuyển vào ví của chủ tài khoản bãi xe. Hệ thống cung cấp giao diện web cho từng vai trò, API xử lý nghiệp vụ và cơ sở dữ liệu lưu trữ giao dịch.
+
+## 1. Tổng quan về bài tập lớn
+
+### 1.1. Bài toán đặt ra
+
+Việc thu phí gửi xe bằng tiền mặt có thể gây bất tiện trong khâu thanh toán, đối soát và theo dõi giao dịch. Bài tập lớn mô phỏng một phương thức thu phí tập trung, trong đó mỗi sinh viên có ví điểm và quá trình thanh toán được thực hiện tự động khi bảo vệ xác nhận xe ra khỏi bãi.
+
+**Quy trình nghiệp vụ chính:**
+
+1. Sinh viên đăng ký tài khoản và phương tiện.
+2. Quản lý tiếp nhận tiền mặt và quy đổi thành điểm trong ví sinh viên.
+3. Bảo vệ tra cứu biển số và xác nhận xe vào bãi.
+4. Khi xe ra, bảo vệ kiểm tra thông tin và xác nhận; hệ thống tính phí, trừ điểm của sinh viên và cộng điểm cho chủ tài khoản.
+5. Chủ tài khoản xem số dư, lịch sử nhận phí và thực hiện rút điểm ra tiền mặt thông qua quản lý.
+
+### 1.2. Các vai trò trong hệ thống
+
+| Vai trò | Chức năng chính |
 |---|---|
-| Sinh viên | Tự đăng ký tài khoản, đăng ký xe, xem số điểm và lịch sử giao dịch |
-| Bảo vệ | Tra cứu biển số, xác nhận xe vào, xác nhận xe ra (hệ thống tự trừ phí) |
-| Quản lý | Đổi tiền mặt sang điểm cho sinh viên, rút điểm cho chủ tài khoản, tạo / khóa / mở khóa bảo vệ |
-| Chủ tài khoản | Xem số điểm đã nhận và lịch sử nhận phí, rút điểm |
+| **Sinh viên** | Đăng ký tài khoản, đăng ký xe, theo dõi số dư điểm và lịch sử giao dịch. |
+| **Bảo vệ** | Tra cứu biển số, xem trước kết quả kiểm tra, xác nhận xe vào và xe ra. |
+| **Quản lý** | Đổi tiền mặt sang điểm, xử lý rút điểm, tạo và khóa/mở khóa tài khoản bảo vệ. |
+| **Chủ tài khoản** | Theo dõi số điểm nhận từ phí gửi xe, xem lịch sử giao dịch và yêu cầu rút điểm. |
 
-## Công nghệ
+**Quy tắc demo hiện tại:** 1 đồng = 1 điểm; phí gửi xe là **3.000 điểm** nếu xe ra trước 18:00 và **5.000 điểm** nếu xe ra từ 18:00 (giờ Việt Nam). Các mức phí và tỷ lệ quy đổi được quản lý trong dữ liệu cấu hình của hệ thống.
 
-- Java 21, Spring Boot 4, Spring Security (phiên phía máy chủ, CSRF), Maven Wrapper
-- MySQL 8.4 chạy bằng Docker, Flyway quản lý schema (`backend/src/main/resources/db/migration`)
-- JUnit 5, Mockito, AssertJ, Testcontainers (558 test), Postman / Newman cho kịch bản demo
-- Giao diện: React 18 + TypeScript + Vite, TanStack Query, Tailwind CSS, Vitest (`frontend/`)
+## 2. Mục tiêu của dự án
 
-## Chạy dự án
+- **Về nghiệp vụ:** Xây dựng quy trình gửi xe, thanh toán bằng điểm, quản lý ví và ghi nhận giao dịch rõ ràng, nhất quán.
+- **Về lập trình hướng đối tượng:** Vận dụng bốn đặc trưng OOP là **đóng gói, kế thừa, đa hình và trừu tượng hóa** để tổ chức các đối tượng và quy tắc nghiệp vụ.
+- **Về kiến trúc phần mềm:** Phân tách giao diện, xử lý nghiệp vụ và truy cập dữ liệu; tổ chức backend theo module và các lớp của Clean Architecture (Ports & Adapters).
+- **Về cơ sở dữ liệu:** Thiết kế dữ liệu quan hệ, bảo đảm tính toàn vẹn, hạn chế giao dịch trùng và hỗ trợ kiểm tra lịch sử thu/chi điểm.
+- **Về kiểm thử và bảo mật:** Kiểm soát quyền truy cập theo vai trò, xử lý phiên đăng nhập, bảo vệ các API ghi dữ liệu và kiểm thử các luồng nghiệp vụ quan trọng.
 
-**Cần cài:** JDK 21 trở lên, Docker Desktop. Không cần cài MySQL hay Maven.
+### 2.1. Các đặc trưng OOP được áp dụng
 
-```powershell
-# 1. Bật MySQL (lần đầu sẽ tải image mysql:8.4)
+| Đặc trưng | Ví dụ trong hệ thống |
+|---|---|
+| **Đóng gói (Encapsulation)** | `Wallet` quản lý số dư và thay đổi số dư thông qua các phương thức nghiệp vụ như `credit()` và `debit()`. |
+| **Kế thừa (Inheritance)** | Lớp trừu tượng `User` được chuyên biệt hóa thành `Student`, `Guard`, `Manager`, `Owner`. |
+| **Đa hình (Polymorphism)** | Các loại giao dịch `CashDeposit`, `ParkingPayment`, `CashWithdrawal` được biểu diễn thông qua kiểu cơ sở `PointTransaction`. |
+| **Trừu tượng hóa (Abstraction)** | `FeePolicy` quy định giao diện tính phí, còn `TimeSlotFeePolicy` triển khai cách tính phí theo khung giờ; các `port` che giấu chi tiết lưu trữ. |
+
+## 3. Kiến trúc hệ thống
+
+### 3.1. Kiến trúc tổng thể
+
+Hệ thống sử dụng mô hình **frontend–backend–database**. Backend được tổ chức theo kiểu **Modular Monolith**: các chức năng nghiệp vụ nằm trong những module riêng nhưng được triển khai trong cùng một ứng dụng Spring Boot.
+
+```mermaid
+flowchart TB
+    U["Người dùng: Sinh viên / Bảo vệ / Quản lý / Chủ tài khoản"]
+    FE["Frontend: React + TypeScript + Vite"]
+
+    subgraph BE["Backend: Java 21 + Spring Boot 4"]
+        API["REST Controller + Spring Security"]
+        UC["Application / Use Cases"]
+        DOMAIN["Domain / Quy tắc nghiệp vụ"]
+        PORT["Outbound Ports / Interfaces"]
+        ADAPTER["Persistence Adapters"]
+        API --> UC
+        UC --> DOMAIN
+        UC --> PORT
+        PORT --> ADAPTER
+    end
+
+    DB[("MySQL 8.4")]
+    FLYWAY["Flyway / Database Migration"]
+
+    U --> FE
+    FE -->|"HTTP / REST API (/api/v1)"| API
+    ADAPTER --> DB
+    FLYWAY --> DB
+```
+
+**Vai trò của từng lớp:**
+
+| Thành phần | Trách nhiệm |
+|---|---|
+| **Frontend** | Hiển thị màn hình theo vai trò, tiếp nhận thao tác và gọi API. |
+| **REST Controller** | Nhận yêu cầu HTTP, kiểm tra dữ liệu đầu vào và trả kết quả. |
+| **Application / Use Case** | Điều phối từng luồng nghiệp vụ và giao dịch. |
+| **Domain** | Biểu diễn đối tượng, trạng thái và các quy tắc nghiệp vụ bằng Java. |
+| **Port / Adapter** | Phân tách hợp đồng truy cập dữ liệu khỏi cách triển khai bằng JDBC/JPA. |
+| **MySQL + Flyway** | Lưu trữ dữ liệu và quản lý phiên bản cấu trúc cơ sở dữ liệu. |
+
+### 3.2. Các module nghiệp vụ ở backend
+
+Mã nguồn backend được đặt tại `backend/src/main/java/com/ptit/parking/`.
+
+| Module | Trách nhiệm |
+|---|---|
+| `auth` | Đăng nhập, quản lý phiên, người dùng và vai trò. |
+| `student` | Đăng ký sinh viên, đăng ký phương tiện. |
+| `catalog` | Quản lý danh mục loại xe, bảng phí và tỷ lệ quy đổi. |
+| `parking` | Quản lý lượt gửi, xác nhận xe vào/ra và tính phí. |
+| `payment` | Quản lý ví điểm, giao dịch và cơ chế tránh xử lý trùng. |
+| `manager` | Đổi điểm, rút điểm và quản lý tài khoản bảo vệ. |
+| `shared` | Các thành phần dùng chung: bảo mật, lỗi, giới hạn tần suất, transaction. |
+
+Trong từng module, mã nguồn được phân chia theo hướng:
+
+```text
+<module>/
+├── domain/                    # Entity, value object và quy tắc nghiệp vụ
+├── application/
+│   ├── usecase/               # Điều phối nghiệp vụ
+│   └── port/out/              # Interface truy cập dịch vụ / dữ liệu ngoài
+├── adapter/
+│   ├── in/web/                # REST controller, request/response DTO
+│   └── out/persistence/       # Triển khai lưu trữ bằng JDBC / JPA
+└── config/                    # Cấu hình và lắp ráp thành phần Spring
+```
+
+## 4. Cấu trúc thư mục
+
+Các thư mục chính của repository:
+
+```text
+BTL_OOP/
+├── backend/                               # Java Spring Boot
+│   ├── mvnw, mvnw.cmd                     # Maven Wrapper
+│   └── src/
+│       ├── main/
+│       │   ├── java/com/ptit/parking/     # Các module nghiệp vụ
+│       │   │   ├── auth/
+│       │   │   ├── student/
+│       │   │   ├── catalog/
+│       │   │   ├── parking/
+│       │   │   ├── payment/
+│       │   │   ├── manager/
+│       │   │   └── shared/
+│       │   └── resources/db/migration/    # Flyway SQL migrations
+│       └── test/                          # Unit và integration tests
+├── frontend/                              # React + TypeScript + Vite
+│   ├── src/
+│   │   ├── app/                          # Router, providers, layout
+│   │   ├── features/                     # auth, student, guard, manager, owner
+│   │   └── shared/                       # API client, UI components, hooks, types
+│   ├── public/                           # Tài nguyên tĩnh
+│   └── README.md                         # Tài liệu riêng cho frontend
+├── docs/
+│   ├── database/ERD.md                   # Thiết kế cơ sở dữ liệu
+│   └── postman/
+│       └── parking-payment.postman_collection.json
+├── .env.example                          # Mẫu biến môi trường
+└── README.md                             # Tài liệu tổng quan dự án
+```
+
+Ngoài các thư mục trên, thư mục gốc có cấu hình **Docker Compose** để khởi chạy MySQL phục vụ phát triển và demo.
+
+## 5. Công nghệ sử dụng
+
+| Nhóm | Công nghệ | Mục đích |
+|---|---|---|
+| **Ngôn ngữ backend** | Java 21 | Hiện thực các lớp đối tượng và quy tắc nghiệp vụ. |
+| **Backend framework** | Spring Boot 4 | Xây dựng REST API và ứng dụng máy chủ. |
+| **Bảo mật** | Spring Security | Xác thực phiên, phân quyền theo vai trò và bảo vệ CSRF. |
+| **Frontend** | React 18, TypeScript, Vite | Xây dựng giao diện web theo vai trò. |
+| **Giao diện / trạng thái** | Tailwind CSS, TanStack Query | Xây dựng UI và quản lý dữ liệu lấy từ API. |
+| **Cơ sở dữ liệu** | MySQL 8.4 | Lưu tài khoản, phương tiện, lượt gửi, ví và giao dịch. |
+| **Quản lý schema** | Flyway | Tạo và cập nhật cấu trúc CSDL theo phiên bản. |
+| **Môi trường chạy CSDL** | Docker Compose | Khởi chạy MySQL nhất quán giữa các máy. |
+| **Build backend** | Maven Wrapper | Chạy và kiểm thử backend mà không cần cài Maven riêng. |
+| **Kiểm thử** | JUnit 5, Mockito, AssertJ, Testcontainers, Vitest | Kiểm thử đơn vị, tích hợp và frontend. |
+| **Kiểm thử API** | Postman, Newman | Chạy kịch bản kiểm thử luồng nghiệp vụ. |
+
+## 6. Hướng dẫn cài đặt và chạy
+
+### 6.1. Yêu cầu môi trường
+
+- **JDK 21** trở lên.
+- **Node.js 20** trở lên và npm (để chạy frontend).
+- **Docker** và **Docker Compose** (Docker Desktop trên Windows hoặc Docker Engine trên Linux).
+- **Git** (để sao chép mã nguồn).
+
+> Không cần cài đặt MySQL hoặc Maven riêng. MySQL chạy trong Docker và backend sử dụng Maven Wrapper.
+
+### 6.2. Tải mã nguồn
+
+```bash
+git clone https://github.com/Halinh2726/BTL_OOP.git
+cd BTL_OOP
+```
+
+### 6.3. Khởi chạy MySQL
+
+Tại **thư mục gốc** của dự án:
+
+```bash
 docker compose up -d
+```
 
-# 2. Chạy backend — Flyway tự tạo bảng và dữ liệu mẫu ở lần chạy đầu
+Thiết lập mặc định của môi trường demo:
+
+| Thành phần | Giá trị |
+|---|---|
+| Database | `parking` |
+| MySQL user | `parking` |
+| MySQL password | `parking` |
+| MySQL port | `3306` |
+| Backend port | `8080` |
+| Frontend port | `5173` |
+
+Nếu cần thay đổi cấu hình, sao chép `.env.example` thành `.env`, chỉnh các thông số Docker Compose và thiết lập các biến môi trường tương ứng cho backend.
+
+### 6.4. Chạy backend
+
+Mở terminal ở thư mục gốc dự án, sau đó:
+
+**Windows (PowerShell / CMD):**
+
+```powershell
 cd backend
-.\mvnw.cmd spring-boot:run          # macOS / Linux: ./mvnw spring-boot:run
+.\mvnw.cmd spring-boot:run
 ```
 
-Chờ dòng `Started ParkingApplication`, rồi kiểm tra:
+**Linux / macOS:**
 
-```powershell
-curl.exe http://localhost:8080/api/v1/health
-# {"status":"UP","database":"UP"}
+```bash
+cd backend
+./mvnw spring-boot:run
 ```
 
-Mặc định dùng CSDL `parking` (user `parking` / `parking`) trên cổng 3306, backend cổng 8080 — không cần cấu hình gì.
-Muốn đổi thì sao chép `.env.example` thành `.env` và sửa (cho `docker compose`), đồng thời đặt các biến môi trường
-cùng tên (`DB_PORT`, `DB_PASSWORD`, `SERVER_PORT`...) trước khi chạy backend.
+Khi ứng dụng khởi động thành công, Flyway tự áp dụng các migration và tạo dữ liệu mẫu. Kiểm tra tại:
 
-**Giao diện web** (cần Node.js 20+), mở terminal thứ hai khi backend đang chạy:
+```text
+http://localhost:8080/api/v1/health
+```
 
-```powershell
+Kết quả mong đợi:
+
+```json
+{"status":"UP","database":"UP"}
+```
+
+### 6.5. Chạy frontend
+
+Mở **terminal khác** tại thư mục gốc `BTL_OOP/` (giữ backend đang chạy):
+
+```bash
 cd frontend
 npm install
-npm run dev                         # mở http://localhost:5173
+npm run dev
 ```
 
-Chỉ muốn xem giao diện, không cần backend: `npm run dev:mock` (dữ liệu giả lập). Chi tiết: [`frontend/README.md`](frontend/README.md).
+Truy cập giao diện tại **http://localhost:5173**.
 
-**Xóa sạch dữ liệu để demo lại từ đầu:** `docker compose down -v` rồi `docker compose up -d`
-(giao dịch điểm không sửa / xóa được bằng API theo R10, nên làm lại từ đầu là xóa cả CSDL).
+Có thể chạy chế độ dữ liệu mô phỏng để xem giao diện **mà không cần backend và MySQL**:
 
-## Tài khoản có sẵn
+```bash
+npm run dev:mock
+```
 
-| Vai trò | Tên đăng nhập | Mật khẩu khi chạy `spring-boot:run` | Mật khẩu gốc (test, `.jar`) |
+### 6.6. Tài khoản demo
+
+| Vai trò | Tên đăng nhập | Mật khẩu | Cách tạo |
 |---|---|---|---|
-| Quản lý | `quanly01` | `demo1234` | `Quanly@123` |
-| Chủ bãi xe | `chutk01` | `demo1234` | `Chutk@123` |
+| Quản lý | `quanly01` | `Quanly@123` | Có sẵn khi khởi tạo CSDL. |
+| Chủ tài khoản | `chutk01` | `Chutk@123` | Có sẵn khi khởi tạo CSDL. |
+| Sinh viên | Tự chọn | Tự đặt | Đăng ký tại giao diện `/register`. |
+| Bảo vệ | Do quản lý cấp | Do quản lý cấp | Quản lý tạo trong chức năng quản lý bảo vệ. |
 
-**Mật khẩu demo:** chạy backend bằng lệnh thường `.\mvnw.cmd spring-boot:run` là profile `demo` được bật tự động
-(khai báo trong `pom.xml`) — MỌI tài khoản đang có trong CSDL (quản lý, chủ bãi xe, bảo vệ, sinh viên) được đặt mật khẩu
-**`demo1234`** mỗi lần khởi động (cửa sổ backend in dòng `[DEMO] Đã đặt mật khẩu demo cho N tài khoản`).
-Tài khoản bị khóa vẫn không đăng nhập được. Test và file `.jar` triển khai KHÔNG bật profile này.
-Muốn chạy với mật khẩu thật: `.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=default"`.
+> **Lưu ý:** Đây là tài khoản và mật khẩu **chỉ dành cho môi trường demo**. Không sử dụng các thông tin mặc định này khi triển khai thực tế.
 
-Quên mật khẩu (mọi vai trò): khai báo email ở trang **Tài khoản** trước; khi quên, bấm "Quên mật khẩu?" ở trang đăng nhập.
-Bản demo chưa gửi email thật — mã 6 số được in ra cửa sổ backend ở dòng `[EMAIL]`. Chưa khai báo email thì quản lý cấp
-mật khẩu tạm (sinh viên: tab **Tài khoản**; bảo vệ: tab **Bảo vệ** → "Cấp mật khẩu tạm").
+### 6.7. Kiểm thử dự án
 
-Sinh viên tự đăng ký qua `POST /students/register`; bảo vệ do quản lý tạo qua `POST /manager/guards`.
-Dữ liệu danh mục có sẵn: loại xe `XE_MAY`, `XE_DAP`, `XE_DAP_DIEN`; phí gửi **3.000 điểm** nếu xe ra trước 18:00,
-**5.000 điểm** từ 18:00 (giờ Việt Nam); tỷ lệ **1 đồng = 1 điểm**.
+**Backend:**
 
-## Kịch bản demo bằng Postman
+```bash
+cd backend
+# Windows:
+.\mvnw.cmd test
+# Linux/macOS: ./mvnw test
+```
 
-File: [`docs/postman/parking-payment.postman_collection.json`](docs/postman/parking-payment.postman_collection.json)
-— 36 request, 68 kiểm tra tự động, chạy hết luồng nghiệp vụ theo thứ tự:
+Các bài kiểm thử tích hợp sử dụng **Testcontainers** cần Docker hoạt động; nếu không có Docker, một số kiểm thử tích hợp có thể được bỏ qua.
 
-| Bước | Ai | Việc |
-|---|---|---|
-| 0 | — | Kiểm tra hệ thống (`/health`) |
-| 1 | Sinh viên | Đăng ký tài khoản, đăng nhập, đăng ký xe, xem ví (0 điểm) |
-| 2 | Quản lý | Tra cứu MSSV, đổi 50.000đ → 50.000 điểm, bấm lại cùng key (không cộng 2 lần), tạo bảo vệ |
-| 3 | Bảo vệ | Xem trước xe vào, cho vào, cho vào lần nữa (bị chặn), xem trước xe ra, cho ra → tự trừ phí, bấm lại (không trừ 2 lần) |
-| 4 | Sinh viên | Ví còn 50.000 − phí, lịch sử có THANH_TOAN và DOI_DIEM, gọi API quản lý → 403 |
-| 5 | Chủ tài khoản | Ví và lịch sử nhận phí |
-| 6 | Quản lý | Rút điểm cho chủ tài khoản, khóa bảo vệ (bảo vệ đăng nhập → 403), mở khóa, đăng xuất |
+**Frontend:**
 
-**Cách chạy trong Postman:** Import file trên → chuột phải vào collection → **Run collection** → **Run**.
-Mỗi lần chạy tự sinh MSSV, tên đăng nhập, biển số mới, nên chạy lại bao nhiêu lần cũng được.
-Token CSRF được script của collection tự lấy từ cookie `XSRF-TOKEN`; không cần nhập tay.
+```bash
+cd frontend
+npm test
+npm run typecheck
+npm run build
+```
 
-**Chạy bằng dòng lệnh** (cần Node.js):
+**Chạy kịch bản API bằng Newman** (từ thư mục gốc, cần Node.js):
 
-```powershell
+```bash
 npx newman run docs/postman/parking-payment.postman_collection.json
 ```
 
-Collection **ghi dữ liệu thật** (tạo sinh viên, bảo vệ, giao dịch) vào CSDL đang chạy — chỉ chạy trên CSDL demo.
+> Collection Postman ghi dữ liệu vào CSDL thật, vì vậy chỉ chạy trên môi trường phát triển hoặc demo.
 
-## Danh sách API
+### 6.8. Một số lưu ý khi vận hành
 
-Địa chỉ gốc: `http://localhost:8080/api/v1`. Chi tiết request / response / mã lỗi: tài liệu Đặc tả API.
+- API có đường dẫn gốc `http://localhost:8080/api/v1`.
+- Backend sử dụng **cookie phiên (`SESSION`)** và cơ chế **CSRF**, không sử dụng JWT.
+- Các nghiệp vụ đổi điểm, rút điểm và xác nhận xe ra yêu cầu `Idempotency-Key` để tránh xử lý một giao dịch nhiều lần.
+- Nếu cổng `3306` bị chiếm, cần dừng dịch vụ MySQL khác hoặc thay đổi cổng theo cấu hình môi trường.
+- Để **xóa toàn bộ dữ liệu demo** và khởi tạo lại từ đầu, chạy tại thư mục gốc:
 
-| # | Method | Đường dẫn | Quyền | Chức năng |
-|---|---|---|---|---|
-| 1 | POST | `/auth/login` | Công khai | Đăng nhập |
-| 2 | POST | `/auth/logout` | Đăng nhập | Đăng xuất |
-| 3 | GET | `/me` | Đăng nhập | Thông tin phiên hiện tại |
-| 4 | POST | `/students/register` | Công khai | Sinh viên đăng ký tài khoản |
-| 5 | GET | `/me/vehicles` | VEHICLE_REGISTER | Danh sách xe của tôi |
-| 6 | POST | `/me/vehicles` | VEHICLE_REGISTER | Đăng ký xe |
-| 7 | GET | `/me/wallet` | WALLET_VIEW_OWN | Số điểm hiện có (sinh viên, chủ tài khoản) |
-| 8 | GET | `/me/transactions` | WALLET_VIEW_OWN | Lịch sử giao dịch (`?type=&limit=&before=`) |
-| 9 | GET | `/vehicle-types` | Đăng nhập | Danh sách loại xe |
-| 10 | GET | `/fee-rules` | Đăng nhập | Bảng giá gửi xe |
-| 11 | GET | `/config/exchange-rate` | Đăng nhập | Tỷ lệ quy đổi hiện hành |
-| 12 | GET | `/guard/check-in/preview?plate=` | PARKING_CHECK_IN | Tra cứu trước khi cho xe vào |
-| 13 | POST | `/guard/check-in` | PARKING_CHECK_IN | Xác nhận cho xe vào |
-| 14 | GET | `/guard/check-out/preview?plate=` | PARKING_CHECK_OUT | Tra cứu trước khi cho xe ra |
-| 15 | POST | `/guard/check-out` | PARKING_CHECK_OUT | Xác nhận xe ra và tự thanh toán |
-| 16 | GET | `/manager/students/{studentCode}` | CASH_DEPOSIT | Tra cứu sinh viên theo MSSV |
-| 17 | POST | `/manager/deposits` | CASH_DEPOSIT | Đổi tiền mặt sang điểm |
-| 18 | GET | `/manager/owner-wallet` | CASH_WITHDRAWAL | Ví của chủ tài khoản |
-| 19 | POST | `/manager/withdrawals` | CASH_WITHDRAWAL | Rút điểm ra tiền mặt |
-| 20 | GET | `/manager/guards` | GUARD_CREATE hoặc GUARD_LOCK | Danh sách bảo vệ |
-| 21 | POST | `/manager/guards` | GUARD_CREATE | Tạo tài khoản bảo vệ |
-| 22 | PATCH | `/manager/guards/{id}/status` | GUARD_LOCK | Khóa / mở khóa bảo vệ |
-| 23 | GET | `/health` | Công khai | Kiểm tra tình trạng dịch vụ |
-| 24 | GET | `/guard/plates?q=&parked=` | PARKING_CHECK_IN hoặc PARKING_CHECK_OUT | Gợi ý biển số khi bảo vệ gõ vài ký tự |
-
-### Quy ước khi gọi API
-
-- **Phiên đăng nhập:** cookie `SESSION` (HttpOnly) do máy chủ cấp khi đăng nhập; hết hạn sau 30 phút không hoạt động
-  hoặc 12 giờ kể từ lúc đăng nhập. Không dùng JWT.
-- **CSRF:** mọi request ghi dữ liệu (trừ đăng nhập, đăng ký) phải gửi header `X-XSRF-TOKEN` bằng giá trị cookie `XSRF-TOKEN`.
-- **Idempotency-Key:** bắt buộc (một UUID) với `POST /manager/deposits`, `/manager/withdrawals`, `/guard/check-out`.
-  Gửi lại cùng key → trả lại đúng giao dịch cũ kèm header `Idempotent-Replayed: true`, không cộng / trừ điểm lần hai.
-- **Lỗi:** luôn có dạng `{"code","message","status","traceId","fields"}`; `fields` chỉ có với `VALIDATION_ERROR`.
-- **Giới hạn tần suất:** đăng nhập sai 5 lần / phút cho mỗi IP + tên đăng nhập; đăng ký 10 lần / giờ / IP;
-  mọi API khác 120 request / phút / phiên. Vượt → `429 TOO_MANY_REQUESTS` kèm header `Retry-After` (giây).
-- **Thời gian:** lưu UTC trong CSDL, trả về theo giờ Việt Nam (`+07:00`).
-
-## Kiến trúc
-
-Modular Monolith: mỗi nghiệp vụ là một module trong `backend/src/main/java/com/ptit/parking/`, bên trong chia lớp
-theo Clean Architecture (Ports & Adapters):
-
-| Module | Nội dung |
-|---|---|
-| `auth` | Đăng nhập, phiên, các lớp người dùng `User` → `Student`, `Guard`, `Manager`, `Owner` |
-| `student` | Đăng ký sinh viên, đăng ký xe, biển số `PlateNumber` |
-| `catalog` | Loại xe, bảng giá, tỷ lệ quy đổi |
-| `parking` | Lượt gửi `ParkingSession`, cách tính phí `FeePolicy` (Strategy), xe vào / xe ra |
-| `payment` | Ví `Wallet`, giao dịch `PointTransaction` → `CashDeposit`, `ParkingPayment`, `CashWithdrawal`; chống trừ hai lần |
-| `manager` | Đổi điểm, rút điểm, quản lý bảo vệ |
-| `shared` | Bảo mật, xử lý lỗi, giới hạn tần suất, transaction |
-
-```
-<module>/
-  domain/                  quy tắc nghiệp vụ, Java thuần, không phụ thuộc Spring
-  application/usecase/     điều phối một nghiệp vụ (một transaction)
-  application/port/out/    interface: use case cần gì từ bên ngoài (CSDL...)
-  adapter/in/web/          controller REST, DTO request / response
-  adapter/out/persistence/ cài đặt port bằng JDBC / JPA
-  config/                  lắp ráp use case thành bean Spring
+```bash
+docker compose down -v
+docker compose up -d
 ```
 
-Thiết kế CSDL: [`docs/database/ERD.md`](docs/database/ERD.md).
+> **Cảnh báo:** `docker compose down -v` xóa cả volume dữ liệu MySQL của dự án.
 
-## Chạy test
+## 7. Hướng phát triển tiếp theo
 
-```powershell
-cd backend
-.\mvnw.cmd test
-# Tests run: 558, Failures: 0, Errors: 0
-```
+Các nội dung dưới đây là **định hướng mở rộng**, chưa được coi là chức năng đã hoàn thành:
 
-294 test không cần MySQL: use case được test với kho dữ liệu giả trong bộ nhớ, controller test bằng `@WebMvcTest`
-với cấu hình bảo mật thật.
+1. **Nhận diện biển số tự động:** Tích hợp camera và OCR để hỗ trợ bảo vệ tra cứu phương tiện nhanh hơn, bên cạnh nhập biển số và quét mã QR hiện có.
+2. **Thống kê và báo cáo:** Bổ sung dashboard về số lượt gửi xe, doanh thu điểm, giao dịch theo ngày/tháng và tình trạng sử dụng bãi xe.
+3. **Nạp tiền trực tuyến:** Tích hợp cổng thanh toán điện tử để giảm thao tác đổi tiền mặt tại quầy.
+4. **Thông báo theo thời gian thực:** Thông báo khi nạp điểm, trừ phí, số dư thấp hoặc phát sinh giao dịch bất thường.
+5. **Quản lý nhiều bãi xe:** Mở rộng mô hình dữ liệu và phân quyền để vận hành nhiều địa điểm độc lập.
+6. **Triển khai và tự động hóa:** Đóng gói, triển khai trên máy chủ với HTTPS, bổ sung CI/CD, giám sát và sao lưu dữ liệu.
 
-6 test tích hợp (`ParkingFlowIntegrationTest`) chạy toàn bộ ứng dụng trên **MySQL 8.4 thật** do Testcontainers tự bật
-trong Docker: đăng ký → đổi điểm → xe vào → xe ra → chủ tài khoản nhận điểm, hai bảo vệ cùng bấm xe ra, khóa bảo vệ,
-trigger chặn sửa giao dịch, bảo toàn điểm. Cần Docker Desktop đang chạy; không có Docker thì 6 test này được bỏ qua.
+---
 
-## Lỗi thường gặp
+### Tài liệu liên quan
 
-| Hiện tượng | Nguyên nhân và cách xử lý |
-|---|---|
-| Backend báo `Access denied for user 'parking'` | Có MySQL cài sẵn trên máy (dịch vụ `MySQL80`...) chiếm cổng 3306. Mở cmd quyền Administrator: `net stop MySQL80`, rồi `docker compose up -d` |
-| `curl` trả `000` / không kết nối được | Backend chưa khởi động xong — chờ dòng `Started ParkingApplication` |
-| `403 CSRF_INVALID` | Thiếu header `X-XSRF-TOKEN`, hoặc giá trị không khớp cookie `XSRF-TOKEN` |
-| `429 TOO_MANY_REQUESTS` khi thử nhiều lần | Vượt giới hạn tần suất; chờ số giây trong `Retry-After`, hoặc khởi động lại backend (bộ đếm nằm trong bộ nhớ) |
-| `400 IDEMPOTENCY_KEY_REQUIRED` | Đổi điểm / rút điểm / xe ra cần header `Idempotency-Key` là một UUID |
+- [Tài liệu frontend](frontend/README.md)
+- [Thiết kế cơ sở dữ liệu (ERD)](docs/database/ERD.md)
 
-## Quy ước nhánh
-
-- `main`: bản ổn định để nộp / demo
-- `develop`: nhánh tích hợp
-- `feature/BTL-<số>-<mã task>-<mô tả>`: mỗi task một nhánh, tách từ `develop`, merge lại qua Pull Request
+**Phạm vi sử dụng:** Bài tập lớn phục vụ học tập, trình diễn và thực hành thiết kế phần mềm hướng đối tượng.
