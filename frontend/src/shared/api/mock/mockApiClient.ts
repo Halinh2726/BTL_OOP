@@ -1,7 +1,12 @@
 import type {
+  BankConfig,
   ComplaintStatus,
   ComplaintView,
+  GuardCashSheetItem,
   ManagedIncident,
+  ManagerGateCashGuardTotal,
+  ManagerGateCashItem,
+  ParkingPolicyConfig,
   PlannedShift,
   ShiftSlot,
   ClosedReconciliation,
@@ -11,6 +16,7 @@ import type {
   ReconciliationDay,
   AuditItem,
   RevenueDay,
+  VietQrOrder,
   WithdrawalView,
   IncidentItem,
   ParkedVehicleItem,
@@ -26,6 +32,7 @@ import type {
   Vehicle,
   VehicleType,
 } from '../../types/api';
+import { buildVietQrImageUrl, normalizeBankAccountName } from '../../utils/vietQr';
 import type { ApiClient, Idempotent } from '../ApiClient';
 import { ApiError } from '../ApiError';
 import { endsSession, notifySessionEnded } from '../sessionEvents';
@@ -112,6 +119,7 @@ const ERRORS = {
   SESSION_ALREADY_OPEN: [409, 'Xe đang có lượt gửi chưa kết thúc. Không cho xe vào.'],
   SESSION_ALREADY_PAID: [409, 'Lượt gửi này đã được thanh toán. Không trừ điểm lần hai.'],
   INSUFFICIENT_POINTS: [422, 'Không đủ điểm.'],
+  CHECKOUT_CURFEW: [422, 'Đã quá giờ khóa lấy xe trong ngày. Vui lòng lấy xe vào ngày hôm sau.'],
   INVALID_AMOUNT: [422, 'Số tiền hoặc số điểm không hợp lệ.'],
   IDEMPOTENCY_KEY_REUSED: [422, 'Khóa chống xử lý trùng đã được dùng cho yêu cầu khác.'],
   TOO_MANY_REQUESTS: [429, 'Thao tác quá nhiều lần. Vui lòng thử lại sau ít phút.'],
@@ -225,6 +233,68 @@ function loadState(): MockState {
 export function createMockApiClient(options: { latencyMs?: number; initialState?: MockState } = {}): ApiClient {
   const latencyMs = options.latencyMs ?? 250;
   const state: MockState = options.initialState ?? loadState();
+
+  const ENV_DEFAULT_BANK = {
+    bankId: 'MB',
+    accountNo: '0987654321',
+    accountName: 'BAI XE HOC VIEN PTIT',
+    template: 'compact2' as const,
+  };
+  let mockBankConfig: BankConfig = {
+    ...ENV_DEFAULT_BANK,
+    source: 'ENV_DEFAULT',
+    updatedAt: null,
+    envDefault: { ...ENV_DEFAULT_BANK },
+  };
+  let mockPolicy: ParkingPolicyConfig = {
+    checkoutCurfewTime: '20:00',
+    overnightFeePoints: 15_000,
+    curfewEnabled: true,
+  };
+  interface MockGateCash {
+    collectionId: number;
+    sessionId: number;
+    plateNumber: string;
+    vehicleTypeCode: string;
+    studentCode: string;
+    fullName: string;
+    guardId: number;
+    guardName: string;
+    shiftId: number | null;
+    amount: number;
+    overnight: boolean;
+    collectedAt: string;
+  }
+  const mockGateCash: MockGateCash[] = [];
+
+  function buildVietQrOrderFor(
+    sessionId: number,
+    plateNumber: string,
+    studentCode: string,
+    fullName: string,
+    fee: number,
+  ): VietQrOrder {
+    const transferContent = `TTGX ${sessionId}`;
+    return {
+      sessionId,
+      plateNumber,
+      studentCode,
+      fullName,
+      fee,
+      bankId: mockBankConfig.bankId,
+      accountNo: mockBankConfig.accountNo,
+      accountName: mockBankConfig.accountName,
+      transferContent,
+      qrCodeUrl: buildVietQrImageUrl({
+        bankId: mockBankConfig.bankId,
+        accountNo: mockBankConfig.accountNo,
+        accountName: mockBankConfig.accountName,
+        template: mockBankConfig.template,
+        amount: fee,
+        message: transferContent,
+      }),
+    };
+  }
 
   function save(): void {
     try {
@@ -942,9 +1012,16 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         const passValidUntil = passUntil(found.vehicle.id, new Date());
         const fee = passValidUntil ? 0 : feeAt(new Date());
         const reason = balance < fee ? ('INSUFFICIENT_POINTS' as const) : null;
+        const vietQrOrder =
+          reason === 'INSUFFICIENT_POINTS'
+            ? buildVietQrOrderFor(session.id, plate, found.owner.studentCode ?? '', found.owner.fullName, fee)
+            : null;
         return {
           ...owner, sessionId: session.id, enteredAt: session.enteredAt, balance, fee, allowed: reason === null, reason,
           passValidUntil,
+          overnight: false,
+          curfewTime: mockPolicy.curfewEnabled ? mockPolicy.checkoutCurfewTime : null,
+          vietQrOrder,
         };
       }),
 
@@ -1980,6 +2057,231 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           })),
           totalEntries, averageEntriesPerDay: round(totalEntries / days), peakHours,
           parkedNow: state.sessions.filter((session) => session.exitedAt === null).length,
+        };
+      }),
+
+    getDepositInfo: (rawAmount) =>
+      call(() => {
+        const student = requireRole('SINH_VIEN');
+        const amount = Math.min(50_000_000, Math.max(1_000, Math.round(rawAmount || 50_000)));
+        const studentCode = student.studentCode ?? `USER${student.id}`;
+        const transferContent = `NAP ${studentCode}`;
+        return {
+          studentCode,
+          fullName: student.fullName,
+          bankId: mockBankConfig.bankId,
+          accountNo: mockBankConfig.accountNo,
+          accountName: mockBankConfig.accountName,
+          transferContent,
+          amount,
+          qrCodeUrl: buildVietQrImageUrl({
+            bankId: mockBankConfig.bankId,
+            accountNo: mockBankConfig.accountNo,
+            accountName: mockBankConfig.accountName,
+            template: mockBankConfig.template,
+            amount,
+            message: transferContent,
+          }),
+        };
+      }),
+
+    parkingPolicy: () =>
+      call(() => {
+        currentUser();
+        return { ...mockPolicy };
+      }),
+
+    updateParkingPolicy: (body) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(body.checkoutCurfewTime)) {
+          invalid([{ field: 'checkoutCurfewTime', code: 'PATTERN', message: 'Giờ khóa có dạng HH:mm (VD: 20:00)' }]);
+        }
+        if (body.overnightFeePoints < 1000 || body.overnightFeePoints > 1_000_000) {
+          invalid([{ field: 'overnightFeePoints', code: 'RANGE', message: 'Phí qua đêm từ 1.000 đến 1.000.000 điểm' }]);
+        }
+        mockPolicy = {
+          checkoutCurfewTime: body.checkoutCurfewTime,
+          overnightFeePoints: Math.round(body.overnightFeePoints),
+          curfewEnabled: body.curfewEnabled,
+        };
+        return { ...mockPolicy };
+      }),
+
+    bankConfig: () =>
+      call(() => {
+        requireRole('QUAN_LY');
+        return mockBankConfig;
+      }),
+
+    updateBankConfig: (body) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        mockBankConfig = {
+          bankId: body.bankId.trim().toUpperCase(),
+          accountNo: body.accountNo.replace(/[\s.-]/g, '').toUpperCase(),
+          accountName: normalizeBankAccountName(body.accountName),
+          template: body.template,
+          source: 'DATABASE',
+          updatedAt: toVietnamIso(new Date()),
+          envDefault: { ...ENV_DEFAULT_BANK },
+        };
+        return mockBankConfig;
+      }),
+
+    resetBankConfig: () =>
+      call(() => {
+        requireRole('QUAN_LY');
+        mockBankConfig = {
+          ...ENV_DEFAULT_BANK,
+          source: 'ENV_DEFAULT',
+          updatedAt: null,
+          envDefault: { ...ENV_DEFAULT_BANK },
+        };
+        return mockBankConfig;
+      }),
+
+    payVietQr: (sessionId, key) =>
+      call(() => {
+        const guard = requireRole('BAO_VE');
+        return idempotent(key, `VIETQR_OUT|${guard.id}|${sessionId}`, () => {
+          const session = state.sessions.find((candidate) => candidate.id === sessionId);
+          if (!session) return fail('NO_OPEN_SESSION');
+          if (session.exitedAt !== null) fail('SESSION_ALREADY_PAID');
+          const vehicle = state.vehicles.find((candidate) => candidate.id === session.vehicleId);
+          if (!vehicle) return fail('NO_OPEN_SESSION');
+          const now = new Date();
+          const fee = toVietnamIso(now).slice(0, 10) > session.enteredAt.slice(0, 10)
+            ? mockPolicy.overnightFeePoints
+            : feeAt(now);
+          session.exitedAt = toVietnamIso(now);
+          session.exitGuardId = guard.id;
+          // Bảo toàn điểm R12: nạp DOI_DIEM vào ví SV rồi thanh toán THANH_TOAN sang ví Chủ bãi
+          record('DOI_DIEM', [[vehicle.userId, fee]], now, { performedBy: guard.id });
+          const tx = record('THANH_TOAN', [[vehicle.userId, -fee], [OWNER_ID, fee]], now, {
+            performedBy: guard.id,
+            sessionId: session.id,
+          });
+          return {
+            transactionId: tx.id,
+            sessionId: session.id,
+            plateNumber: vehicle.plateNumber,
+            fee,
+            exitedAt: session.exitedAt,
+            balanceAfter: balanceOf(vehicle.userId),
+          };
+        });
+      }),
+
+    checkOutCash: (sessionId, key) =>
+      call(() => {
+        const guard = requireRole('BAO_VE');
+        return idempotent(key, `CASH_OUT|${guard.id}|${sessionId}`, () => {
+          const session = state.sessions.find((candidate) => candidate.id === sessionId);
+          if (!session) return fail('NO_OPEN_SESSION');
+          if (session.exitedAt !== null) fail('SESSION_ALREADY_PAID');
+          const vehicle = state.vehicles.find((candidate) => candidate.id === session.vehicleId);
+          const owner = vehicle ? state.users.find((u) => u.id === vehicle.userId) : undefined;
+          if (!vehicle || !owner) return fail('NO_OPEN_SESSION');
+          const now = new Date();
+          const overnight = toVietnamIso(now).slice(0, 10) > session.enteredAt.slice(0, 10);
+          const amount = overnight ? mockPolicy.overnightFeePoints : feeAt(now);
+          session.exitedAt = toVietnamIso(now);
+          session.exitGuardId = guard.id;
+          const activeShift = (state.shifts ?? []).find((s) => s.guardId === guard.id && s.endedAt === null);
+          const collectedAt = session.exitedAt;
+          const item: MockGateCash = {
+            collectionId: nextId(),
+            sessionId: session.id,
+            plateNumber: vehicle.plateNumber,
+            vehicleTypeCode: vehicle.vehicleTypeCode,
+            studentCode: owner.studentCode ?? '',
+            fullName: owner.fullName,
+            guardId: guard.id,
+            guardName: guard.fullName,
+            shiftId: activeShift?.id ?? null,
+            amount,
+            overnight,
+            collectedAt,
+          };
+          mockGateCash.unshift(item);
+          return {
+            collectionId: item.collectionId,
+            sessionId: item.sessionId,
+            plateNumber: item.plateNumber,
+            studentCode: item.studentCode,
+            fullName: item.fullName,
+            amount: item.amount,
+            overnight: item.overnight,
+            collectedAt: item.collectedAt,
+            shiftId: item.shiftId,
+          };
+        });
+      }),
+
+    guardCashSheet: () =>
+      call(() => {
+        const guard = requireRole('BAO_VE');
+        const activeShift = (state.shifts ?? []).find((s) => s.guardId === guard.id && s.endedAt === null);
+        const from = activeShift?.startedAt ?? toVietnamIso(new Date(Date.now() - 12 * 3600_000));
+        const openingCash = activeShift?.openingCash ?? 0;
+        const entries: GuardCashSheetItem[] = mockGateCash
+          .filter((e) => e.guardId === guard.id && (activeShift ? e.shiftId === activeShift.id || e.collectedAt >= from : e.collectedAt >= from))
+          .map((e) => ({
+            collectionId: e.collectionId,
+            sessionId: e.sessionId,
+            plateNumber: e.plateNumber,
+            plateDisplay: displayPlate(e.plateNumber),
+            vehicleTypeCode: e.vehicleTypeCode,
+            studentCode: e.studentCode,
+            fullName: e.fullName,
+            amount: e.amount,
+            overnight: e.overnight,
+            collectedAt: e.collectedAt,
+          }));
+        const totalCollected = entries.reduce((sum, e) => sum + e.amount, 0);
+        return {
+          from,
+          inShift: activeShift !== undefined,
+          shiftId: activeShift?.id ?? null,
+          openingCash,
+          totalCollected,
+          expectedClosingCash: openingCash + totalCollected,
+          entries,
+        };
+      }),
+
+    managerGateCash: (date) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        const targetDate = date ?? toVietnamIso(new Date()).slice(0, 10);
+        const rows = mockGateCash.filter((e) => e.collectedAt.slice(0, 10) === targetDate);
+        const byGuardMap = new Map<number, ManagerGateCashGuardTotal>();
+        rows.forEach((e) => {
+          const prev = byGuardMap.get(e.guardId) ?? { guardId: e.guardId, guardName: e.guardName, count: 0, totalAmount: 0 };
+          prev.count += 1;
+          prev.totalAmount += e.amount;
+          byGuardMap.set(e.guardId, prev);
+        });
+        const entries: ManagerGateCashItem[] = rows.map((e) => ({
+          collectionId: e.collectionId,
+          sessionId: e.sessionId,
+          plateNumber: e.plateNumber,
+          plateDisplay: displayPlate(e.plateNumber),
+          studentCode: e.studentCode,
+          fullName: e.fullName,
+          guardName: e.guardName,
+          shiftId: e.shiftId,
+          amount: e.amount,
+          overnight: e.overnight,
+          collectedAt: e.collectedAt,
+        }));
+        return {
+          date: targetDate,
+          totalAmount: entries.reduce((sum, e) => sum + e.amount, 0),
+          totalCount: entries.length,
+          byGuard: [...byGuardMap.values()],
+          entries,
         };
       }),
   };
