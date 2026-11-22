@@ -1,4 +1,5 @@
 import type {
+  BankConfig,
   CheckInPreview,
   CheckInResult,
   CheckOutPreview,
@@ -22,6 +23,7 @@ import type {
   StudentSummary,
   TransactionPage,
   TransactionQuery,
+  UpdateBankConfigRequest,
   Vehicle,
   VehicleType,
   Wallet,
@@ -76,4 +78,7 @@ export interface ApiClient {
   guards(): Promise<Guard[]>;
   createGuard(body: CreateGuardRequest): Promise<Guard>;
   changeGuardStatus(guardId: number, status: GuardStatus): Promise<Guard>;
+  bankConfig(): Promise<BankConfig>;
+  updateBankConfig(body: UpdateBankConfigRequest): Promise<BankConfig>;
+  resetBankConfig(): Promise<BankConfig>;
 }

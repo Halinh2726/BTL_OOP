@@ -1,18 +1,75 @@
 /**
- * Chuẩn EMVCo VietQR (Napas247) sinh mã QR chuyển khoản ngân hàng trực tiếp phía client (trình duyệt).
+ * Chuẩn EMVCo VietQR (Napas247) sinh mã QR chuyển khoản ngân hàng trực tiếp phía client (trình duyệt),
+ * kèm danh mục mã BIN & tên ngân hàng Việt Nam.
  * Đảm bảo 100% hoạt động offline, quét được trên tất cả ứng dụng ngân hàng tại Việt Nam (MB, VCB, Momo...).
  */
 
-export const BANK_BINS: Record<string, string> = {
-  MB: '970422',
-  VCB: '970436',
-  TCB: '970407',
-  VPB: '970432',
-  ACB: '970416',
-  BIDV: '970418',
-  CTG: '970415',
-  TPB: '970423',
-};
+export interface VietnamBank {
+  id: string;
+  shortName: string;
+  name: string;
+  bin: string;
+}
+
+export const VIETNAM_BANKS: readonly VietnamBank[] = [
+  { id: 'MB', shortName: 'MB Bank', name: 'Ngân hàng TMCP Quân đội (MB)', bin: '970422' },
+  { id: 'VCB', shortName: 'Vietcombank', name: 'Ngân hàng TMCP Ngoại thương Việt Nam', bin: '970436' },
+  { id: 'TCB', shortName: 'Techcombank', name: 'Ngân hàng TMCP Kỹ thương Việt Nam', bin: '970407' },
+  { id: 'ACB', shortName: 'ACB', name: 'Ngân hàng TMCP Á Châu', bin: '970416' },
+  { id: 'BIDV', shortName: 'BIDV', name: 'Ngân hàng TMCP Đầu tư và Phát triển VN', bin: '970418' },
+  { id: 'CTG', shortName: 'VietinBank', name: 'Ngân hàng TMCP Công thương Việt Nam', bin: '970415' },
+  { id: 'TPB', shortName: 'TPBank', name: 'Ngân hàng TMCP Tiên Phong', bin: '970423' },
+  { id: 'VPB', shortName: 'VPBank', name: 'Ngân hàng TMCP Việt Nam Thịnh Vượng', bin: '970432' },
+  { id: 'VIB', shortName: 'VIB', name: 'Ngân hàng TMCP Quốc tế Việt Nam', bin: '970441' },
+  { id: 'MSB', shortName: 'MSB', name: 'Ngân hàng TMCP Hàng Hải Việt Nam', bin: '970426' },
+  { id: 'OCB', shortName: 'OCB', name: 'Ngân hàng TMCP Phương Đông', bin: '970448' },
+  { id: 'STB', shortName: 'Sacombank', name: 'Ngân hàng TMCP Sài Gòn Thương Tín', bin: '970403' },
+  { id: 'SHB', shortName: 'SHB', name: 'Ngân hàng TMCP Sài Gòn - Hà Nội', bin: '970443' },
+  { id: 'HDB', shortName: 'HDBank', name: 'Ngân hàng TMCP Phát triển TP.HCM', bin: '970437' },
+  { id: 'VBA', shortName: 'Agribank', name: 'Ngân hàng Nông nghiệp và PTNT VN', bin: '970405' },
+  { id: 'EIB', shortName: 'Eximbank', name: 'Ngân hàng TMCP Xuất Nhập khẩu VN', bin: '970431' },
+  { id: 'LPB', shortName: 'LPBank', name: 'Ngân hàng TMCP Lộc Phát Việt Nam', bin: '970449' },
+  { id: 'CAKE', shortName: 'CAKE by VPBank', name: 'Ngân hàng số CAKE by VPBank', bin: '546034' },
+  { id: 'TIMO', shortName: 'Timo', name: 'Ngân hàng số Timo by BVBank', bin: '963388' },
+] as const;
+
+export const BANK_BINS: Record<string, string> = Object.fromEntries(
+  VIETNAM_BANKS.map((bank) => [bank.id, bank.bin]),
+);
+
+export function getBankShortName(bankId: string): string {
+  const key = bankId.trim().toUpperCase();
+  return VIETNAM_BANKS.find((b) => b.id === key)?.shortName ?? key;
+}
+
+/** Chuẩn hóa tên chủ tài khoản ngân hàng: bỏ dấu tiếng Việt, viết hoa. */
+export function normalizeBankAccountName(raw: string): string {
+  return raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .replace(/[^A-Za-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase();
+}
+
+export function buildVietQrImageUrl(options: {
+  bankId: string;
+  accountNo: string;
+  accountName: string;
+  template?: string;
+  amount: number;
+  message: string;
+}): string {
+  const bankId = options.bankId.trim().toUpperCase();
+  const accountNo = options.accountNo.trim().replace(/[\s.-]/g, '').toUpperCase();
+  const template = options.template || 'compact2';
+  return `https://img.vietqr.io/image/${bankId}-${accountNo}-${template}.png?amount=${Math.round(
+    options.amount,
+  )}&addInfo=${encodeURIComponent(options.message)}&accountName=${encodeURIComponent(options.accountName)}`;
+}
 
 function formatTlv(id: string, value: string): string {
   const len = value.length.toString().padStart(2, '0');
@@ -69,4 +126,3 @@ export function buildVietQrPayload(options: {
   const checksum = crc16Ccitt(payload);
   return payload + checksum;
 }
-

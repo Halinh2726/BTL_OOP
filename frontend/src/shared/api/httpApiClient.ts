@@ -2,7 +2,7 @@ import type { ApiClient, Idempotent } from './ApiClient';
 import { ApiError, isApiErrorBody } from './ApiError';
 import { endsSession, notifySessionEnded } from './sessionEvents';
 
-type Method = 'GET' | 'POST' | 'PATCH';
+type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 type QueryValue = string | number | undefined;
 
 interface RequestOptions {
@@ -131,6 +131,9 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
     createGuard: (body) => json('/manager/guards', { method: 'POST', body }),
     changeGuardStatus: (guardId, status) =>
       json(`/manager/guards/${guardId}/status`, { method: 'PATCH', body: { status } }),
+    bankConfig: () => json('/manager/bank-config'),
+    updateBankConfig: (body) => json('/manager/bank-config', { method: 'PUT', body }),
+    resetBankConfig: () => json('/manager/bank-config', { method: 'DELETE' }),
   };
 }
 

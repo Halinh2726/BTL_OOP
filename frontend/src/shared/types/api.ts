@@ -78,6 +78,31 @@ export interface DepositInfo {
   qrCodeUrl: string;
 }
 
+export type VietQrTemplate = 'compact2' | 'compact' | 'qr_only' | 'print';
+export type BankConfigSource = 'DATABASE' | 'ENV';
+
+export interface BankConfig {
+  bankId: string;
+  accountNo: string;
+  accountName: string;
+  template: VietQrTemplate;
+  source: BankConfigSource;
+  updatedAt: string | null;
+  envDefault: {
+    bankId: string;
+    accountNo: string;
+    accountName: string;
+    template: VietQrTemplate;
+  };
+}
+
+export interface UpdateBankConfigRequest {
+  bankId: string;
+  accountNo: string;
+  accountName: string;
+  template: VietQrTemplate;
+}
+
 export type TransactionType = 'DOI_DIEM' | 'THANH_TOAN' | 'RUT_DIEM';
 
 /** Một dòng lịch sử, nhìn từ góc ví của người đang xem: change có dấu. */
