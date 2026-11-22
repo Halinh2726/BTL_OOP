@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.ptit.parking.manager.application.port.out.StudentDirectory;
 import com.ptit.parking.manager.application.port.out.StudentDirectory.StudentAccount;
+import com.ptit.parking.payment.application.usecase.GetBankConfigUseCase;
+import com.ptit.parking.payment.domain.BankAccountConfig;
 import com.ptit.parking.shared.security.Permission;
 import com.ptit.parking.shared.security.SessionUser;
 import com.ptit.parking.shared.security.WebSecurityTestConfig;
@@ -37,10 +39,15 @@ class StudentDepositControllerTest {
     @MockitoBean
     private StudentDirectory students;
 
+    @MockitoBean
+    private GetBankConfigUseCase getBankConfig;
+
     @Test
     void layThongTinNapDiem_sinhVienHopLe_traVeVietQr() throws Exception {
         when(students.findByUserId(STUDENT_ID)).thenReturn(Optional.of(
                 new StudentAccount(STUDENT_ID, "B21DCCN001", "Nguyễn Văn A", 10L)));
+        when(getBankConfig.currentConfig()).thenReturn(
+                new BankAccountConfig("MB", "0987654321", "BAI XE HOC VIEN PTIT", "compact2"));
 
         mvc.perform(get("/api/v1/me/deposit-info?amount=100000")
                         .with(authentication(studentAuth())))

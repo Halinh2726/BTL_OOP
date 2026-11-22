@@ -40,7 +40,10 @@ public enum ProtectedEndpoint {
     WITHDRAW           (HttpMethod.POST,  "/api/v1/manager/withdrawals",      CASH_WITHDRAWAL),    // #19
     LIST_GUARDS        (HttpMethod.GET,   "/api/v1/manager/guards",           GUARD_CREATE, GUARD_LOCK), // #20
     CREATE_GUARD       (HttpMethod.POST,  "/api/v1/manager/guards",           GUARD_CREATE),       // #21
-    CHANGE_GUARD_STATUS(HttpMethod.PATCH, "/api/v1/manager/guards/*/status",  GUARD_LOCK);         // #22
+    CHANGE_GUARD_STATUS(HttpMethod.PATCH, "/api/v1/manager/guards/*/status",  GUARD_LOCK),         // #22
+    GET_BANK_CONFIG    (HttpMethod.GET,   "/api/v1/manager/bank-config",      CASH_DEPOSIT),       // Cấu hình VietQR
+    UPDATE_BANK_CONFIG (HttpMethod.PUT,   "/api/v1/manager/bank-config",      CASH_DEPOSIT),       // Cập nhật VietQR
+    RESET_BANK_CONFIG  (HttpMethod.DELETE,"/api/v1/manager/bank-config",      CASH_DEPOSIT);       // Khôi phục VietQR .env
 
     private final HttpMethod method;
     private final String pathPattern;

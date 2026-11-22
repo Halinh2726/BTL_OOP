@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import QRCode from 'qrcode';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../../shared/api';
 import { queryKeys } from '../../shared/api/queryKeys';
 import { Button } from '../../shared/components/Button';
@@ -8,7 +8,7 @@ import { Dialog } from '../../shared/components/Dialog';
 import { Spinner } from '../../shared/components/Spinner';
 import { formatNumber } from '../../shared/utils/format';
 import { playSuccessSound } from '../../shared/utils/sound';
-import { buildVietQrPayload } from '../../shared/utils/vietQr';
+import { buildVietQrImageUrl, buildVietQrPayload, getBankShortName } from '../../shared/utils/vietQr';
 import { useCurrentUser } from '../auth/session';
 
 interface DepositPointsDialogProps {
@@ -16,7 +16,17 @@ interface DepositPointsDialogProps {
   currentBalance?: number;
 }
 
-const PRESET_AMOUNTS = [20000, 50000, 100000, 200000, 500000];
+interface PaidSummary {
+  previousBalance: number;
+  newBalance: number;
+  credited: number;
+}
+
+const PRESET_AMOUNTS = [10000, 20000, 50000, 100000, 200000];
+const MIN_AMOUNT = 1000;
+const MAX_AMOUNT = 50000000;
+const POLL_INTERVAL_MS = 2000;
+
 const DEFAULT_BANK_ID = 'MB';
 const DEFAULT_ACCOUNT_NO = '0987654321';
 const DEFAULT_ACCOUNT_NAME = 'BAI XE HOC VIEN PTIT';
@@ -26,59 +36,114 @@ export function DepositPointsDialog({ onClose, currentBalance }: DepositPointsDi
   const currentUser = useCurrentUser();
 
   const [amount, setAmount] = useState<number>(50000);
+  const [debouncedAmount, setDebouncedAmount] = useState<number>(50000);
   const [customAmount, setCustomAmount] = useState<string>('');
+  const [amountError, setAmountError] = useState<string | null>(null);
+
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [checkMessage, setCheckMessage] = useState<string | null>(null);
+  const [paidSummary, setPaidSummary] = useState<PaidSummary | null>(null);
 
-  // QR Code dạng base64 tạo cục bộ trên client (0ms delay, 100% offline)
+  // Mốc số dư ban đầu khi mở hộp thoại để tự động phát hiện tiền vừa cộng
+  const baselineBalanceRef = useRef<number | undefined>(currentBalance);
+
+  // QR Code dạng base64 tạo cục bộ trên client (0ms delay, hoạt động cả khi offline & để tải ảnh QR)
   const [localQrDataUrl, setLocalQrDataUrl] = useState<string | null>(null);
   const [useLocalQr, setUseLocalQr] = useState<boolean>(false);
+  const [imgLoaded, setImgLoaded] = useState<boolean>(false);
 
-  // Lấy thông tin từ backend (nếu có)
+  // Debounce số tiền nhập tay 350ms để không gọi API liên tục từng phím
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (amount >= MIN_AMOUNT && amount <= MAX_AMOUNT) {
+        setDebouncedAmount(amount);
+      }
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [amount]);
+
+  // Luôn lấy thông tin ngân hàng mới nhất từ backend (khi Quản lý vừa đổi tài khoản là cập nhật ngay)
   const depositQuery = useQuery({
-    queryKey: queryKeys.depositInfo(amount),
-    queryFn: () => api.getDepositInfo(amount),
-    staleTime: 60000,
+    queryKey: queryKeys.depositInfo(debouncedAmount),
+    queryFn: () => api.getDepositInfo(debouncedAmount),
+    staleTime: 0,
+    refetchOnMount: 'always',
     retry: 1,
   });
 
-  // Xác định mã sinh viên: ưu tiên kết quả từ API, fallback sang username hiện tại
+  // Tự động kiểm tra số dư ví mỗi 2 giây khi đang chờ chuyển khoản
+  const walletPoll = useQuery({
+    queryKey: queryKeys.myWallet,
+    queryFn: api.myWallet,
+    staleTime: 0,
+    refetchInterval: paidSummary ? false : POLL_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+  });
+
+  // Phát hiện tự động ngay khi số dư tăng -> phát âm thanh + reload lịch sử giao dịch + báo thành công
+  useEffect(() => {
+    const latest = walletPoll.data?.balance;
+    if (latest === undefined) return;
+
+    if (baselineBalanceRef.current === undefined) {
+      baselineBalanceRef.current = latest;
+      return;
+    }
+
+    if (!paidSummary && latest > baselineBalanceRef.current) {
+      const prev = baselineBalanceRef.current;
+      const credited = latest - prev;
+      playSuccessSound();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.myTransactionsAll });
+      setPaidSummary({ previousBalance: prev, newBalance: latest, credited });
+      setCheckMessage(null);
+    }
+  }, [walletPoll.data?.balance, paidSummary, queryClient]);
+
+  // Xác định mã sinh viên & thông tin ngân hàng nhận tiền
   const studentCode =
     depositQuery.data?.studentCode ||
     (currentUser.user.username ? currentUser.user.username.toUpperCase() : 'B21DCCN001');
 
   const bankId = depositQuery.data?.bankId || DEFAULT_BANK_ID;
+  const bankShortName = getBankShortName(bankId);
   const accountNo = depositQuery.data?.accountNo || DEFAULT_ACCOUNT_NO;
   const accountName = depositQuery.data?.accountName || DEFAULT_ACCOUNT_NAME;
-  const transferContent = `NAP ${studentCode}`;
+  const transferContent = depositQuery.data?.transferContent || `NAP ${studentCode}`;
 
-  // Link ảnh VietQR Napas247 từ dịch vụ công cộng
-  const vietQrImageUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(
-    transferContent,
-  )}&accountName=${encodeURIComponent(accountName)}`;
+  const vietQrImageUrl =
+    depositQuery.data?.qrCodeUrl ||
+    buildVietQrImageUrl({
+      bankId,
+      accountNo,
+      accountName,
+      amount: debouncedAmount,
+      message: transferContent,
+    });
 
-  // Tự động tạo mã QR Napas247 EMVCo cục bộ bằng thư viện qrcode mỗi khi amount hoặc studentCode thay đổi
+  useEffect(() => {
+    setImgLoaded(false);
+    setUseLocalQr(false);
+  }, [vietQrImageUrl]);
+
+  // Tự động sinh QR chuẩn Napas247 EMVCo cục bộ (0ms delay)
   useEffect(() => {
     const emvcoPayload = buildVietQrPayload({
       bankId,
       accountNo,
-      amount,
+      amount: debouncedAmount,
       message: transferContent,
     });
 
     QRCode.toDataURL(emvcoPayload, {
-      width: 240,
-      margin: 1,
+      width: 280,
+      margin: 2,
       color: { dark: '#0f172a', light: '#ffffff' },
     })
-      .then((url) => {
-        setLocalQrDataUrl(url);
-      })
-      .catch(() => {
-        // Nếu lỗi tạo QR nội bộ thì giữ nguyên
-      });
-  }, [bankId, accountNo, amount, transferContent]);
+      .then((url) => setLocalQrDataUrl(url))
+      .catch(() => setLocalQrDataUrl(null));
+  }, [bankId, accountNo, debouncedAmount, transferContent]);
 
   const handleCopy = async (text: string, fieldName: string) => {
     try {
@@ -92,51 +157,110 @@ export function DepositPointsDialog({ onClose, currentBalance }: DepositPointsDi
 
   const handleSelectPreset = (value: number) => {
     setAmount(value);
+    setDebouncedAmount(value);
     setCustomAmount('');
+    setAmountError(null);
     setCheckMessage(null);
   };
 
   const handleCustomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/\D/g, '');
     setCustomAmount(raw);
+    setCheckMessage(null);
+    if (!raw) {
+      setAmountError(null);
+      return;
+    }
     const parsed = Number(raw);
-    if (parsed > 0) {
+    if (parsed < MIN_AMOUNT) {
+      setAmountError(`Số tiền tối thiểu là ${formatNumber(MIN_AMOUNT)} đ`);
+    } else if (parsed > MAX_AMOUNT) {
+      setAmountError(`Số tiền tối đa là ${formatNumber(MAX_AMOUNT)} đ`);
+    } else {
+      setAmountError(null);
       setAmount(parsed);
-      setCheckMessage(null);
     }
   };
 
-  const handleCheckBalance = async () => {
+  const handleManualCheck = async () => {
     setChecking(true);
     setCheckMessage(null);
     try {
-      const prev = currentBalance;
-      const updated = await queryClient.fetchQuery({
-        queryKey: queryKeys.myWallet,
-        queryFn: () => api.myWallet(),
-      });
+      const result = await walletPoll.refetch();
       void queryClient.invalidateQueries({ queryKey: queryKeys.myTransactionsAll });
+      const latest = result.data?.balance;
+      const baseline = baselineBalanceRef.current;
 
-      if (prev !== undefined && updated.balance > prev) {
-        playSuccessSound();
+      if (latest !== undefined && baseline !== undefined && latest <= baseline) {
         setCheckMessage(
-          `Đã nạp thành công! Số dư mới: ${formatNumber(updated.balance)} điểm (+${formatNumber(
-            updated.balance - prev,
-          )})`,
-        );
-      } else {
-        setCheckMessage(
-          `Số dư hiện tại: ${formatNumber(
-            updated.balance,
-          )} điểm (Chưa ghi nhận tiền vào ví. Nếu bạn vừa chuyển khoản, vui lòng đợi 2-5 giây)`,
+          `Số dư hiện tại: ${formatNumber(latest)} điểm — Chưa ghi nhận giao dịch mới. Nếu bạn vừa chuyển khoản, hệ thống đang tự động kiểm tra mỗi 2 giây.`,
         );
       }
     } catch {
-      setCheckMessage('Không thể kết nối máy chủ để kiểm tra số dư');
+      setCheckMessage('Không thể kết nối máy chủ để kiểm tra số dư.');
     } finally {
       setChecking(false);
     }
   };
+
+  const handleDownloadQr = () => {
+    if (!localQrDataUrl) return;
+    const link = document.createElement('a');
+    link.href = localQrDataUrl;
+    link.download = `VietQR-${studentCode}-${debouncedAmount}.png`;
+    link.click();
+  };
+
+  const handleDepositMore = () => {
+    if (paidSummary) {
+      baselineBalanceRef.current = paidSummary.newBalance;
+    }
+    setPaidSummary(null);
+    setCheckMessage(null);
+  };
+
+  // Màn hình chúc mừng ngay khi phát hiện nạp tiền thành công
+  if (paidSummary) {
+    return (
+      <Dialog
+        title="Nạp điểm thành công"
+        onClose={onClose}
+        footer={
+          <div className="flex w-full items-center justify-between gap-2">
+            <Button size="sm" variant="secondary" onClick={handleDepositMore}>
+              + Nạp thêm
+            </Button>
+            <Button size="sm" onClick={onClose}>
+              Hoàn tất
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col items-center space-y-4 py-3 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-3xl text-emerald-600 shadow-sm">
+            ✓
+          </div>
+          <div>
+            <p className="text-sm font-medium text-slate-600">Tiền đã vào ví tự động</p>
+            <p className="mt-1 text-3xl font-extrabold text-emerald-600">
+              +{formatNumber(paidSummary.credited)} điểm
+            </p>
+          </div>
+          <div className="w-full rounded-xl border border-emerald-200 bg-emerald-50/70 p-3.5 text-sm">
+            <div className="flex justify-between py-1">
+              <span className="text-slate-600">Số dư trước</span>
+              <span className="font-medium text-slate-800">{formatNumber(paidSummary.previousBalance)} điểm</span>
+            </div>
+            <div className="flex justify-between border-t border-emerald-200/80 pt-2 mt-1">
+              <span className="font-semibold text-slate-800">Số dư mới</span>
+              <span className="text-base font-bold text-blue-700">{formatNumber(paidSummary.newBalance)} điểm</span>
+            </div>
+          </div>
+          <p className="text-xs text-slate-500">Số dư và lịch sử giao dịch trên trang đã được cập nhật tự động.</p>
+        </div>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog
@@ -144,8 +268,8 @@ export function DepositPointsDialog({ onClose, currentBalance }: DepositPointsDi
       onClose={onClose}
       footer={
         <div className="flex w-full items-center justify-between gap-2">
-          <Button size="sm" variant="secondary" onClick={handleCheckBalance} disabled={checking}>
-            {checking ? 'Đang kiểm tra...' : '🔄 Kiểm tra số dư'}
+          <Button size="sm" variant="secondary" onClick={handleManualCheck} disabled={checking}>
+            {checking ? 'Đang kiểm tra...' : '🔄 Kiểm tra ngay'}
           </Button>
           <Button size="sm" onClick={onClose}>
             Đóng
@@ -154,6 +278,20 @@ export function DepositPointsDialog({ onClose, currentBalance }: DepositPointsDi
       }
     >
       <div className="space-y-4 text-sm text-slate-700">
+        {/* Thanh trạng thái tự động lắng nghe tiền về */}
+        <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-xs text-emerald-800">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+            </span>
+            <span className="font-medium">Đang tự động chờ tiền về (tự cập nhật mỗi 2 giây)</span>
+          </div>
+          <span className="font-mono text-[11px] font-semibold text-emerald-700">
+            {formatNumber(walletPoll.data?.balance ?? currentBalance ?? 0)} đ
+          </span>
+        </div>
+
         {/* Chọn số tiền nạp */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -181,53 +319,72 @@ export function DepositPointsDialog({ onClose, currentBalance }: DepositPointsDi
             <input
               type="text"
               inputMode="numeric"
-              placeholder="Nhập số tiền..."
+              placeholder="VD: 2000, 30000..."
               value={customAmount}
               onChange={handleCustomChange}
-              className="flex-1 rounded-md border border-slate-300 px-2.5 py-1 text-xs focus:border-blue-500 focus:outline-none"
+              className={`flex-1 rounded-md border px-2.5 py-1 text-xs focus:outline-none ${
+                amountError ? 'border-red-400 focus:border-red-500' : 'border-slate-300 focus:border-blue-500'
+              }`}
             />
             <span className="text-xs font-medium text-slate-500">VNĐ</span>
           </div>
+          {amountError && <p className="mt-1 text-xs text-red-600">{amountError}</p>}
         </div>
 
         {/* Mã VietQR động */}
         <div className="flex flex-col items-center rounded-xl border border-blue-100 bg-blue-50/40 p-4">
           <div className="relative flex h-56 w-56 items-center justify-center rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
-            {/* Ưu tiên hiển thị ảnh VietQR; nếu lỗi hoặc người dùng chọn thì hiển thị QR local EMVCo */}
             {!useLocalQr ? (
-              <img
-                src={vietQrImageUrl}
-                alt="VietQR Napas247 Nạp Tiền"
-                className="h-full w-full object-contain"
-                onError={() => setUseLocalQr(true)}
-              />
+              <>
+                {!imgLoaded && localQrDataUrl && (
+                  <img
+                    src={localQrDataUrl}
+                    alt="Đang tải thẻ VietQR"
+                    className="absolute inset-2 h-52 w-52 object-contain opacity-90"
+                  />
+                )}
+                <img
+                  src={vietQrImageUrl}
+                  alt="VietQR Napas247 Nạp Tiền"
+                  className={`h-full w-full object-contain transition-opacity duration-200 ${
+                    imgLoaded ? 'opacity-100' : 'opacity-0'
+                  }`}
+                  onLoad={() => setImgLoaded(true)}
+                  onError={() => setUseLocalQr(true)}
+                />
+              </>
             ) : localQrDataUrl ? (
               <div className="flex flex-col items-center">
-                <img
-                  src={localQrDataUrl}
-                  alt="Mã QR Napas247 cục bộ"
-                  className="h-44 w-44 object-contain"
-                />
-                <span className="text-[10px] font-medium text-slate-500">Mã QR Napas247 tự động</span>
+                <img src={localQrDataUrl} alt="Mã QR Napas247 cục bộ" className="h-44 w-44 object-contain" />
+                <span className="text-[10px] font-medium text-slate-500">Mã QR Napas247 cục bộ</span>
               </div>
             ) : (
               <Spinner className="h-8 w-8 text-blue-600" />
             )}
           </div>
 
-          <div className="mt-2 flex items-center gap-2">
-            <p className="text-xs font-medium text-slate-600">
-              Quét bằng app ngân hàng (MB, Vietcombank, Momo, VNPay...)
-            </p>
-            {localQrDataUrl && (
-              <button
-                type="button"
-                onClick={() => setUseLocalQr((prev) => !prev)}
-                className="text-[11px] text-blue-600 hover:underline"
-              >
-                {useLocalQr ? 'Hiển thị mẫu thẻ' : 'Đổi chuẩn QR'}
-              </button>
-            )}
+          <div className="mt-2.5 flex flex-wrap items-center justify-center gap-3">
+            <p className="text-xs font-medium text-slate-600">Quét bằng app ngân hàng hoặc Momo / VNPay</p>
+            <div className="flex items-center gap-2">
+              {localQrDataUrl && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleDownloadQr}
+                    className="rounded bg-white px-2 py-0.5 text-[11px] font-semibold text-blue-700 shadow-sm ring-1 ring-slate-200 hover:bg-blue-50"
+                  >
+                    ⬇ Lưu mã QR
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUseLocalQr((prev) => !prev)}
+                    className="text-[11px] text-blue-600 hover:underline"
+                  >
+                    {useLocalQr ? 'Hiển thị mẫu thẻ' : 'QR gọn'}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -235,7 +392,9 @@ export function DepositPointsDialog({ onClose, currentBalance }: DepositPointsDi
         <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50/60 p-3 text-xs">
           <div className="flex items-center justify-between">
             <span className="text-slate-500">Ngân hàng:</span>
-            <span className="font-semibold text-slate-900">{bankId} (MB Bank)</span>
+            <span className="font-semibold text-slate-900">
+              {bankId} {bankShortName !== bankId ? `(${bankShortName})` : ''}
+            </span>
           </div>
 
           <div className="flex items-center justify-between">
@@ -260,7 +419,7 @@ export function DepositPointsDialog({ onClose, currentBalance }: DepositPointsDi
           <div className="flex items-center justify-between">
             <span className="text-slate-500">Số tiền nạp:</span>
             <span className="text-sm font-bold text-emerald-600">
-              {formatNumber(amount)} đ ({formatNumber(amount)} điểm)
+              {formatNumber(debouncedAmount)} đ ({formatNumber(debouncedAmount)} điểm)
             </span>
           </div>
 
@@ -279,17 +438,9 @@ export function DepositPointsDialog({ onClose, currentBalance }: DepositPointsDi
           </div>
         </div>
 
-        {/* Thông báo tự động Webhook */}
-        <div className="rounded-lg bg-emerald-50 p-2.5 text-xs text-emerald-800 border border-emerald-200">
-          <p className="font-semibold">⚡ Tự động cộng điểm 24/7</p>
-          <p className="mt-0.5 text-[11px] leading-relaxed text-emerald-700">
-            Hệ thống kết nối Webhook ngân hàng tự động nhận diện nội dung <strong>{transferContent}</strong> và cộng điểm vào ví trong 1 - 3 giây.
-          </p>
-        </div>
-
-        {/* Kết quả kiểm tra số dư */}
+        {/* Kết quả kiểm tra thủ công (nếu người dùng bấm nút) */}
         {checkMessage && (
-          <div className="rounded-lg bg-blue-50 p-2.5 text-center text-xs font-medium text-blue-800 border border-blue-200">
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-2.5 text-center text-xs font-medium text-blue-800">
             {checkMessage}
           </div>
         )}

@@ -41,7 +41,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 export const TRANSACTION_LABELS: Record<TransactionType, string> = {
-  DOI_DIEM: 'Đổi điểm',
+  DOI_DIEM: 'Nạp điểm',
   THANH_TOAN: 'Thanh toán phí gửi xe',
   RUT_DIEM: 'Rút điểm',
 };

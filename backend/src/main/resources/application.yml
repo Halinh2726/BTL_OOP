@@ -3,6 +3,9 @@
 spring:
   application:
     name: parking-backend
+  config:
+    # Tự động nạp file .env ở thư mục gốc dự án (nếu có); biến môi trường hệ thống vẫn ưu tiên cao hơn.
+    import: optional:file:../.env[.properties],optional:file:.env[.properties]
   autoconfigure:
     exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
   datasource:
@@ -26,6 +29,7 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+    ignore-migration-patterns: "*:missing"
 logging:
   pattern:
     level: "%5p [traceId=%X{traceId:-}]"   # mỗi dòng log kèm traceId của request (TraceIdFilter)

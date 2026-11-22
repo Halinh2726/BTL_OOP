@@ -1,4 +1,5 @@
 import type {
+  BankConfig,
   DepositInfo,
   FeeRule,
   FieldViolation,
@@ -8,6 +9,7 @@ import type {
   TransactionItem,
   Vehicle,
   VehicleType,
+  VietQrTemplate,
 } from '../../types/api';
 import type { ApiClient, Idempotent } from '../ApiClient';
 import { ApiError } from '../ApiError';
@@ -117,6 +119,18 @@ function loadState(): MockState {
 export function createMockApiClient(options: { latencyMs?: number; initialState?: MockState } = {}): ApiClient {
   const latencyMs = options.latencyMs ?? 250;
   const state: MockState = options.initialState ?? loadState();
+  const ENV_BANK_DEFAULT = {
+    bankId: 'MB',
+    accountNo: '0987654321',
+    accountName: 'BAI XE HOC VIEN PTIT',
+    template: 'compact2' as VietQrTemplate,
+  };
+  let mockBankConfig: BankConfig = {
+    ...ENV_BANK_DEFAULT,
+    source: 'ENV',
+    updatedAt: null,
+    envDefault: ENV_BANK_DEFAULT,
+  };
 
   function save(): void {
     try {
@@ -327,14 +341,14 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         const studentCode = user.studentCode ?? user.username;
         const transferContent = `NAP ${studentCode}`;
         const encodedContent = encodeURIComponent(transferContent);
-        const encodedName = encodeURIComponent('BAI XE HOC VIEN PTIT');
-        const qrCodeUrl = `https://img.vietqr.io/image/MB-0987654321-compact2.png?amount=${amount}&addInfo=${encodedContent}&accountName=${encodedName}`;
+        const encodedName = encodeURIComponent(mockBankConfig.accountName);
+        const qrCodeUrl = `https://img.vietqr.io/image/${mockBankConfig.bankId}-${mockBankConfig.accountNo}-${mockBankConfig.template}.png?amount=${amount}&addInfo=${encodedContent}&accountName=${encodedName}`;
         return {
           studentCode,
           fullName: user.fullName,
-          bankId: 'MB',
-          accountNo: '0987654321',
-          accountName: 'BAI XE HOC VIEN PTIT',
+          bankId: mockBankConfig.bankId,
+          accountNo: mockBankConfig.accountNo,
+          accountName: mockBankConfig.accountName,
           transferContent,
           amount,
           qrCodeUrl,
@@ -650,6 +664,39 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         if (!guard) return fail('GUARD_NOT_FOUND');
         guard.status = status;
         return toGuard(guard);
+      }),
+
+    bankConfig: () =>
+      call(() => {
+        requireRole('QUAN_LY');
+        return { ...mockBankConfig };
+      }),
+
+    updateBankConfig: (body) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        mockBankConfig = {
+          bankId: body.bankId.trim().toUpperCase(),
+          accountNo: body.accountNo.trim().replace(/[\s.-]/g, '').toUpperCase(),
+          accountName: body.accountName.trim().toUpperCase(),
+          template: body.template,
+          source: 'DATABASE',
+          updatedAt: toVietnamIso(new Date()),
+          envDefault: ENV_BANK_DEFAULT,
+        };
+        return { ...mockBankConfig };
+      }),
+
+    resetBankConfig: () =>
+      call(() => {
+        requireRole('QUAN_LY');
+        mockBankConfig = {
+          ...ENV_BANK_DEFAULT,
+          source: 'ENV',
+          updatedAt: null,
+          envDefault: ENV_BANK_DEFAULT,
+        };
+        return { ...mockBankConfig };
       }),
   };
 }

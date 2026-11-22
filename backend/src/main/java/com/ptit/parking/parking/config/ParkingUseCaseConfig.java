@@ -11,7 +11,7 @@ import com.ptit.parking.parking.application.usecase.PayParkingFeeByVietQrUseCase
 import com.ptit.parking.parking.application.usecase.QuickCheckOutUseCase;
 import com.ptit.parking.payment.application.IdempotencyGuard;
 import com.ptit.parking.payment.application.port.out.ReceivingWalletProvider;
-import org.springframework.beans.factory.annotation.Value;
+import com.ptit.parking.payment.application.usecase.GetBankConfigUseCase;
 import com.ptit.parking.payment.application.usecase.PayParkingFeeUseCase;
 import com.ptit.parking.parking.application.usecase.SuggestPlatesUseCase;
 
@@ -49,12 +49,8 @@ public class ParkingUseCaseConfig {
 
     
     @Bean
-    VietQrGenerator vietQrGenerator(
-            @Value("${parking.vietqr.bank-id:MB}") String bankId,
-            @Value("${parking.vietqr.account-no:0987654321}") String accountNo,
-            @Value("${parking.vietqr.account-name:BAI XE HOC VIEN PTIT}") String accountName,
-            @Value("${parking.vietqr.template:compact2}") String template) {
-        return new DefaultVietQrGenerator(bankId, accountNo, accountName, template);
+    VietQrGenerator vietQrGenerator(GetBankConfigUseCase getBankConfig) {
+        return new DefaultVietQrGenerator(getBankConfig::currentConfig);
     }
 
     @Bean

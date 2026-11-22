@@ -4,6 +4,7 @@ import { Button } from '../../shared/components/Button';
 import { Card, InfoRow } from '../../shared/components/Card';
 import type { VietQrOrder } from '../../shared/types/api';
 import { formatNumber } from '../../shared/utils/format';
+import { getBankShortName } from '../../shared/utils/vietQr';
 
 interface VietQrPaymentCardProps {
   order: VietQrOrder;
@@ -71,7 +72,12 @@ export function VietQrPaymentCard({ order, onConfirm, confirming, onCancel, erro
               />
               <InfoRow
                 label="Ngân hàng"
-                value={<span className="font-semibold text-slate-800">{order.bankId}</span>}
+                value={
+                  <span className="font-semibold text-slate-800">
+                    {order.bankId}
+                    {getBankShortName(order.bankId) !== order.bankId ? ` (${getBankShortName(order.bankId)})` : ''}
+                  </span>
+                }
               />
               <InfoRow
                 label="Số tài khoản"

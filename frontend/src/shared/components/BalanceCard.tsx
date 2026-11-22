@@ -16,7 +16,11 @@ interface BalanceCardProps {
 /** Số điểm hiện có của người đang đăng nhập (GET /me/wallet). */
 export function BalanceCard({ caption = 'Số điểm hiện có', showDeposit }: BalanceCardProps) {
   const [isDepositOpen, setIsDepositOpen] = useState(false);
-  const wallet = useQuery({ queryKey: queryKeys.myWallet, queryFn: api.myWallet });
+  const wallet = useQuery({
+    queryKey: queryKeys.myWallet,
+    queryFn: api.myWallet,
+    refetchOnWindowFocus: true,
+  });
   const { state } = useSession();
 
   // Chỉ hiển thị nút Nạp điểm cho Sinh viên (vai trò SINH_VIEN).
