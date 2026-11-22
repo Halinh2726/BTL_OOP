@@ -9,7 +9,7 @@ import com.ptit.parking.parking.application.port.out.InMemoryVehicleOwnerDirecto
 import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory.VehicleOwner;
 import com.ptit.parking.parking.application.usecase.PreviewCheckOutUseCase.Preview;
 import com.ptit.parking.parking.domain.ParkingSession;
-import com.ptit.parking.parking.domain.TimeSlotFeePolicy;
+import com.ptit.parking.parking.domain.DurationFeePolicy;
 import com.ptit.parking.payment.application.port.out.InMemoryWalletRepository;
 import com.ptit.parking.payment.domain.Wallet;
 import com.ptit.parking.shared.domain.DomainException;
@@ -17,18 +17,17 @@ import com.ptit.parking.shared.domain.ErrorCode;
 import com.ptit.parking.student.domain.PlateNumber;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** BV02 — tra cứu trước khi cho xe ra: lượt đang mở, chủ xe (R07), phí tạm tính theo giờ hiện tại (R03). */
+/** BV02 — tra cứu trước khi cho xe ra: lượt đang mở, chủ xe (R07), phí tạm tính theo thời lượng gửi (R03). */
 class PreviewCheckOutUseCaseTest {
 
     private static final ZoneId VN = ZoneId.of("Asia/Ho_Chi_Minh");
-    private static final Instant ENTERED = Instant.parse("2026-10-05T00:55:00Z");        // 07:55 giờ VN
-    private static final Instant AT_18_30 = Instant.parse("2026-10-05T11:30:00Z");       // 18:30 giờ VN -> 5.000
-    private static final Instant AT_17_59 = Instant.parse("2026-10-05T10:59:00Z");       // 17:59 giờ VN -> 3.000
+    private static final Instant ENTERED = Instant.parse("2026-10-05T09:00:00Z");        // 16:00 giờ VN
+    private static final Instant AT_18_30 = Instant.parse("2026-10-05T11:30:00Z");       // gửi 2h30 -> 5.000
+    private static final Instant AT_17_59 = Instant.parse("2026-10-05T10:59:00Z");       // gửi 1h59 -> 3.000
     private static final long VEHICLE = 100L;
     private static final long STUDENT = 3L;
     private static final VehicleOwner OWNER = new VehicleOwner(VEHICLE, new PlateNumber("29A12345"), "XE_MAY",
@@ -37,8 +36,8 @@ class PreviewCheckOutUseCaseTest {
     private final InMemoryVehicleOwnerDirectory vehicles = new InMemoryVehicleOwnerDirectory();
     private final InMemoryParkingSessionRepository sessions = new InMemoryParkingSessionRepository();
     private final InMemoryWalletRepository wallets = new InMemoryWalletRepository();
-    private final TimeSlotFeePolicy feePolicy = new TimeSlotFeePolicy(List.of(
-            new FeeRule(LocalTime.MIDNIGHT, 3000), new FeeRule(LocalTime.of(18, 0), 5000)), VN);
+    private final DurationFeePolicy feePolicy = new DurationFeePolicy(List.of(
+            new FeeRule(120, 3000), new FeeRule(360, 5000), new FeeRule(1440, 7000)));
 
     PreviewCheckOutUseCaseTest() {
         vehicles.add(OWNER);
@@ -61,14 +60,14 @@ class PreviewCheckOutUseCaseTest {
         assertThat(preview.session().id()).isEqualTo(open.id());
         assertThat(preview.session().enteredAt()).isEqualTo(ENTERED);
         assertThat(preview.balance()).isEqualTo(10_000);
-        assertThat(preview.fee()).isEqualTo(5_000);                       // ra sau 18:00
+        assertThat(preview.fee()).isEqualTo(5_000);                       // gửi 2h30
         assertThat(wallets.balanceOf(wallet)).isEqualTo(10_000);          // chỉ đọc: KHÔNG trừ điểm
         assertThat(sessions.all()).allMatch(ParkingSession::isOpen);      // chỉ đọc: KHÔNG đóng lượt
         assertThat(vehicles.locked()).isEmpty();                          // chỉ đọc: KHÔNG khóa
     }
 
     @Test
-    void phiTinhTheoGioRa_khongPhaiGioVao_R03() {
+    void phiTamTinhTangKhiVuotHaiGioGui_R03() {
         wallets.insert(new Wallet(null, STUDENT, 10_000));
         sessions.markOpen(VEHICLE, ENTERED);
 

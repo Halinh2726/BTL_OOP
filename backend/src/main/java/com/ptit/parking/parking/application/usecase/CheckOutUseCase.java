@@ -26,7 +26,7 @@ import java.util.UUID;
 
 /**
  * BV02 «include» HT01 (Đặc tả API #15) — bảo vệ xác nhận cho xe ra, hệ thống tự trừ phí. MỘT transaction:
- * khóa lượt gửi → còn DANG_GUI → phí tính LẠI theo giờ xác nhận (R03) → thanh toán (khóa 2 ví theo id tăng dần,
+ * khóa lượt gửi → còn DANG_GUI → tính lại phí theo thời lượng gửi (R03) → thanh toán (khóa 2 ví theo id tăng dần,
  * trừ sinh viên, cộng ví nhận — R06) → đóng lượt → lưu giao dịch. Bước nào lỗi thì rollback TOÀN BỘ:
  * không bao giờ có chuyện đã trừ điểm mà lượt chưa đóng, hay lượt đã đóng mà chưa trừ điểm (M3-05).
  * <p>Bọc trong {@link IdempotencyGuard} (M3-06): bảo vệ bấm "Xác nhận" hai lần, mạng gửi lại, hay hai request song
@@ -82,12 +82,12 @@ public class CheckOutUseCase {
         // Báo giá bằng một lần đọc KHÔNG khóa, ngoài transaction, chỉ để chọn đường đi. Không thấy lượt thì đi đường
         // trả phí: IdempotencyGuard kiểm tra key TRƯỚC (giữ nguyên thứ tự lỗi cũ), rồi tới NO_OPEN_SESSION.
         FeeQuote quote = sessions.findById(command.sessionId())
-                .map(session -> feePolicy.quote(session.vehicleId(), now.atZone(clock.getZone())))
+                .map(session -> feePolicy.quote(session.vehicleId(), session.enteredAt(), now.atZone(clock.getZone())))
                 .orElse(null);
         if (quote != null && quote.isFree()) {
             return freeExit(command, now, quote);
         }
-        return paidExit(command);
+        return paidExit(command, now);
     }
 
     private Result freeExit(Command command, Instant now, FeeQuote quote) {
@@ -110,7 +110,7 @@ public class CheckOutUseCase {
         });
     }
 
-    private Result paidExit(Command command) {
+    private Result paidExit(Command command, Instant now) {
         String requestHash = RequestFingerprint.of(TransactionType.THANH_TOAN, command.guardId(), command.sessionId());
 
         Execution<ParkingPayment> execution = idempotency.execute(command.idempotencyKey(), requestHash,
@@ -123,9 +123,8 @@ public class CheckOutUseCase {
                     }
                     VehicleOwner vehicle = vehicles.findByVehicleId(session.vehicleId()).orElseThrow();
 
-                    Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
                     session.close(command.guardId(), now);           // mọi kiểm tra của domain chạy TRƯỚC lần ghi đầu tiên
-                    long fee = feePolicy.quote(vehicle.vehicleId(), now.atZone(clock.getZone())).points();   // R03
+                    long fee = feePolicy.quote(vehicle.vehicleId(), session.enteredAt(), now.atZone(clock.getZone())).points();
                     ParkingPayment payment = payParkingFee.pay(new PayParkingFeeUseCase.Command(
                             session.id(), vehicle.studentUserId(), fee, command.guardId(),
                             command.idempotencyKey(), now));

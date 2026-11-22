@@ -29,7 +29,7 @@ public class GetCatalogUseCase {
         return vehicleTypes.allVehicleTypes();
     }
 
-    /** API #10 bước 1: sắp xếp theo startTime tăng dần — dùng thứ tự tự nhiên của {@link FeeRule}. */
+    /** API #10 bước 1: sắp xếp theo cận trên thời lượng tăng dần — dùng thứ tự tự nhiên của {@link FeeRule}. */
     public List<FeeRule> feeRules() {
         return feeRules.allFeeRules().stream().sorted().toList();
     }

@@ -1,28 +1,24 @@
 package com.ptit.parking.parking.domain;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.time.ZonedDateTime;
 
-/**
- * ChinhSachGia — "tính phí gửi xe" là một HỢP ĐỒNG, không phải một công thức cố định (mẫu Strategy).
- * <p>Nơi dùng (xe vào, xe ra) chỉ phụ thuộc interface này. Muốn đổi cách tính — theo loại xe, theo thời
- * lượng gửi... — chỉ cần thêm một lớp cài đặt mới, KHÔNG sửa code xe vào/xe ra (nguyên lý Open/Closed).
- * <p>Đợt 5: thêm hai phương thức theo TỪNG XE ({@link #quote}, {@link #minimumFeeFor}) dạng {@code default} — cách
- * tính cũ ({@link TimeSlotFeePolicy}) không phải sửa một dòng nào; vé tháng là một lớp BỌC bên ngoài (Decorator).
- */
+/** Chính sách tính phí gửi xe (Strategy). Vé tháng có thể bọc chính sách này qua {@link #quote}. */
 public interface FeePolicy {
 
-    /** R03: phí (điểm) của một lượt gửi, tính theo thời điểm xe RA. */
-    long feeAt(ZonedDateTime exitTime);
+    /** R03 — phí theo thời lượng gửi xe thực tế. */
+    long feeFor(Duration parkedFor);
 
-    /** R04: mức phí thấp nhất — khi xe VÀO chỉ kiểm tra sinh viên có ít nhất chừng này điểm, không trừ. */
+    /** R04 — số điểm tối thiểu để xe được vào bãi. */
     long minimumFee();
 
-    /** Đợt 5 — phí của MỘT xe khi ra lúc {@code exitTime}. Mặc định: như nhau với mọi xe. */
-    default FeeQuote quote(long vehicleId, ZonedDateTime exitTime) {
-        return FeeQuote.charge(feeAt(exitTime));
+    /** Báo phí cho một lượt gửi. Giờ ra cũng dùng để xác định hiệu lực vé tháng. */
+    default FeeQuote quote(long vehicleId, Instant enteredAt, ZonedDateTime exitTime) {
+        return FeeQuote.charge(feeFor(Duration.between(enteredAt, exitTime.toInstant())));
     }
 
-    /** Đợt 5 — mức điểm tối thiểu để xe này được VÀO lúc {@code at}. Mặc định: như nhau với mọi xe. */
+    /** Mức điểm tối thiểu để một xe cụ thể được vào bãi. */
     default long minimumFeeFor(long vehicleId, ZonedDateTime at) {
         return minimumFee();
     }

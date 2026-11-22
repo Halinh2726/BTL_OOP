@@ -67,7 +67,7 @@ public class PreviewCheckInUseCase {
         // Đợt 5: xe có vé tháng thì không cần điểm tối thiểu
         ZonedDateTime now = ZonedDateTime.now(clock);
         long required = feePolicy.minimumFeeFor(owner.vehicleId(), now);
-        LocalDate passUntil = feePolicy.quote(owner.vehicleId(), now).passValidUntil();
+        LocalDate passUntil = feePolicy.quote(owner.vehicleId(), now.toInstant(), now).passValidUntil();
 
         // Cùng thứ tự kiểm tra với lúc xác nhận (API #13): lượt đang mở trước, rồi tới số điểm
         ErrorCode reason = null;

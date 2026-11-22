@@ -11,7 +11,7 @@ import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory.Vehic
 import com.ptit.parking.parking.application.usecase.CheckOutUseCase.Command;
 import com.ptit.parking.parking.application.usecase.CheckOutUseCase.Result;
 import com.ptit.parking.parking.domain.ParkingSession;
-import com.ptit.parking.parking.domain.TimeSlotFeePolicy;
+import com.ptit.parking.parking.domain.DurationFeePolicy;
 import com.ptit.parking.payment.application.IdempotencyGuard;
 import com.ptit.parking.payment.application.port.out.InMemoryPointTransactionRepository;
 import com.ptit.parking.payment.application.port.out.InMemoryWalletRepository;
@@ -25,7 +25,6 @@ import com.ptit.parking.shared.domain.ErrorCode;
 import com.ptit.parking.student.domain.PlateNumber;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,9 +41,9 @@ import org.junit.jupiter.api.Test;
 class CheckOutUseCaseTest {
 
     private static final ZoneId VN = ZoneId.of("Asia/Ho_Chi_Minh");
-    private static final Instant ENTERED = Instant.parse("2026-10-05T00:55:00Z");        // 07:55 giờ VN
-    private static final Instant AT_18_30 = Instant.parse("2026-10-05T11:30:00Z");       // 18:30 giờ VN -> 5.000
-    private static final Instant AT_17_59 = Instant.parse("2026-10-05T10:59:00Z");       // 17:59 giờ VN -> 3.000
+    private static final Instant ENTERED = Instant.parse("2026-10-05T09:00:00Z");        // 16:00 giờ VN
+    private static final Instant AT_18_30 = Instant.parse("2026-10-05T11:30:00Z");       // gửi 2h30 -> 5.000
+    private static final Instant AT_17_59 = Instant.parse("2026-10-05T10:59:00Z");       // gửi 1h59 -> 3.000
     private static final long GUARD = 4L;
     private static final long VEHICLE = 100L;
     private static final long STUDENT = 3L;
@@ -97,8 +96,8 @@ class CheckOutUseCaseTest {
             }
         }
     };
-    private final TimeSlotFeePolicy feePolicy = new TimeSlotFeePolicy(List.of(
-            new FeeRule(LocalTime.MIDNIGHT, 3000), new FeeRule(LocalTime.of(18, 0), 5000)), VN);
+    private final DurationFeePolicy feePolicy = new DurationFeePolicy(List.of(
+            new FeeRule(120, 3000), new FeeRule(360, 5000), new FeeRule(1440, 7000)));
 
     // Ví nhận tạo trước (id nhỏ hơn) — chủ tài khoản đã có 100 điểm
     private final long receiverWallet = wallets.insert(new Wallet(null, OWNER_USER, 100));
@@ -127,7 +126,7 @@ class CheckOutUseCaseTest {
         assertThat(result.replayed()).isFalse();
         assertThat(payment.id()).isNotNull();                                   // giao dịch ĐÃ LƯU
         assertThat(payment.sessionId()).isEqualTo(open.id());
-        assertThat(payment.points()).isEqualTo(5_000);                          // ra lúc 18:30
+        assertThat(payment.points()).isEqualTo(5_000);                          // gửi 2h30
         assertThat(payment.sourceWalletId()).isEqualTo(studentWallet);
         assertThat(payment.targetWalletId()).isEqualTo(receiverWallet);          // R06
         assertThat(payment.sourceBalanceAfter()).isEqualTo(5_000);
@@ -145,7 +144,7 @@ class CheckOutUseCaseTest {
     }
 
     @Test
-    void phiTinhLaiTheoGioXacNhan_R03() {
+    void phiTinhTheoThoiLuongDenLucXacNhan_R03() {
         Result result = at(AT_17_59).checkOut(new Command(GUARD, UUID.randomUUID(), open.id()));
 
         assertThat(result.payment().points()).isEqualTo(3_000);

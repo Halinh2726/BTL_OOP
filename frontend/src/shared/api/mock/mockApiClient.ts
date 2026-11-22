@@ -36,7 +36,6 @@ import {
   OWNER_ID,
   seedState,
   toVietnamIso,
-  vietnamClock,
   type MockAuditEntry,
   type MockIncident,
   type MockReconciliation,
@@ -132,8 +131,9 @@ const VEHICLE_TYPES: VehicleType[] = [
   { code: 'XE_DAP_DIEN', name: 'Xe đạp điện' },
 ];
 const FEE_RULES: FeeRule[] = [
-  { startTime: '00:00', feePoints: 3000 },
-  { startTime: '18:00', feePoints: 5000 },
+  { upToMinutes: 120, feePoints: 3000 },
+  { upToMinutes: 360, feePoints: 5000 },
+  { upToMinutes: 1440, feePoints: 7000 },
 ];
 const CASH_PER_POINT = 1;
 const MAX_AMOUNT = 10_000_000;
@@ -169,9 +169,17 @@ function normalizePlate(raw: string): string {
   return raw.replace(/[\s.-]/g, '').toUpperCase();
 }
 
-function feeAt(time: Date): number {
-  const clock = vietnamClock(time);
-  return FEE_RULES.filter((rule) => rule.startTime <= clock).reduce((_, rule) => rule.feePoints, FEE_RULES[0]?.feePoints ?? 0);
+function feeForStay(enteredAt: string, exitTime: Date): number {
+  const minuteMs = 60_000;
+  const dayRule = FEE_RULES.at(-1)!;
+  const dayMs = dayRule.upToMinutes * minuteMs;
+  const elapsed = Date.parse(toVietnamIso(exitTime)) - Date.parse(enteredAt);
+  const fullDays = Math.floor(elapsed / dayMs);
+  const remainder = elapsed % dayMs;
+  const fullDayPoints = fullDays * dayRule.feePoints;
+  if (fullDays > 0 && remainder === 0) return fullDayPoints;
+  const rule = FEE_RULES.find((tier) => remainder <= tier.upToMinutes * minuteMs) ?? dayRule;
+  return fullDayPoints + rule.feePoints;
 }
 
 const MIN_FEE = Math.min(...FEE_RULES.map((rule) => rule.feePoints));
@@ -939,8 +947,9 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
             reason: 'NO_OPEN_SESSION' as const,
           };
         }
-        const passValidUntil = passUntil(found.vehicle.id, new Date());
-        const fee = passValidUntil ? 0 : feeAt(new Date());
+        const now = new Date();
+        const passValidUntil = passUntil(found.vehicle.id, now);
+        const fee = passValidUntil ? 0 : feeForStay(session.enteredAt, now);
         const reason = balance < fee ? ('INSUFFICIENT_POINTS' as const) : null;
         return {
           ...owner, sessionId: session.id, enteredAt: session.enteredAt, balance, fee, allowed: reason === null, reason,
@@ -968,7 +977,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
               passValidUntil,
             };
           }
-          const fee = feeAt(now);
+          const fee = feeForStay(session.enteredAt, now);
           if (balanceOf(vehicle.userId) < fee) fail('INSUFFICIENT_POINTS');
           session.exitedAt = toVietnamIso(now);
           session.exitGuardId = guard.id;

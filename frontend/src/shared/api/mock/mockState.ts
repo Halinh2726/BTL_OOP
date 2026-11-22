@@ -247,11 +247,6 @@ export function toVietnamIso(date: Date): string {
   return `${new Date(date.getTime() + VN_OFFSET).toISOString().slice(0, 19)}+07:00`;
 }
 
-/** "HH:mm" theo giờ Việt Nam. */
-export function vietnamClock(date: Date): string {
-  return new Date(date.getTime() + VN_OFFSET).toISOString().slice(11, 16);
-}
-
 export const MANAGER_ID = 1;
 export const OWNER_ID = 2;
 export const STUDENT_ID = 3;

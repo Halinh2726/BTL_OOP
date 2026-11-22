@@ -1,6 +1,5 @@
 package com.ptit.parking.catalog.adapter.out.persistence;
 
-import java.time.LocalTime;
 import java.util.List;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -35,8 +34,8 @@ class CatalogJdbcAdapter implements VehicleTypeRepository, FeeRuleRepository, Ex
 
     @Override
     public List<FeeRule> allFeeRules() {
-        return jdbc.sql("SELECT start_time, fee_points FROM fee_rules")
-                .query((rs, row) -> new FeeRule(rs.getObject("start_time", LocalTime.class), rs.getInt("fee_points")))
+        return jdbc.sql("SELECT up_to_minutes, fee_points FROM duration_fee_rules")
+                .query((rs, row) -> new FeeRule(rs.getInt("up_to_minutes"), rs.getInt("fee_points")))
                 .list();
     }
 

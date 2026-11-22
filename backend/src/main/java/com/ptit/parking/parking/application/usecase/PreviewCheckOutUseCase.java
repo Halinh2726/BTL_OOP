@@ -5,7 +5,6 @@ import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory;
 import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory.VehicleOwner;
 import com.ptit.parking.parking.domain.FeePolicy;
 import com.ptit.parking.parking.domain.FeeQuote;
-import java.time.LocalDate;
 import com.ptit.parking.parking.domain.ParkingSession;
 import com.ptit.parking.payment.application.port.out.WalletRepository;
 import com.ptit.parking.payment.domain.Wallet;
@@ -13,12 +12,14 @@ import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
 import com.ptit.parking.student.domain.PlateNumber;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 
 /**
  * BV02 bước 1–2 (Đặc tả API #14) — bảo vệ nhập biển số xe ra, xem lượt gửi đang mở, chủ xe (đối chiếu thẻ — R07),
- * số điểm và PHÍ TẠM TÍNH theo giờ hiện tại. CHỈ ĐỌC: không khóa, không trừ điểm — lúc xác nhận (API #15)
+ * số điểm và PHÍ TẠM TÍNH theo thời lượng gửi đến hiện tại. CHỈ ĐỌC: không khóa, không trừ điểm — lúc xác nhận (API #15)
  * phí được tính lại theo giờ xác nhận.
  * <p>Phí do hệ thống tính (R06): bảo vệ chỉ XEM, không sửa được; ví nhận phí không bao giờ trả ra ở đây.
  */
@@ -68,10 +69,11 @@ public class PreviewCheckOutUseCase {
         if (open.isEmpty()) {
             return new Preview(owner, null, wallet.balance(), null, false, ErrorCode.NO_OPEN_SESSION);
         }
-        // R03: phí theo giờ RA — ở đây là bây giờ; Đợt 5: xe có vé tháng thì phí 0
-        FeeQuote quote = feePolicy.quote(owner.vehicleId(), ZonedDateTime.now(clock));
+        ParkingSession session = open.get();
+        ZonedDateTime now = ZonedDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
+        FeeQuote quote = feePolicy.quote(session.vehicleId(), session.enteredAt(), now);
         boolean enough = wallet.hasAtLeast(quote.points());
-        return new Preview(owner, open.get(), wallet.balance(), quote.points(), enough,
+        return new Preview(owner, session, wallet.balance(), quote.points(), enough,
                 enough ? null : ErrorCode.INSUFFICIENT_POINTS, quote.passValidUntil());
     }
 }

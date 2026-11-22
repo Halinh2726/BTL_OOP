@@ -69,7 +69,7 @@ class ParkingFlowIntegrationTest {
         registry.add("spring.datasource.password", MYSQL::getPassword);
     }
 
-    /** 10:00 sáng giờ Việt Nam: phí luôn là 3.000 điểm (trước 18:00), test không phụ thuộc giờ chạy. */
+    /** Đồng hồ cố định giữ lượt gửi trong bậc 3.000 điểm. */
     @TestConfiguration
     static class FixedClockConfig {
 

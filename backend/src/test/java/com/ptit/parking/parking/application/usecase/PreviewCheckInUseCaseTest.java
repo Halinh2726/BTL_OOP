@@ -1,7 +1,5 @@
 package com.ptit.parking.parking.application.usecase;
 
-import java.time.LocalTime;
-import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -13,7 +11,7 @@ import com.ptit.parking.parking.application.port.out.InMemoryParkingSessionRepos
 import com.ptit.parking.parking.application.port.out.InMemoryVehicleOwnerDirectory;
 import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory.VehicleOwner;
 import com.ptit.parking.parking.application.usecase.PreviewCheckInUseCase.Preview;
-import com.ptit.parking.parking.domain.TimeSlotFeePolicy;
+import com.ptit.parking.parking.domain.DurationFeePolicy;
 import com.ptit.parking.payment.application.port.out.InMemoryWalletRepository;
 import com.ptit.parking.payment.domain.Wallet;
 import com.ptit.parking.shared.domain.DomainException;
@@ -31,8 +29,8 @@ class PreviewCheckInUseCaseTest {
     private final InMemoryVehicleOwnerDirectory vehicles = new InMemoryVehicleOwnerDirectory();
     private final InMemoryParkingSessionRepository sessions = new InMemoryParkingSessionRepository();
     private final InMemoryWalletRepository wallets = new InMemoryWalletRepository();
-    private final TimeSlotFeePolicy feePolicy = new TimeSlotFeePolicy(List.of(
-            new FeeRule(LocalTime.MIDNIGHT, 3000), new FeeRule(LocalTime.of(18, 0), 5000)), ZoneId.of("Asia/Ho_Chi_Minh"));
+    private final DurationFeePolicy feePolicy = new DurationFeePolicy(List.of(
+            new FeeRule(120, 3000), new FeeRule(360, 5000), new FeeRule(1440, 7000)));
 
     private final PreviewCheckInUseCase previewCheckIn = new PreviewCheckInUseCase(vehicles, sessions, wallets, feePolicy);
 

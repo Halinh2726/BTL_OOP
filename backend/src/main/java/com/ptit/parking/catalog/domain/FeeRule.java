@@ -1,18 +1,14 @@
 package com.ptit.parking.catalog.domain;
 
-import java.time.LocalTime;
-import java.util.Objects;
+/** Mức phí của một bậc thời lượng. Cận trên được tính vào bậc hiện tại. */
+public record FeeRule(int upToMinutes, int feePoints) implements Comparable<FeeRule> {
 
-/**
- * Một khung giá của bảng giá (R03): xe RA từ {@code startTime} (giờ Việt Nam) trở đi thì phí là {@code feePoints} điểm,
- * cho tới khung kế tiếp. Ví dụ: 00:00 → 3.000 điểm, 18:00 → 5.000 điểm.
- * <p>Cài đặt {@link Comparable}: thứ tự TỰ NHIÊN của các khung giá là theo giờ bắt đầu, nên nơi nào cần
- * sắp xếp chỉ việc gọi {@code sorted()} — quy tắc so sánh nằm cạnh dữ liệu, không lặp lại ở nhiều nơi.
- */
-public record FeeRule(LocalTime startTime, int feePoints) implements Comparable<FeeRule> {
+    public static final int MINUTES_PER_DAY = 24 * 60;
 
     public FeeRule {
-        Objects.requireNonNull(startTime, "startTime");
+        if (upToMinutes < 1 || upToMinutes > MINUTES_PER_DAY) {
+            throw new IllegalArgumentException("upToMinutes phải nằm trong khoảng 1 đến 1440");
+        }
         if (feePoints <= 0) {
             throw new IllegalArgumentException("feePoints phải > 0");
         }
@@ -20,6 +16,6 @@ public record FeeRule(LocalTime startTime, int feePoints) implements Comparable<
 
     @Override
     public int compareTo(FeeRule other) {
-        return startTime.compareTo(other.startTime);
+        return Integer.compare(upToMinutes, other.upToMinutes);
     }
 }

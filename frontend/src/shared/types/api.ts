@@ -45,7 +45,7 @@ export interface VehicleType {
 }
 
 export interface FeeRule {
-  startTime: string;
+  upToMinutes: number;
   feePoints: number;
 }
 

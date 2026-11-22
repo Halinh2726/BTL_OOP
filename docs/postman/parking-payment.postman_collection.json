@@ -916,7 +916,7 @@
                 "exec": [
                   "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
                   "const fee = pm.response.json().fee;",
-                  "pm.test('Phí 3.000 (trước 18:00) hoặc 5.000 (từ 18:00)', () => pm.expect([3000, 5000]).to.include(fee));",
+                  "pm.test('Gửi trong 2 giờ đầu tính 3.000 điểm', () => pm.expect(fee).to.eql(3000));",
                   "pm.test('Số dư sau = 50.000 - phí', () => pm.expect(pm.response.json().balanceAfter).to.eql(50000 - fee));",
                   "pm.collectionVariables.set('fee', fee);"
                 ]

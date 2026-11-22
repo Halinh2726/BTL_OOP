@@ -1,6 +1,5 @@
 package com.ptit.parking.catalog.application.usecase;
 
-import java.time.LocalTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -15,17 +14,17 @@ import com.ptit.parking.payment.domain.ExchangeRate;
  */
 class GetCatalogUseCaseTest {
 
-    private static final FeeRule TOI = new FeeRule(LocalTime.of(18, 0), 5000);
-    private static final FeeRule NGAY = new FeeRule(LocalTime.MIDNIGHT, 3000);
+    private static final FeeRule SAU_GIO = new FeeRule(360, 5000);
+    private static final FeeRule HAI_GIO = new FeeRule(120, 3000);
 
     private final GetCatalogUseCase catalog = new GetCatalogUseCase(
             () -> List.of(new VehicleType("XE_MAY", "Xe máy")),
-            () -> List.of(TOI, NGAY),                 // CSDL trả về KHÔNG theo thứ tự
+            () -> List.of(SAU_GIO, HAI_GIO),                 // CSDL trả về KHÔNG theo thứ tự
             () -> new ExchangeRate(1));
 
     @Test
-    void bangGia_luonSapXepTheoGioBatDauTangDan() {
-        assertThat(catalog.feeRules()).containsExactly(NGAY, TOI);
+    void bangGia_luonSapXepTheoCanTrenTangDan() {
+        assertThat(catalog.feeRules()).containsExactly(HAI_GIO, SAU_GIO);
     }
 
     @Test

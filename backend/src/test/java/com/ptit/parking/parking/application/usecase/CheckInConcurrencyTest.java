@@ -8,14 +8,13 @@ import com.ptit.parking.parking.application.port.out.InMemoryVehicleOwnerDirecto
 import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory.VehicleOwner;
 import com.ptit.parking.parking.application.usecase.CheckInUseCase.Command;
 import com.ptit.parking.parking.domain.ParkingSession;
-import com.ptit.parking.parking.domain.TimeSlotFeePolicy;
+import com.ptit.parking.parking.domain.DurationFeePolicy;
 import com.ptit.parking.payment.application.port.out.InMemoryWalletRepository;
 import com.ptit.parking.payment.domain.Wallet;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.student.domain.PlateNumber;
 import java.time.Clock;
-import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
@@ -48,7 +47,7 @@ class CheckInConcurrencyTest {
             STUDENT, "B21DCCN001", "Nguyễn Văn A");
 
     private final InMemoryWalletRepository wallets = new InMemoryWalletRepository();
-    private final TimeSlotFeePolicy feePolicy = new TimeSlotFeePolicy(List.of(new FeeRule(LocalTime.MIDNIGHT, 3000)), VN);
+    private final DurationFeePolicy feePolicy = new DurationFeePolicy(List.of(new FeeRule(1440, 3000)));
 
     CheckInConcurrencyTest() {
         wallets.insert(new Wallet(null, STUDENT, 10_000));

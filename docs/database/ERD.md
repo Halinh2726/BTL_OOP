@@ -63,7 +63,7 @@ erDiagram
     }
     cash_details { bigint transaction_id PK bigint cash_amount int cash_per_point }
     parking_payment_details { bigint transaction_id PK bigint session_id UK }
-    fee_rules { bigint id PK time start_time UK int fee_points }
+    duration_fee_rules { int up_to_minutes PK int fee_points }
     system_config { smallint id PK "= 1" int cash_per_point bigint receiving_wallet_id FK }
 ```
 
@@ -74,7 +74,7 @@ erDiagram
 | `users` + `students` / `guards` | `User` (abstract) → `Student`, `Guard`, `Manager`, `Owner` | **Kế thừa**, **Trừu tượng hóa** (Class Table Inheritance) |
 | `wallets` | `Wallet` | **Đóng gói**: `balance` chỉ đổi qua `credit()` / `debit()` |
 | `point_transactions` + `cash_details` / `parking_payment_details` | `PointTransaction` (abstract sealed) → `CashDeposit`, `CashWithdrawal`, `ParkingPayment` | **Đa hình**: `changeFor(walletId)` |
-| `fee_rules` | `FeePolicy` (interface) ← `TimeSlotFeePolicy` | **Trừu tượng hóa**, Strategy |
+| `duration_fee_rules` | `FeePolicy` (interface) ← `DurationFeePolicy` | **Trừu tượng hóa**, Strategy |
 | `parking_sessions` | `ParkingSession` | **Đóng gói**: `close()` ghi giờ ra + bảo vệ cùng lúc |
 | `roles`, `permissions`, `role_permissions` | (dữ liệu RBAC) | Quyền là dữ liệu, không hóa cứng |
 
