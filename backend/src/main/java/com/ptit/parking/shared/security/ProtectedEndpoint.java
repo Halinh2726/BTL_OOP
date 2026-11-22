@@ -105,7 +105,13 @@ public enum ProtectedEndpoint {
     UPDATE_GUARD       (HttpMethod.PATCH, "/api/v1/manager/guards/*",         ACCOUNT_MANAGE),     // Đợt 1
     RESET_GUARD_PASSWORD  (HttpMethod.POST, "/api/v1/manager/guards/*/password-reset",   ACCOUNT_MANAGE), // Đợt 1
     RESET_STUDENT_PASSWORD(HttpMethod.POST, "/api/v1/manager/students/*/password-reset", ACCOUNT_MANAGE), // Đợt 1
-    AUDIT_LOGS         (HttpMethod.GET,   "/api/v1/manager/audit-logs",       ACCOUNT_MANAGE);     // Đợt 1
+    AUDIT_LOGS            (HttpMethod.GET,  "/api/v1/manager/audit-logs",                ACCOUNT_MANAGE), // Đợt 1
+    MY_SESSIONS                  (HttpMethod.GET, "/api/v1/me/sessions",                        VEHICLE_REGISTER),
+    MY_COMPLAINT_CAMERA_PHOTO    (HttpMethod.GET, "/api/v1/me/complaints/*/camera-photo",       COMPLAINT_SUBMIT),
+    MANAGER_COMPLAINT_CAMERA_PHOTO(HttpMethod.GET, "/api/v1/manager/complaints/*/camera-photo", CASE_HANDLE),
+    OWNER_COMPLAINT_CAMERA_PHOTO (HttpMethod.GET, "/api/v1/owner/complaints/*/camera-photo",   COMPENSATION_APPROVE),
+    MANAGER_PASS_CATALOG         (HttpMethod.GET, "/api/v1/manager/pass-catalog",               CASH_DEPOSIT),
+    UPDATE_PASS_PRICE            (HttpMethod.PUT, "/api/v1/manager/pass-prices/*",              CASH_DEPOSIT);
 
     private final HttpMethod method;
     private final String pathPattern;

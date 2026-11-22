@@ -9,6 +9,7 @@ import { ShiftPlanTab } from './ShiftPlanTab';
 import { DepositTab } from './DepositTab';
 import { GuardsTab } from './GuardsTab';
 import { LedgerTab } from './LedgerTab';
+import { PassCatalogTab } from './PassCatalogTab';
 import { ReconciliationTab } from './ReconciliationTab';
 import { StudentsTab } from './StudentsTab';
 import { TimesheetTab } from './TimesheetTab';
@@ -31,6 +32,7 @@ const GROUPS: Record<Group, { label: string; sections: Section[] }> = {
     label: 'Thu ngân',
     sections: [
       { id: 'deposit', label: 'Đổi điểm', render: () => <DepositTab /> },
+      { id: 'pass-catalog', label: 'Giá vé tháng', render: () => <PassCatalogTab /> },
       { id: 'withdraw', label: 'Yêu cầu rút', render: () => <WithdrawalRequestsTab /> },
       { id: 'adjust', label: 'Điều chỉnh', render: () => <AdjustmentTab /> },
       { id: 'reconcile', label: 'Đối soát cuối ngày', render: () => <ReconciliationTab /> },

@@ -15,6 +15,16 @@ public interface CredentialRepository {
     /** MSSV đã chuẩn hóa (viết hoa). */
     Optional<AccountCredential> findByStudentCode(String studentCode);
 
+    /** Tìm theo tên đăng nhập (chữ thường). */
+    default Optional<AccountCredential> findByUsername(String username) {
+        return Optional.empty();
+    }
+
+    /** Lấy email đã đăng ký (nếu có) theo userId. */
+    default Optional<EmailAddress> findEmailByUserId(long userId) {
+        return Optional.empty();
+    }
+
     void save(AccountCredential credential);
 
     /**

@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { api, errorMessage } from '../../shared/api';
 import { Alert } from '../../shared/components/Alert';
 import { Button } from '../../shared/components/Button';
-import { TextField } from '../../shared/components/Field';
+import { PasswordField, TextField } from '../../shared/components/Field';
 import { AuthLayout } from './AuthLayout';
 import { HOME_BY_ROLE, useSession } from './session';
 
@@ -59,9 +59,8 @@ export function LoginPage() {
           error={errors.username?.message}
           {...form.register('username')}
         />
-        <TextField
+        <PasswordField
           label="Mật khẩu"
-          type="password"
           autoComplete="current-password"
           error={errors.password?.message}
           {...form.register('password')}

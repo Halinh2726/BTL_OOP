@@ -3,6 +3,7 @@ package com.ptit.parking.support.application.port.out;
 import com.ptit.parking.gate.domain.IncidentPhoto;
 import com.ptit.parking.support.domain.Complaint;
 import com.ptit.parking.support.domain.ComplaintStatus;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -27,4 +28,10 @@ public interface ComplaintRepository {
     List<Complaint> findByStatuses(Collection<ComplaintStatus> statuses, int limit);
 
     Optional<IncidentPhoto> findPhoto(long complaintId);
+
+    default void saveCameraPhoto(long complaintId, IncidentPhoto photo, Instant now) {}
+
+    default Optional<IncidentPhoto> findCameraPhoto(long complaintId) {
+        return Optional.empty();
+    }
 }

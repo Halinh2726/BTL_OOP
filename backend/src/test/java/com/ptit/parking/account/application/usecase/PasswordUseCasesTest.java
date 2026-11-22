@@ -11,7 +11,9 @@ import com.ptit.parking.account.AccountFakes.Codes;
 import com.ptit.parking.account.AccountFakes.Credentials;
 import com.ptit.parking.account.AccountFakes.FixedSecrets;
 import com.ptit.parking.account.AccountFakes.Outbox;
+import com.ptit.parking.account.application.event.SecurityChanged;
 import com.ptit.parking.auth.domain.Role;
+import com.ptit.parking.shared.application.event.NotifiableEvent;
 import com.ptit.parking.shared.application.port.out.AuditTrail.AuditAction;
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
@@ -19,6 +21,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /** Đợt 1 — đổi mật khẩu, quên mật khẩu (OTP qua email), mật khẩu tạm do quản lý cấp. */
@@ -121,6 +125,36 @@ class PasswordUseCasesTest {
         assertThatThrownBy(() -> temporary.forGuard(1L, 7L))
                 .isInstanceOfSatisfying(DomainException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.GUARD_NOT_FOUND));
+    }
+
+    @Test
+    void quenMatKhauBangTenDangNhapVaMssv_phatThongBaoBaoMatKhiDoiHoacKhoiPhuc() {
+        credentials.idByStudentCode.put("B21DCCN007", 7L);
+        List<Object> published = new ArrayList<>();
+        ChangePasswordUseCase changeWithEvent = new ChangePasswordUseCase(
+                credentials, HASHER, audit, DIRECTLY, published::add, clock);
+        ConfirmPasswordResetUseCase confirmWithEvent = new ConfirmPasswordResetUseCase(
+                credentials, codes, HASHER, audit, DIRECTLY, published::add, clock);
+        IssueTemporaryPasswordUseCase tempWithEvent = new IssueTemporaryPasswordUseCase(
+                credentials, HASHER, new FixedSecrets(), audit, DIRECTLY, published::add, clock);
+
+        request.request("user4"); // không có email -> im lặng không gửi
+        assertThat(outbox.sent).isEmpty();
+
+        request.request(" b21dccn007 "); // tra theo MSSV -> tìm ra email an@ptit.edu.vn
+        assertThat(outbox.sent).hasSize(1);
+        confirmWithEvent.confirm(new ConfirmPasswordResetUseCase.Command("user7", "123456", "MatKhauMoi1"));
+        assertThat(HASHER.matches("MatKhauMoi1", credentials.byId.get(7L).passwordHash())).isTrue();
+
+        changeWithEvent.change(new ChangePasswordUseCase.Command(7L, "MatKhauMoi1", "MatKhauMoi2"));
+        tempWithEvent.forStudent(1L, "B21DCCN007");
+
+        assertThat(published).hasSize(3).allSatisfy(event -> {
+            assertThat(event).isInstanceOf(SecurityChanged.class);
+            NotifiableEvent.Notice notice = ((SecurityChanged) event).notices().get(0);
+            assertThat(notice.to()).isEqualTo(new NotifiableEvent.User(7L));
+            assertThat(notice.kind()).isEqualTo("BAO_MAT");
+        });
     }
 
     /** Đồng hồ giả tua được — kiểm tra quy tắc "1 phút mới gửi lại mã". */

@@ -38,14 +38,29 @@ class StudentAccountJdbcAdapter implements StudentAccountRepository {
     }
 
     @Override
+    public boolean emailExists(String email) {
+        Integer count = jdbc.sql("SELECT COUNT(*) FROM users WHERE email = :email")
+                .param("email", email)
+                .query(Integer.class)
+                .single();
+        return count != null && count > 0;
+    }
+
+    @Override
     public Student save(Student student) {
+        return save(student, null);
+    }
+
+    @Override
+    public Student save(Student student, String email) {
         KeyHolder keys = new GeneratedKeyHolder();
         jdbc.sql("""
-                INSERT INTO users (username, password_hash, full_name, role_code, status)
-                VALUES (:username, :passwordHash, :fullName, :role, :status)""")
+                INSERT INTO users (username, password_hash, full_name, email, role_code, status)
+                VALUES (:username, :passwordHash, :fullName, :email, :role, :status)""")
                 .param("username", student.username())
                 .param("passwordHash", student.passwordHash())
                 .param("fullName", student.fullName())
+                .param("email", email, java.sql.Types.VARCHAR)
                 .param("role", student.role().name())
                 .param("status", student.status().name())
                 .update(keys);

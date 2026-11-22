@@ -1,19 +1,27 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { api, errorMessage, isApiError, isMockMode } from '../../shared/api';
 import { Alert } from '../../shared/components/Alert';
 import { Button } from '../../shared/components/Button';
-import { TextField } from '../../shared/components/Field';
+import { PasswordField, TextField } from '../../shared/components/Field';
 import { newPasswordSchema } from '../account/ChangePasswordForm';
 import { AuthLayout } from './AuthLayout';
 import type { LoginLocationState } from './LoginPage';
 
-const emailSchema = z.object({
-  email: z.string().trim().min(1, 'Vui lòng nhập email').email('Email không đúng định dạng'),
+const identifierSchema = z.object({
+  identifier: z
+    .string()
+    .trim()
+    .min(1, 'Vui lòng nhập email, tên đăng nhập hoặc MSSV')
+    .max(100, 'Thông tin nhận dạng tối đa 100 ký tự')
+    .refine(
+      (value) => !value.includes('@') || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value),
+      'Email không đúng định dạng',
+    ),
 });
 
 const confirmSchema = z
@@ -28,30 +36,59 @@ const confirmSchema = z
     }
   });
 
-type EmailForm = z.infer<typeof emailSchema>;
+type IdentifierForm = z.infer<typeof identifierSchema>;
 type ConfirmForm = z.infer<typeof confirmSchema>;
 
+function formatMmSs(totalSeconds: number): string {
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
 /**
- * Quên mật khẩu — 2 bước: (1) nhập email đã khai báo → nhận mã 6 số (hiệu lực 10 phút);
- * (2) nhập mã + mật khẩu mới. Không có email thì mang thẻ sinh viên tới quản lý để được cấp mật khẩu tạm.
+ * Quên mật khẩu — 2 bước: (1) nhập Email / Tên đăng nhập / MSSV → nhận mã 6 số qua email đã đăng ký (10 phút);
+ * (2) nhập mã + mật khẩu mới. Không có email thì mang thẻ tới quản lý để cấp mật khẩu tạm.
  */
 export function ForgotPasswordPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState<string | null>(null);
-  const emailForm = useForm<EmailForm>({ resolver: zodResolver(emailSchema), defaultValues: { email: '' } });
+  const [identifier, setIdentifier] = useState<string | null>(null);
+  const [resendSeconds, setResendSeconds] = useState(0);
+  const [otpSeconds, setOtpSeconds] = useState(0);
+
+  const idForm = useForm<IdentifierForm>({ resolver: zodResolver(identifierSchema), defaultValues: { identifier: '' } });
   const confirmForm = useForm<ConfirmForm>({
     resolver: zodResolver(confirmSchema),
     defaultValues: { code: '', newPassword: '', confirmPassword: '' },
   });
 
+  useEffect(() => {
+    if (resendSeconds <= 0 && otpSeconds <= 0) return;
+    const timer = window.setInterval(() => {
+      setResendSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+      setOtpSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [resendSeconds, otpSeconds]);
+
   const request = useMutation({
-    mutationFn: (values: EmailForm) => api.requestPasswordReset(values.email),
-    onSuccess: (_, values) => setEmail(values.email.trim()),
+    mutationFn: (values: IdentifierForm) => api.requestPasswordReset(values.identifier),
+    onSuccess: (_, values) => {
+      setIdentifier(values.identifier.trim());
+      setResendSeconds(60);
+      setOtpSeconds(600);
+    },
   });
 
   const confirm = useMutation({
-    mutationFn: (values: ConfirmForm) =>
-      api.confirmPasswordReset({ email: email ?? '', code: values.code, newPassword: values.newPassword }),
+    mutationFn: (values: ConfirmForm) => {
+      const value = identifier ?? '';
+      return api.confirmPasswordReset({
+        identifier: value,
+        ...(value.includes('@') ? { email: value } : {}),
+        code: values.code,
+        newPassword: values.newPassword,
+      });
+    },
     onSuccess: () => {
       const state: LoginLocationState = { passwordReset: true };
       navigate('/login', { replace: true, state });
@@ -66,34 +103,43 @@ export function ForgotPasswordPage() {
   });
 
   const confirmHandled =
-    isApiError(confirm.error) && (confirm.error.code.startsWith('RESET_CODE_') || ['PASSWORD_REUSED', 'PASSWORD_POLICY'].includes(confirm.error.code));
+    isApiError(confirm.error) &&
+    (confirm.error.code.startsWith('RESET_CODE_') || ['PASSWORD_REUSED', 'PASSWORD_POLICY'].includes(confirm.error.code));
 
   return (
-    <AuthLayout title="Quên mật khẩu" subtitle={email ? 'Bước 2/2 — nhập mã và mật khẩu mới' : 'Bước 1/2 — nhận mã qua email'}>
-      {email === null ? (
-        <form className="space-y-4" noValidate onSubmit={emailForm.handleSubmit((values) => request.mutate(values))}>
+    <AuthLayout
+      title="Quên mật khẩu"
+      subtitle={identifier ? 'Bước 2/2 — nhập mã OTP và mật khẩu mới' : 'Bước 1/2 — xác định tài khoản & nhận mã OTP'}
+    >
+      {identifier === null ? (
+        <form className="space-y-4" noValidate onSubmit={idForm.handleSubmit((values) => request.mutate(values))}>
           {request.isError && <Alert tone="error">{errorMessage(request.error)}</Alert>}
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 space-y-1">
+            <p className="font-semibold text-slate-800">Căn cứ khôi phục mật khẩu:</p>
+            <p>1. Qua <strong>Email đã khai báo</strong> (nhập Email, Tên đăng nhập hoặc MSSV để nhận mã OTP 6 số, hiệu lực 10 phút).</p>
+            <p>2. Nếu <strong>chưa khai báo email</strong>: mang thẻ tới quầy Quản lý để nhận mật khẩu tạm dùng 1 lần.</p>
+          </div>
           <TextField
-            label="Email đã khai báo trong tài khoản"
-            type="email"
-            autoComplete="email"
+            label="Email, Tên đăng nhập hoặc MSSV"
+            placeholder="sv01@ptit.edu.vn hoặc sv01 hoặc B21DCCN001"
+            autoComplete="username"
             autoFocus
-            error={emailForm.formState.errors.email?.message}
-            {...emailForm.register('email')}
+            error={idForm.formState.errors.identifier?.message}
+            {...idForm.register('identifier')}
           />
           <Button type="submit" size="lg" className="w-full" loading={request.isPending}>
             Gửi mã xác nhận
           </Button>
-          <p className="text-sm text-slate-500">
-            Chưa khai báo email? <strong>Sinh viên</strong> mang thẻ sinh viên tới quầy quản lý; <strong>bảo vệ</strong> báo
-            quản lý bãi xe — quản lý sẽ cấp mật khẩu tạm, lần đăng nhập sau bạn tự đặt mật khẩu mới.
-          </p>
         </form>
       ) : (
         <form className="space-y-4" noValidate onSubmit={confirmForm.handleSubmit((values) => confirm.mutate(values))}>
           <Alert tone="info">
-            {request.data?.message}
-            {isMockMode && <> (Chế độ mock: mã luôn là <strong>123456</strong>.)</>}
+            <p>{request.data?.message}</p>
+            <p className="mt-1 text-xs">
+              Tài khoản: <strong className="font-mono">{identifier}</strong> · Thời gian hiệu lực còn{' '}
+              <strong className="font-mono">{formatMmSs(otpSeconds)}</strong>
+              {isMockMode && <> · (Chế độ mock: mã luôn là <strong>123456</strong>.)</>}
+            </p>
           </Alert>
           {confirm.isError && !confirmHandled && <Alert tone="error">{errorMessage(confirm.error)}</Alert>}
           <TextField
@@ -106,17 +152,16 @@ export function ForgotPasswordPage() {
             error={confirmForm.formState.errors.code?.message}
             {...confirmForm.register('code')}
           />
-          <TextField
+          <PasswordField
             label="Mật khẩu mới"
-            type="password"
             autoComplete="new-password"
-            hint="8–72 ký tự"
+            showStrength
+            hint="8–72 ký tự, khác mật khẩu cũ"
             error={confirmForm.formState.errors.newPassword?.message}
             {...confirmForm.register('newPassword')}
           />
-          <TextField
+          <PasswordField
             label="Nhập lại mật khẩu mới"
-            type="password"
             autoComplete="new-password"
             error={confirmForm.formState.errors.confirmPassword?.message}
             {...confirmForm.register('confirmPassword')}
@@ -124,17 +169,29 @@ export function ForgotPasswordPage() {
           <Button type="submit" size="lg" className="w-full" loading={confirm.isPending}>
             Đặt lại mật khẩu
           </Button>
-          <button
-            type="button"
-            className="w-full text-sm font-semibold text-blue-700 hover:underline"
-            onClick={() => {
-              setEmail(null);
-              confirm.reset();
-              request.reset();
-            }}
-          >
-            Nhập email khác / gửi lại mã
-          </button>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+            <button
+              type="button"
+              disabled={resendSeconds > 0 || request.isPending}
+              className="font-semibold text-blue-700 hover:underline disabled:cursor-not-allowed disabled:text-slate-400"
+              onClick={() => request.mutate({ identifier })}
+            >
+              {resendSeconds > 0 ? `Gửi lại mã sau ${resendSeconds}s` : 'Gửi lại mã OTP'}
+            </button>
+            <button
+              type="button"
+              className="font-semibold text-slate-600 hover:underline"
+              onClick={() => {
+                setIdentifier(null);
+                setResendSeconds(0);
+                setOtpSeconds(0);
+                confirm.reset();
+                request.reset();
+              }}
+            >
+              Đổi tài khoản / email khác
+            </button>
+          </div>
         </form>
       )}
       <p className="mt-5 text-center text-sm text-slate-600">

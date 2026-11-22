@@ -1,6 +1,7 @@
 import type {
   ComplaintStatus,
   ComplaintType,
+  CameraReviewStatus,
   ShiftSlot,
   AuditAction,
   GuardStatus,
@@ -26,6 +27,7 @@ export interface MockUser {
   /** Đợt 1 */
   email?: string;
   mustChangePassword?: boolean;
+  passwordChangedAt?: string;
 }
 
 export interface MockVehicle {
@@ -141,6 +143,14 @@ export interface MockComplaint {
   decidedAt: string | null;
   decisionNote: string | null;
   compensationTransactionId: number | null;
+  cameraRequested?: boolean;
+  cameraStatus?: CameraReviewStatus;
+  incidentArea?: string | null;
+  incidentTimeRange?: string | null;
+  cameraNote?: string | null;
+  cameraReviewerId?: number | null;
+  cameraReviewedAt?: string | null;
+  cameraPhoto?: string | null;
 }
 
 /** Đợt 5 — vé tháng (month "yyyy-MM"). */
@@ -237,6 +247,7 @@ export interface MockState {
   /** Đợt 5 */
   passes?: MockPass[];
   notifications?: MockNotification[];
+  passPrices?: Record<string, number>;
 }
 
 const HOUR = 60 * 60 * 1000;
@@ -320,5 +331,6 @@ export function seedState(now = new Date()): MockState {
     assignments: [],
     passes: [],
     notifications: [],
+    passPrices: { XE_MAY: 100_000, XE_DAP_DIEN: 80_000, XE_DAP: 50_000 },
   };
 }

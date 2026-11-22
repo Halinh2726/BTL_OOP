@@ -44,6 +44,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
+        <!-- Gửi email OTP khôi phục mật khẩu qua SMTP khi được cấu hình -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
         <!-- JPA/Hibernate: chỉ dùng ở tầng adapter/out/persistence, domain KHÔNG phụ thuộc -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

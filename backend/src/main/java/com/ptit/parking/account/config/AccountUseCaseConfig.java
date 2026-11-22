@@ -16,6 +16,7 @@ import com.ptit.parking.account.application.usecase.RequestPasswordResetUseCase;
 import com.ptit.parking.account.application.usecase.UpdateGuardProfileUseCase;
 import com.ptit.parking.auth.domain.PasswordHasher;
 import com.ptit.parking.shared.application.port.out.AuditTrail;
+import com.ptit.parking.shared.application.port.out.EventPublisher;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
@@ -33,8 +34,9 @@ public class AccountUseCaseConfig {
 
     @Bean
     ChangePasswordUseCase changePasswordUseCase(CredentialRepository credentials, PasswordHasher hasher,
-                                                AuditTrail audit, TransactionRunner transactions, Clock clock) {
-        return new ChangePasswordUseCase(credentials, hasher, audit, transactions, clock);
+                                                AuditTrail audit, TransactionRunner transactions,
+                                                EventPublisher events, Clock clock) {
+        return new ChangePasswordUseCase(credentials, hasher, audit, transactions, events, clock);
     }
 
     @Bean
@@ -50,16 +52,16 @@ public class AccountUseCaseConfig {
     ConfirmPasswordResetUseCase confirmPasswordResetUseCase(CredentialRepository credentials,
                                                             PasswordResetCodeRepository codes, PasswordHasher hasher,
                                                             AuditTrail audit, TransactionRunner transactions,
-                                                            Clock clock) {
-        return new ConfirmPasswordResetUseCase(credentials, codes, hasher, audit, transactions, clock);
+                                                            EventPublisher events, Clock clock) {
+        return new ConfirmPasswordResetUseCase(credentials, codes, hasher, audit, transactions, events, clock);
     }
 
     @Bean
     IssueTemporaryPasswordUseCase issueTemporaryPasswordUseCase(CredentialRepository credentials,
                                                                 PasswordHasher hasher, SecretGenerator secrets,
                                                                 AuditTrail audit, TransactionRunner transactions,
-                                                                Clock clock) {
-        return new IssueTemporaryPasswordUseCase(credentials, hasher, secrets, audit, transactions, clock);
+                                                                EventPublisher events, Clock clock) {
+        return new IssueTemporaryPasswordUseCase(credentials, hasher, secrets, audit, transactions, events, clock);
     }
 
     @Bean

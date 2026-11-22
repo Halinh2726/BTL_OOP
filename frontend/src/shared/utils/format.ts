@@ -1,6 +1,7 @@
 import type {
   AttendanceStatus,
   AuditAction,
+  CameraReviewStatus,
   ComplaintStatus,
   ComplaintType,
   GuardStatus,
@@ -139,7 +140,29 @@ export const COMPLAINT_TYPE_LABELS: Record<ComplaintType, string> = {
   THU_PHI_SAI: 'Thu phí sai',
   XE_HU_HONG: 'Xe bị hư hỏng trong bãi',
   MAT_DO: 'Mất đồ trong bãi',
+  TRICH_XUAT_CAMERA: 'Trích xuất camera xem lịch sử',
+  DICH_VU_KHAC: 'Dịch vụ khác',
   KHAC: 'Khác',
+};
+
+export const CAMERA_STATUS_LABELS: Record<CameraReviewStatus, string> = {
+  KHONG_YEU_CAU: 'Không yêu cầu trích xuất',
+  CHO_TRICH_XUAT: 'Chờ trích xuất camera',
+  DANG_TRICH_XUAT: 'Đang trích xuất camera',
+  DA_TRICH_XUAT: 'Đã trích xuất camera',
+  KHONG_CO_DU_LIEU: 'Không có dữ liệu camera',
+};
+
+export const NOTIFICATION_KIND_META: Record<string, { label: string; tone: 'blue' | 'green' | 'amber' | 'red' | 'slate' }> = {
+  XE_VAO: { label: 'Xe vào bãi', tone: 'blue' },
+  XE_RA: { label: 'Xe ra & trừ điểm', tone: 'green' },
+  SO_DU_THAP: { label: 'Sắp hết điểm', tone: 'amber' },
+  VE_THANG: { label: 'Vé tháng', tone: 'blue' },
+  KHIEU_NAI: { label: 'Khiếu nại', tone: 'slate' },
+  CAMERA: { label: 'Trích xuất camera', tone: 'blue' },
+  BAO_MAT: { label: 'Bảo mật tài khoản', tone: 'red' },
+  SU_CO: { label: 'Sự cố bãi xe', tone: 'amber' },
+  PHAN_CA: { label: 'Phân ca trực', tone: 'slate' },
 };
 
 export const COMPLAINT_STATUS_LABELS: Record<ComplaintStatus, string> = {

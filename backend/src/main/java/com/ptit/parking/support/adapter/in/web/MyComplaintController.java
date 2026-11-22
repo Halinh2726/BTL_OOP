@@ -38,7 +38,10 @@ class MyComplaintController {
             @Size(max = Complaint.MAX_TEXT, message = "Mô tả tối đa 1000 ký tự") String description,
             @Pattern(regexp = "image/(jpeg|png|webp)", message = "Ảnh phải là JPG, PNG hoặc WEBP") String photoContentType,
             // Base64 của ảnh tối đa 2 MB ~ 2,8 triệu ký tự
-            @Size(max = 2_900_000, message = "Ảnh tối đa 2 MB") String photoBase64) {}
+            @Size(max = 2_900_000, message = "Ảnh tối đa 2 MB") String photoBase64,
+            Boolean cameraRequested,
+            @Size(max = Complaint.MAX_AREA, message = "Khu vực tối đa 150 ký tự") String incidentArea,
+            @Size(max = Complaint.MAX_TIME_RANGE, message = "Khung giờ tối đa 100 ký tự") String incidentTimeRange) {}
 
     private final StudentComplaintUseCase complaints;
     private final ZoneId zone;
@@ -56,8 +59,16 @@ class MyComplaintController {
     @PostMapping("/api/v1/me/complaints")
     @ResponseStatus(HttpStatus.CREATED)
     ComplaintView submit(@AuthenticationPrincipal SessionUser student, @Valid @RequestBody SubmitRequest body) {
-        return ComplaintView.of(complaints.submit(new StudentComplaintUseCase.Command(student.id(), body.type(),
-                body.sessionId(), body.description(), body.photoContentType(), body.photoBase64())), zone);
+        return ComplaintView.of(complaints.submit(new StudentComplaintUseCase.Command(
+                student.id(),
+                body.type(),
+                body.sessionId(),
+                body.description(),
+                body.photoContentType(),
+                body.photoBase64(),
+                Boolean.TRUE.equals(body.cameraRequested()),
+                body.incidentArea(),
+                body.incidentTimeRange())), zone);
     }
 
     @PostMapping("/api/v1/me/complaints/{id}/cancel")
@@ -68,6 +79,13 @@ class MyComplaintController {
     @GetMapping("/api/v1/me/complaints/{id}/photo")
     ResponseEntity<byte[]> photo(@AuthenticationPrincipal SessionUser student, @PathVariable long id) {
         IncidentPhoto photo = complaints.photo(student.id(), id);
+        return ResponseEntity.ok().contentType(MediaType.parseMediaType(photo.contentType()))
+                .cacheControl(CacheControl.noStore()).body(photo.data());
+    }
+
+    @GetMapping("/api/v1/me/complaints/{id}/camera-photo")
+    ResponseEntity<byte[]> cameraPhoto(@AuthenticationPrincipal SessionUser student, @PathVariable long id) {
+        IncidentPhoto photo = complaints.cameraPhoto(student.id(), id);
         return ResponseEntity.ok().contentType(MediaType.parseMediaType(photo.contentType()))
                 .cacheControl(CacheControl.noStore()).body(photo.data());
     }

@@ -28,7 +28,7 @@ class StudentRegistrationController {
     @ResponseStatus(HttpStatus.CREATED)
     RegisteredStudentResponse register(@Valid @RequestBody RegisterStudentRequest body) {
         Student student = registerStudent.register(new RegisterStudentUseCase.Command(
-                body.studentCode(), body.fullName(), body.username(), body.password()));
+                body.studentCode(), body.fullName(), body.username(), body.password(), body.email()));
         return RegisteredStudentResponse.from(student);
     }
 }
