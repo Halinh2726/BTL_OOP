@@ -54,6 +54,7 @@ import {
 /** Cùng mã lỗi, HTTP status và lời nhắn với ErrorCode của backend. */
 const ERRORS = {
   VALIDATION_ERROR: [400, 'Dữ liệu không hợp lệ.'],
+  INTERNAL_ERROR: [500, 'Có lỗi xảy ra. Vui lòng thử lại.'],
   IDEMPOTENCY_KEY_REQUIRED: [400, 'Thiếu khóa chống xử lý trùng.'],
   UNAUTHENTICATED: [401, 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'],
   INVALID_CREDENTIALS: [401, 'Sai tên đăng nhập hoặc mật khẩu'],
@@ -169,11 +170,16 @@ function normalizePlate(raw: string): string {
   return raw.replace(/[\s.-]/g, '').toUpperCase();
 }
 
-function feeForStay(enteredAt: string, exitTime: Date): number {
+function parkingDurationMs(enteredAt: string, exitedAt: string): number {
+  const elapsed = Date.parse(exitedAt) - Date.parse(enteredAt);
+  if (!Number.isFinite(elapsed) || elapsed < 0) fail('INTERNAL_ERROR');
+  return elapsed;
+}
+
+function feeForStay(elapsed: number): number {
   const minuteMs = 60_000;
   const dayRule = FEE_RULES.at(-1)!;
   const dayMs = dayRule.upToMinutes * minuteMs;
-  const elapsed = Date.parse(toVietnamIso(exitTime)) - Date.parse(enteredAt);
   const fullDays = Math.floor(elapsed / dayMs);
   const remainder = elapsed % dayMs;
   const fullDayPoints = fullDays * dayRule.feePoints;
@@ -948,8 +954,9 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           };
         }
         const now = new Date();
+        const elapsed = parkingDurationMs(session.enteredAt, toVietnamIso(now));
         const passValidUntil = passUntil(found.vehicle.id, now);
-        const fee = passValidUntil ? 0 : feeForStay(session.enteredAt, now);
+        const fee = passValidUntil ? 0 : feeForStay(elapsed);
         const reason = balance < fee ? ('INSUFFICIENT_POINTS' as const) : null;
         return {
           ...owner, sessionId: session.id, enteredAt: session.enteredAt, balance, fee, allowed: reason === null, reason,
@@ -967,19 +974,21 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           const vehicle = state.vehicles.find((candidate) => candidate.id === session.vehicleId);
           if (!vehicle) return fail('NO_OPEN_SESSION');
           const now = new Date();
+          const exitedAt = toVietnamIso(now);
+          const elapsed = parkingDurationMs(session.enteredAt, exitedAt);
           const passValidUntil = passUntil(vehicle.id, now);
           if (passValidUntil) {
             // Đợt 5: vé tháng -> chỉ đóng lượt, không ghi giao dịch
-            session.exitedAt = toVietnamIso(now);
+            session.exitedAt = exitedAt;
             session.exitGuardId = guard.id;
             return {
               transactionId: null, sessionId, fee: 0, exitedAt: session.exitedAt, balanceAfter: balanceOf(vehicle.userId),
               passValidUntil,
             };
           }
-          const fee = feeForStay(session.enteredAt, now);
+          const fee = feeForStay(elapsed);
           if (balanceOf(vehicle.userId) < fee) fail('INSUFFICIENT_POINTS');
-          session.exitedAt = toVietnamIso(now);
+          session.exitedAt = exitedAt;
           session.exitGuardId = guard.id;
           const transaction = record('THANH_TOAN', [[vehicle.userId, -fee], [OWNER_ID, fee]], now, {
             performedBy: guard.id, sessionId: session.id,

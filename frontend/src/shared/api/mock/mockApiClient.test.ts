@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ApiClient } from '../ApiClient';
 import { ApiError } from '../ApiError';
 import { createMockApiClient } from './mockApiClient';
@@ -59,6 +59,32 @@ describe('mockApiClient (dữ liệu giả lập phải theo đúng hợp đồn
     expect((await api.myWallet()).balance).toBe(4000 + fee);
     const history = await api.myTransactions({ type: 'THANH_TOAN' });
     expect(history.items[0]?.change).toBe(fee);
+  });
+
+  it('giờ ra trước giờ vào không đóng lượt gửi hoặc làm thay đổi số dư', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const enteredAt = new Date('2026-11-23T10:00:00+07:00');
+      vi.setSystemTime(enteredAt);
+      await api.login({ username: 'baove01', password: 'demo1234' });
+      const { sessionId } = await api.checkIn('29A12345');
+
+      vi.setSystemTime(enteredAt.getTime() - 1_000);
+      expect(await codeOf(api.previewCheckOut('29A12345'))).toBe('INTERNAL_ERROR');
+      expect(await codeOf(api.checkOut(sessionId, 'clock-rollback'))).toBe('INTERNAL_ERROR');
+
+      await api.logout();
+      await api.login({ username: 'sv01', password: 'demo1234' });
+      expect((await api.myWallet()).balance).toBe(44000);
+
+      await api.logout();
+      await api.login({ username: 'baove01', password: 'demo1234' });
+      vi.setSystemTime(enteredAt.getTime() + 7_201_000);
+      expect(await api.previewCheckOut('29A12345')).toMatchObject({ sessionId, fee: 5000, allowed: true });
+      expect((await api.checkOut(sessionId, 'clock-rollback')).data.balanceAfter).toBe(39000);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('gợi ý biển số: biển kết thúc bằng số vừa gõ xếp trước; xe ra chỉ gợi ý xe trong bãi', async () => {
