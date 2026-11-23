@@ -31,6 +31,7 @@ public class SecurityConfig {
     public static final String LOGOUT_URL = "/api/v1/auth/logout";
     public static final String REGISTER_URL = "/api/v1/students/register";
     public static final String HEALTH_URL = "/api/v1/health";
+    public static final String WEBHOOK_URL = "/api/v1/webhooks/**";
     /** Quên mật khẩu (yêu cầu mã + đặt lại): chưa đăng nhập nên không có phiên, không có CSRF token. */
     public static final String PASSWORD_RESET_URL = "/api/v1/auth/password-reset";
     public static final String PASSWORD_RESET_CONFIRM_URL = "/api/v1/auth/password-reset/confirm";
@@ -40,10 +41,10 @@ public class SecurityConfig {
                                             AccountStatusLookup accounts, CredentialStateLookup credentials,
                                             Clock clock) throws Exception {
         http
-                .csrf(csrf -> csrf.spa().ignoringRequestMatchers(LOGIN_URL, REGISTER_URL,
+                .csrf(csrf -> csrf.spa().ignoringRequestMatchers(LOGIN_URL, REGISTER_URL, WEBHOOK_URL,
                         PASSWORD_RESET_URL, PASSWORD_RESET_CONFIRM_URL))
                 .authorizeHttpRequests(auth -> {
-                    auth.requestMatchers(LOGIN_URL, REGISTER_URL, HEALTH_URL,
+                    auth.requestMatchers(LOGIN_URL, REGISTER_URL, HEALTH_URL, WEBHOOK_URL,
                             PASSWORD_RESET_URL, PASSWORD_RESET_CONFIRM_URL).permitAll();
                     for (ProtectedEndpoint endpoint : ProtectedEndpoint.values()) {
                         auth.requestMatchers(endpoint.method(), endpoint.pathPattern())

@@ -18,6 +18,7 @@ function describe(rules: FeeRule[], index: number): string {
 
 export function FeeTable() {
   const rules = useQuery({ queryKey: queryKeys.feeRules, queryFn: api.feeRules, staleTime: Infinity });
+  const policy = useQuery({ queryKey: queryKeys.parkingPolicy, queryFn: api.parkingPolicy });
 
   return (
     <Card title="Bảng phí gửi xe">
@@ -32,10 +33,23 @@ export function FeeTable() {
                 <dd className="text-lg font-bold text-slate-900">{formatNumber(rule.feePoints)} điểm</dd>
               </div>
             ))}
+            {policy.data && (
+              <div className="flex items-center justify-between py-2.5">
+                <dt className="font-medium text-amber-800">Gửi qua đêm (lấy xe từ ngày hôm sau)</dt>
+                <dd className="text-lg font-bold text-amber-700">{formatNumber(policy.data.overnightFeePoints)} điểm</dd>
+              </div>
+            )}
           </dl>
-          <p className="mt-3 text-sm text-slate-500">
-            Phí tính theo giờ xe ra và tự trừ vào điểm khi bảo vệ xác nhận. Xe vào cần có ít nhất mức phí thấp nhất.
-          </p>
+          <div className="mt-3 space-y-1 text-sm text-slate-500">
+            <p>Phí tính theo giờ xe ra và tự trừ vào điểm khi bảo vệ xác nhận. Xe vào cần có ít nhất mức phí thấp nhất.</p>
+            {policy.data?.curfewEnabled && (
+              <p className="font-medium text-amber-800">
+                Lưu ý: Bãi xe khóa lấy xe trong ngày từ {policy.data.checkoutCurfewTime}. Xe chưa lấy trước{' '}
+                {policy.data.checkoutCurfewTime} sẽ lấy vào ngày hôm sau và áp dụng phí qua đêm (
+                {formatNumber(policy.data.overnightFeePoints)} điểm).
+              </p>
+            )}
+          </div>
         </>
       )}
     </Card>

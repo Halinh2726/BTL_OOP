@@ -5,6 +5,7 @@ import com.ptit.parking.parking.application.usecase.CheckOutUseCase;
 import com.ptit.parking.parking.application.usecase.PreviewCheckOutUseCase;
 import com.ptit.parking.parking.application.usecase.PreviewCheckOutUseCase.Preview;
 import com.ptit.parking.parking.domain.ParkingSession;
+import com.ptit.parking.parking.domain.VietQrOrder;
 import com.ptit.parking.payment.domain.ParkingPayment;
 import com.ptit.parking.shared.security.SessionUser;
 import com.ptit.parking.shared.web.IdempotencyKeyHeader;
@@ -35,7 +36,7 @@ class CheckOutController {
     /** Response của API #14. Trường nào không có (chưa đăng ký, không có lượt mở) thì null. */
     record PreviewResponse(Long sessionId, String plateNumber, String vehicleTypeCode, String studentCode,
                            String fullName, String enteredAt, Long balance, Long fee, boolean allowed, String reason,
-                           String passValidUntil) {
+                           String passValidUntil, boolean overnight, String curfewTime, VietQrOrder vietQrOrder) {
 
         static PreviewResponse from(Preview preview, ZoneId zone) {
             VehicleOwner owner = preview.owner();
@@ -49,7 +50,8 @@ class CheckOutController {
                     session == null ? null : format(session.enteredAt(), zone),
                     preview.balance(), preview.fee(), preview.allowed(),
                     preview.reason() == null ? null : preview.reason().name(),
-                    preview.passValidUntil() == null ? null : preview.passValidUntil().toString());
+                    preview.passValidUntil() == null ? null : preview.passValidUntil().toString(),
+                    preview.overnight(), preview.curfewTime(), preview.vietQrOrder());
         }
     }
 

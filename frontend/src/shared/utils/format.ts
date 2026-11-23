@@ -102,7 +102,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
 };
 
 export const TRANSACTION_LABELS: Record<TransactionType, string> = {
-  DOI_DIEM: 'Đổi điểm',
+  DOI_DIEM: 'Nạp điểm',
   THANH_TOAN: 'Thanh toán phí gửi xe',
   RUT_DIEM: 'Rút điểm',
   DIEU_CHINH: 'Điều chỉnh',
@@ -178,6 +178,7 @@ export const REASON_LABELS: Record<string, string> = {
   SESSION_ALREADY_OPEN: 'Xe đang có lượt gửi chưa kết thúc',
   NO_OPEN_SESSION: 'Xe không có lượt gửi đang mở',
   INSUFFICIENT_POINTS: 'Không đủ điểm',
+  CHECKOUT_CURFEW: 'Đã quá giờ khóa lấy xe trong ngày (từ 20:00)',
 };
 
 /** Bỏ khoảng trắng, dấu chấm, gạch ngang và viết hoa — cùng quy tắc chuẩn hóa biển số với backend. */
