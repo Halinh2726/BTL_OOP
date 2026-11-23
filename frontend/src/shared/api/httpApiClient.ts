@@ -135,9 +135,22 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
     changePassword: async (body) => {
       await send('/me/password', { method: 'POST', body });
     },
-    requestPasswordReset: (email) => json('/auth/password-reset', { method: 'POST', body: { email } }),
+    mySecurityActivity: () => json('/me/security-activity'),
+    requestPasswordReset: (identifier) =>
+      json('/auth/password-reset', {
+        method: 'POST',
+        body: identifier.includes('@') ? { identifier, email: identifier } : { identifier },
+      }),
     confirmPasswordReset: async (body) => {
-      await send('/auth/password-reset/confirm', { method: 'POST', body });
+      const effective = body.identifier?.trim() || body.email?.trim() || '';
+      await send('/auth/password-reset/confirm', {
+        method: 'POST',
+        body: {
+          ...body,
+          identifier: effective,
+          ...(effective.includes('@') ? { email: effective } : {}),
+        },
+      });
     },
 
     changeVehicleType: (vehicleId, vehicleTypeCode) =>
@@ -195,11 +208,18 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
     closeReconciliation: (body) => json('/manager/reconciliations', { method: 'POST', body }),
     trafficStats: (days) => json('/stats/traffic', { query: { days } }),
 
+    mySessions: () => json('/me/sessions'),
     myComplaints: () => json('/me/complaints'),
     submitComplaint: (body) => json('/me/complaints', { method: 'POST', body }),
     cancelComplaint: (id) => json(`/me/complaints/${id}/cancel`, { method: 'POST' }),
     complaintSessions: () => json('/me/complaint-sessions'),
     complaintPhotoUrl: (id, manager) => url(manager ? `/manager/complaints/${id}/photo` : `/me/complaints/${id}/photo`),
+    complaintCameraPhotoUrl: (id, role = 'me') =>
+      url(role === 'manager'
+        ? `/manager/complaints/${id}/camera-photo`
+        : role === 'owner'
+          ? `/owner/complaints/${id}/camera-photo`
+          : `/me/complaints/${id}/camera-photo`),
     managerComplaints: (status) => json('/manager/complaints', { query: { status } }),
     startComplaint: (id) => json(`/manager/complaints/${id}/start`, { method: 'POST' }),
     resolveComplaint: (id, note, refundPoints) =>
@@ -207,6 +227,7 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
     rejectComplaint: (id, note) => json(`/manager/complaints/${id}/reject`, { method: 'POST', body: { note } }),
     proposeCompensation: (id, points, note) =>
       json(`/manager/complaints/${id}/propose`, { method: 'POST', body: { points, note } }),
+    updateComplaintCamera: (id, body) => json(`/manager/complaints/${id}/camera`, { method: 'POST', body }),
     managerIncidents: (status) => json('/manager/incidents', { query: { status } }),
     startIncident: (id) => json(`/manager/incidents/${id}/start`, { method: 'POST' }),
     resolveIncident: (id, note) => json(`/manager/incidents/${id}/resolve`, { method: 'POST', body: { note } }),
@@ -224,6 +245,9 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
 
     myPasses: () => json('/me/passes'),
     buyPass: (body, key) => idempotent('/me/passes', body, key),
+    managerPassCatalog: () => json('/manager/pass-catalog'),
+    updatePassPrice: (vehicleTypeCode, monthlyPoints) =>
+      json(`/manager/pass-prices/${encodeURIComponent(vehicleTypeCode)}`, { method: 'PUT', body: { monthlyPoints } }),
     notifications: () => json('/me/notifications'),
     markNotificationRead: (id) => json(`/me/notifications/${id}/read`, { method: 'POST' }),
     markAllNotificationsRead: () => json('/me/notifications/read-all', { method: 'POST' }),

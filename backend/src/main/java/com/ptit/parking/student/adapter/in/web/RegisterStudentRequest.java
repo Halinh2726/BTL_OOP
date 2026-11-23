@@ -1,5 +1,6 @@
 package com.ptit.parking.student.adapter.in.web;
 
+import com.ptit.parking.account.domain.EmailAddress;
 import java.util.Locale;
 
 import jakarta.validation.constraints.NotBlank;
@@ -23,11 +24,20 @@ record RegisterStudentRequest(
 
         @NotBlank(message = "Vui lòng nhập mật khẩu")
         @Size(min = 8, max = 72, message = "Mật khẩu từ 8 đến 72 ký tự")
-        String password) {
+        String password,
 
-    /** Chuẩn hóa TRƯỚC khi kiểm tra: MSSV viết hoa, bỏ khoảng trắng đầu cuối của MSSV và họ tên. */
+        @Size(max = EmailAddress.MAX_LENGTH, message = "Email tối đa 100 ký tự")
+        @Pattern(regexp = EmailAddress.PATTERN, message = "Email không hợp lệ")
+        String email) {
+
+    RegisterStudentRequest(String studentCode, String fullName, String username, String password) {
+        this(studentCode, fullName, username, password, null);
+    }
+
+    /** Chuẩn hóa TRƯỚC khi kiểm tra: MSSV viết hoa, bỏ khoảng trắng đầu cuối; email rỗng thành null. */
     RegisterStudentRequest {
         studentCode = studentCode == null ? null : studentCode.strip().toUpperCase(Locale.ROOT);
         fullName = fullName == null ? null : fullName.strip();
+        email = (email == null || email.isBlank()) ? null : email.strip().toLowerCase(Locale.ROOT);
     }
 }

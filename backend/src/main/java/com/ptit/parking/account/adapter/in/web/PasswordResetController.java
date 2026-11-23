@@ -4,11 +4,14 @@ import com.ptit.parking.account.application.usecase.ConfirmPasswordResetUseCase;
 import com.ptit.parking.account.application.usecase.RequestPasswordResetUseCase;
 import com.ptit.parking.account.domain.EmailAddress;
 import com.ptit.parking.account.domain.PasswordPolicy;
+import com.ptit.parking.shared.domain.DomainException;
+import com.ptit.parking.shared.domain.ErrorCode;
 import com.ptit.parking.shared.ratelimit.RateLimiter;
 import com.ptit.parking.shared.ratelimit.TooManyRequestsException;
 import com.ptit.parking.shared.security.SecurityConfig;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -30,16 +33,28 @@ class PasswordResetController {
     static final int LIMIT_PER_IP = 10;
 
     record ResetRequest(
-            @NotBlank(message = "Vui lòng nhập email")
-            @Size(max = EmailAddress.MAX_LENGTH, message = "Email tối đa 100 ký tự")
-            @Pattern(regexp = EmailAddress.PATTERN, message = "Email không đúng định dạng")
-            String email) {
+            @Size(max = EmailAddress.MAX_LENGTH, message = "Thông tin nhận dạng tối đa 100 ký tự")
+            String email,
+
+            @Size(max = EmailAddress.MAX_LENGTH, message = "Thông tin nhận dạng tối đa 100 ký tự")
+            String identifier) {
+
+        @AssertTrue(message = "Vui lòng nhập email, tên đăng nhập hoặc MSSV")
+        public boolean isIdentifierProvided() {
+            return hasText(identifier) || hasText(email);
+        }
+
+        String effectiveIdentifier() {
+            return resolveIdentifier(identifier, email);
+        }
     }
 
     record ConfirmRequest(
-            @NotBlank(message = "Vui lòng nhập email")
-            @Pattern(regexp = EmailAddress.PATTERN, message = "Email không đúng định dạng")
+            @Size(max = EmailAddress.MAX_LENGTH, message = "Thông tin nhận dạng tối đa 100 ký tự")
             String email,
+
+            @Size(max = EmailAddress.MAX_LENGTH, message = "Thông tin nhận dạng tối đa 100 ký tự")
+            String identifier,
 
             @NotBlank(message = "Vui lòng nhập mã xác nhận")
             @Pattern(regexp = "^[0-9]{6}$", message = "Mã xác nhận gồm 6 chữ số")
@@ -48,9 +63,18 @@ class PasswordResetController {
             @NotBlank(message = "Vui lòng nhập mật khẩu mới")
             @Size(min = PasswordPolicy.MIN_LENGTH, max = PasswordPolicy.MAX_LENGTH, message = "Mật khẩu 8–72 ký tự")
             String newPassword) {
+
+        @AssertTrue(message = "Vui lòng nhập email, tên đăng nhập hoặc MSSV")
+        public boolean isIdentifierProvided() {
+            return hasText(identifier) || hasText(email);
+        }
+
+        String effectiveIdentifier() {
+            return resolveIdentifier(identifier, email);
+        }
     }
 
-    /** Luôn cùng một câu trả lời, dù email có tồn tại hay không. */
+    /** Luôn cùng một câu trả lời, dù tài khoản có tồn tại hoặc có email hay không. */
     record ResetAccepted(String message) {}
 
     private final RequestPasswordResetUseCase requestReset;
@@ -68,8 +92,8 @@ class PasswordResetController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     ResetAccepted request(@Valid @RequestBody ResetRequest body, HttpServletRequest http) {
         throttle(http);
-        requestReset.request(body.email());
-        return new ResetAccepted("Nếu email đã được đăng ký, mã xác nhận đã được gửi tới email đó. "
+        requestReset.request(body.effectiveIdentifier());
+        return new ResetAccepted("Nếu tài khoản hợp lệ và đã đăng ký email khôi phục, mã xác nhận đã được gửi. "
                 + "Mã có hiệu lực 10 phút.");
     }
 
@@ -77,7 +101,22 @@ class PasswordResetController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void confirm(@Valid @RequestBody ConfirmRequest body, HttpServletRequest http) {
         throttle(http);
-        confirmReset.confirm(new ConfirmPasswordResetUseCase.Command(body.email(), body.code(), body.newPassword()));
+        confirmReset.confirm(new ConfirmPasswordResetUseCase.Command(
+                body.effectiveIdentifier(), body.code(), body.newPassword()));
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private static String resolveIdentifier(String identifier, String email) {
+        if (hasText(identifier)) {
+            return identifier.strip();
+        }
+        if (hasText(email)) {
+            return email.strip();
+        }
+        throw new DomainException(ErrorCode.VALIDATION_ERROR);
     }
 
     private void throttle(HttpServletRequest http) {

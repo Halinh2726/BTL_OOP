@@ -10,13 +10,16 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.ptit.parking.gate.domain.IncidentPhoto;
+import com.ptit.parking.shared.application.port.out.EventPublisher;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
 import com.ptit.parking.support.application.PointPayout;
+import com.ptit.parking.support.application.event.CameraReviewUpdated;
 import com.ptit.parking.support.application.port.out.ComplaintDirectory;
 import com.ptit.parking.support.application.port.out.ComplaintDirectory.SessionInfo;
 import com.ptit.parking.support.application.port.out.ComplaintRepository;
+import com.ptit.parking.support.domain.CameraReviewStatus;
 import com.ptit.parking.support.domain.Complaint;
 import com.ptit.parking.support.domain.ComplaintStatus;
 import com.ptit.parking.support.domain.ComplaintType;
@@ -47,6 +50,7 @@ class ComplaintUseCasesTest {
     /** Kho giả: đối tượng trong danh sách được sửa trực tiếp nên update không cần làm gì. */
     static final class FakeComplaints implements ComplaintRepository {
         final List<Complaint> all = new ArrayList<>();
+        final java.util.Map<Long, IncidentPhoto> cameraPhotos = new java.util.HashMap<>();
 
         @Override
         public Complaint insert(Complaint complaint, IncidentPhoto photo) {
@@ -57,6 +61,16 @@ class ComplaintUseCasesTest {
 
         @Override
         public void update(Complaint complaint) {
+        }
+
+        @Override
+        public void saveCameraPhoto(long complaintId, IncidentPhoto photo, Instant uploadedAt) {
+            cameraPhotos.put(complaintId, photo);
+        }
+
+        @Override
+        public Optional<IncidentPhoto> findCameraPhoto(long complaintId) {
+            return Optional.ofNullable(cameraPhotos.get(complaintId));
         }
 
         @Override
@@ -161,5 +175,40 @@ class ComplaintUseCasesTest {
         assertThat(codeOf(() -> handling.resolve(1L, id, "Hoàn", 3000))).isEqualTo(ErrorCode.COMPLAINT_STATUS_CONFLICT);
         verifyNoInteractions(payout);
         assertThatThrownBy(() -> handling.start(1L, 999L)).isInstanceOf(DomainException.class);
+    }
+
+    @Test
+    void trichXuatCameraVaDichVuKhac_quanLyCapNhatCamera_phatThongBaoChoSinhVien() {
+        List<Object> published = new ArrayList<>();
+        StudentComplaintUseCase studentCase = new StudentComplaintUseCase(
+                complaints, directory, DIRECTLY, published::add, CLOCK);
+        HandleComplaintUseCase handlerCase = new HandleComplaintUseCase(
+                complaints, directory, payout, DIRECTLY, published::add, CLOCK);
+
+        Complaint created = studentCase.submit(new StudentComplaintUseCase.Command(
+                STUDENT, ComplaintType.TRICH_XUAT_CAMERA, null,
+                "Xin xem lại camera khu B", null, null, true, "Khu B", "16:30–17:00")).complaint();
+        assertThat(created.cameraRequested()).isTrue();
+        assertThat(created.cameraStatus()).isEqualTo(CameraReviewStatus.CHO_TRICH_XUAT);
+        assertThat(created.incidentArea()).isEqualTo("Khu B");
+
+        Complaint service = studentCase.submit(new StudentComplaintUseCase.Command(
+                STUDENT, ComplaintType.DICH_VU_KHAC, null, "Hỗ trợ kiểm tra thẻ xe", null, null)).complaint();
+        assertThat(service.cameraRequested()).isFalse();
+        assertThat(service.cameraStatus()).isEqualTo(CameraReviewStatus.KHONG_YEU_CAU);
+
+        String samplePng = java.util.Base64.getEncoder().encodeToString(new byte[] {(byte) 0x89, 0x50, 0x4E, 0x47, 1, 2});
+        Complaint updated = handlerCase.updateCameraReview(
+                1L, created.id(), CameraReviewStatus.DA_TRICH_XUAT, "Đã trích xuất đoạn 16:40", "image/png", samplePng)
+                .complaint();
+
+        assertThat(updated.cameraStatus()).isEqualTo(CameraReviewStatus.DA_TRICH_XUAT);
+        assertThat(updated.hasCameraPhoto()).isTrue();
+        assertThat(handlerCase.cameraPhoto(created.id()).contentType()).isEqualTo("image/png");
+        assertThat(published).anySatisfy(e -> {
+            assertThat(e).isInstanceOf(CameraReviewUpdated.class);
+            CameraReviewUpdated event = (CameraReviewUpdated) e;
+            assertThat(event.notices().get(0).kind()).isEqualTo("CAMERA");
+        });
     }
 }

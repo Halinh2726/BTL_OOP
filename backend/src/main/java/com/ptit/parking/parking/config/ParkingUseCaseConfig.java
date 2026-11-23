@@ -74,8 +74,8 @@ public class ParkingUseCaseConfig {
     @Bean
     CheckInUseCase checkInUseCase(VehicleOwnerDirectory vehicles, ParkingSessionRepository sessions,
                                   WalletRepository wallets, FeePolicy feePolicy,
-                                  TransactionRunner transactions, Clock clock) {
-        return new CheckInUseCase(vehicles, sessions, wallets, feePolicy, transactions, clock);
+                                  TransactionRunner transactions, EventPublisher events, Clock clock) {
+        return new CheckInUseCase(vehicles, sessions, wallets, feePolicy, transactions, events, clock);
     }
 
     @Bean

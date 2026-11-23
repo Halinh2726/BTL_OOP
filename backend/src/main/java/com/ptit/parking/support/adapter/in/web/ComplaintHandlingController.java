@@ -4,11 +4,13 @@ import com.ptit.parking.gate.domain.IncidentPhoto;
 import com.ptit.parking.shared.security.SessionUser;
 import com.ptit.parking.support.application.usecase.CompensationDecisionUseCase;
 import com.ptit.parking.support.application.usecase.HandleComplaintUseCase;
+import com.ptit.parking.support.domain.CameraReviewStatus;
 import com.ptit.parking.support.domain.Complaint;
 import com.ptit.parking.support.domain.ComplaintStatus;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
@@ -41,6 +43,12 @@ class ComplaintHandlingController {
     record ProposeRequest(@NotNull(message = "Vui lòng nhập số điểm bồi thường") @Positive(message = "Số điểm phải > 0")
                           @Max(value = Complaint.MAX_COMPENSATION, message = "Tối đa 10.000.000 điểm") Long points,
                           @Size(max = Complaint.MAX_TEXT, message = "Tối đa 1000 ký tự") String note) {}
+
+    record CameraReviewRequest(
+            @NotNull(message = "Vui lòng chọn trạng thái trích xuất camera") CameraReviewStatus cameraStatus,
+            @Size(max = Complaint.MAX_TEXT, message = "Ghi chú tối đa 1000 ký tự") String cameraNote,
+            @Pattern(regexp = "image/(jpeg|png|webp)", message = "Ảnh phải là JPG, PNG hoặc WEBP") String photoContentType,
+            @Size(max = 2_900_000, message = "Ảnh tối đa 2 MB") String photoBase64) {}
 
     record DecisionResponse(ComplaintView complaint, boolean replayed) {}
 
@@ -92,11 +100,33 @@ class ComplaintHandlingController {
                 .cacheControl(CacheControl.noStore()).body(photo.data());
     }
 
+    @PostMapping("/api/v1/manager/complaints/{id}/camera")
+    ComplaintView updateCamera(@AuthenticationPrincipal SessionUser manager, @PathVariable long id,
+                               @Valid @RequestBody CameraReviewRequest body) {
+        return ComplaintView.of(handling.updateCameraReview(
+                manager.id(), id, body.cameraStatus(), body.cameraNote(),
+                body.photoContentType(), body.photoBase64()), zone);
+    }
+
+    @GetMapping("/api/v1/manager/complaints/{id}/camera-photo")
+    ResponseEntity<byte[]> managerCameraPhoto(@PathVariable long id) {
+        IncidentPhoto photo = handling.cameraPhoto(id);
+        return ResponseEntity.ok().contentType(MediaType.parseMediaType(photo.contentType()))
+                .cacheControl(CacheControl.noStore()).body(photo.data());
+    }
+
     // ===== Chủ bãi xe =====
 
     @GetMapping("/api/v1/owner/compensations")
     List<ComplaintView> compensations() {
         return decisions.list().stream().map(d -> ComplaintView.of(d, zone)).toList();
+    }
+
+    @GetMapping("/api/v1/owner/complaints/{id}/camera-photo")
+    ResponseEntity<byte[]> ownerCameraPhoto(@PathVariable long id) {
+        IncidentPhoto photo = decisions.cameraPhoto(id);
+        return ResponseEntity.ok().contentType(MediaType.parseMediaType(photo.contentType()))
+                .cacheControl(CacheControl.noStore()).body(photo.data());
     }
 
     @PostMapping("/api/v1/owner/compensations/{id}/approve")

@@ -101,8 +101,23 @@ class AccountJdbcAdapter implements AccountProfileRepository, CredentialReposito
     }
 
     @Override
+    public Optional<AccountCredential> findByUsername(String username) {
+        return credential("WHERE u.username = :value", username);
+    }
+
+    @Override
     public Optional<AccountCredential> findByStudentCode(String studentCode) {
         return credential("JOIN students s ON s.user_id = u.id WHERE s.student_code = :value", studentCode);
+    }
+
+    @Override
+    public Optional<EmailAddress> findEmailByUserId(long userId) {
+        return jdbc.sql("SELECT email FROM users WHERE id = :id AND email IS NOT NULL")
+                .param("id", userId)
+                .query(String.class)
+                .optional()
+                .filter(raw -> !raw.isBlank())
+                .map(EmailAddress::new);
     }
 
     @Override

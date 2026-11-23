@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { api, errorMessage, isApiError } from '../../shared/api';
 import { Alert } from '../../shared/components/Alert';
 import { Button } from '../../shared/components/Button';
-import { TextField } from '../../shared/components/Field';
+import { PasswordField, TextField } from '../../shared/components/Field';
 import { useFieldErrors } from '../../shared/hooks/useFieldErrors';
 import { AuthLayout } from './AuthLayout';
 import type { LoginLocationState } from './LoginPage';
@@ -25,6 +25,12 @@ const schema = z
       .string()
       .min(1, 'Vui lòng nhập tên đăng nhập')
       .regex(/^[a-z0-9._]{4,50}$/, 'Tên đăng nhập 4–50 ký tự, chỉ gồm chữ thường, số, dấu chấm, gạch dưới'),
+    email: z
+      .string()
+      .trim()
+      .max(100, 'Email tối đa 100 ký tự')
+      .refine((v) => !v || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v), 'Email không hợp lệ')
+      .optional(),
     password: z.string().min(8, 'Mật khẩu từ 8 đến 72 ký tự').max(72, 'Mật khẩu từ 8 đến 72 ký tự'),
     confirmPassword: z.string(),
   })
@@ -36,7 +42,7 @@ const schema = z
 type RegisterInput = z.input<typeof schema>;
 type RegisterForm = z.output<typeof schema>;
 
-const FIELDS = ['studentCode', 'fullName', 'username', 'password'] as const;
+const FIELDS = ['studentCode', 'fullName', 'username', 'email', 'password'] as const;
 
 export function RegisterPage() {
   const navigate = useNavigate();
@@ -44,8 +50,14 @@ export function RegisterPage() {
   const applyFieldErrors = useFieldErrors(form.setError, FIELDS);
 
   const register = useMutation({
-    mutationFn: ({ studentCode, fullName, username, password }: RegisterForm) =>
-      api.registerStudent({ studentCode, fullName, username, password }),
+    mutationFn: ({ studentCode, fullName, username, password, email }: RegisterForm) =>
+      api.registerStudent({
+        studentCode,
+        fullName,
+        username,
+        password,
+        ...(email ? { email } : {}),
+      }),
     onSuccess: (student) => {
       const state: LoginLocationState = { registered: student.username };
       navigate('/login', { replace: true, state });
@@ -58,13 +70,16 @@ export function RegisterPage() {
       if (isApiError(error) && error.code === 'USERNAME_EXISTS') {
         form.setError('username', { type: 'server', message: error.message });
       }
+      if (isApiError(error) && error.code === 'EMAIL_EXISTS') {
+        form.setError('email', { type: 'server', message: error.message });
+      }
     },
   });
 
   const { errors } = form.formState;
   const generalError =
     register.isError &&
-    !(isApiError(register.error) && ['VALIDATION_ERROR', 'STUDENT_CODE_EXISTS', 'USERNAME_EXISTS'].includes(register.error.code));
+    !(isApiError(register.error) && ['VALIDATION_ERROR', 'STUDENT_CODE_EXISTS', 'USERNAME_EXISTS', 'EMAIL_EXISTS'].includes(register.error.code));
 
   return (
     <AuthLayout title="Đăng ký tài khoản sinh viên" subtitle="Sau khi đăng ký, đăng nhập để thêm xe và xem điểm">
@@ -79,10 +94,18 @@ export function RegisterPage() {
           error={errors.username?.message}
           {...form.register('username')}
         />
-        <TextField label="Mật khẩu" type="password" autoComplete="new-password" error={errors.password?.message} {...form.register('password')} />
         <TextField
+          label="Email khôi phục mật khẩu (tùy chọn)"
+          type="email"
+          autoComplete="email"
+          placeholder="ten@ptit.edu.vn"
+          hint="Khuyến nghị nhập để tự nhận mã OTP 6 số khi quên mật khẩu"
+          error={errors.email?.message}
+          {...form.register('email')}
+        />
+        <PasswordField label="Mật khẩu" autoComplete="new-password" showStrength error={errors.password?.message} {...form.register('password')} />
+        <PasswordField
           label="Nhập lại mật khẩu"
-          type="password"
           autoComplete="new-password"
           error={errors.confirmPassword?.message}
           {...form.register('confirmPassword')}

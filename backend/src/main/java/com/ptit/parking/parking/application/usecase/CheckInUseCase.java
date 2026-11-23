@@ -2,6 +2,7 @@ package com.ptit.parking.parking.application.usecase;
 
 import java.time.Clock;
 
+import com.ptit.parking.parking.application.event.VehicleCheckedIn;
 import com.ptit.parking.parking.application.port.out.ParkingSessionRepository;
 import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory;
 import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory.VehicleOwner;
@@ -9,6 +10,7 @@ import com.ptit.parking.parking.domain.FeePolicy;
 import com.ptit.parking.parking.domain.ParkingSession;
 import com.ptit.parking.payment.application.port.out.WalletRepository;
 import com.ptit.parking.payment.domain.Wallet;
+import com.ptit.parking.shared.application.port.out.EventPublisher;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
@@ -31,15 +33,22 @@ public class CheckInUseCase {
     private final WalletRepository wallets;
     private final FeePolicy feePolicy;
     private final TransactionRunner transactions;
+    private final EventPublisher events;
     private final Clock clock;
 
     public CheckInUseCase(VehicleOwnerDirectory vehicles, ParkingSessionRepository sessions, WalletRepository wallets,
                           FeePolicy feePolicy, TransactionRunner transactions, Clock clock) {
+        this(vehicles, sessions, wallets, feePolicy, transactions, EventPublisher.NONE, clock);
+    }
+
+    public CheckInUseCase(VehicleOwnerDirectory vehicles, ParkingSessionRepository sessions, WalletRepository wallets,
+                          FeePolicy feePolicy, TransactionRunner transactions, EventPublisher events, Clock clock) {
         this.vehicles = vehicles;
         this.sessions = sessions;
         this.wallets = wallets;
         this.feePolicy = feePolicy;
         this.transactions = transactions;
+        this.events = events;
         this.clock = clock;
     }
 
@@ -59,8 +68,10 @@ public class CheckInUseCase {
             if (!wallet.hasAtLeast(feePolicy.minimumFeeFor(vehicle.vehicleId(), clock.instant().atZone(clock.getZone())))) {
                 throw new DomainException(ErrorCode.INSUFFICIENT_POINTS);                  // R04: chỉ kiểm tra, không trừ
             }
-            ParkingSession session = ParkingSession.open(vehicle.vehicleId(), command.guardId(), clock.instant());
-            return new Result(sessions.save(session), vehicle);
+            ParkingSession saved = sessions.save(ParkingSession.open(vehicle.vehicleId(), command.guardId(), clock.instant()));
+            events.publish(new VehicleCheckedIn(vehicle.studentUserId(), vehicle.plate().display(),
+                    saved.enteredAt(), clock.getZone()));
+            return new Result(saved, vehicle);
         });
     }
 }

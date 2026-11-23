@@ -12,6 +12,8 @@ public enum ComplaintType {
     THU_PHI_SAI(true, false),
     XE_HU_HONG(false, true),
     MAT_DO(false, true),
+    TRICH_XUAT_CAMERA(false, false),
+    DICH_VU_KHAC(false, false),
     KHAC(false, false);
 
     private final boolean refundable;
@@ -30,5 +32,10 @@ public enum ComplaintType {
     /** Được đề xuất bồi thường (cần chủ bãi xe duyệt). */
     public boolean allowsCompensation() {
         return compensable;
+    }
+
+    /** Loại khiếu nại mặc định kèm yêu cầu trích xuất camera. */
+    public boolean defaultCameraRequest() {
+        return this == TRICH_XUAT_CAMERA;
     }
 }

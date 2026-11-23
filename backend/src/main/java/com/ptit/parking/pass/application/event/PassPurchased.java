@@ -8,17 +8,35 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 
-/** Đợt 5 — sinh viên mua vé tháng thành công: gửi biên nhận vào hộp thông báo. */
-public record PassPurchased(long studentId, String plateDisplay, YearMonth month, long price, LocalDate validUntil)
-        implements NotifiableEvent {
+/** Đợt 5 — sinh viên mua vé tháng (1 hoặc nhiều tháng liên tiếp): gửi biên nhận vào hộp thông báo. */
+public record PassPurchased(
+        long studentId,
+        String plateDisplay,
+        YearMonth month,
+        long price,
+        LocalDate validUntil,
+        int monthsCount) implements NotifiableEvent {
+
+    private static final DateTimeFormatter MM_YYYY = DateTimeFormatter.ofPattern("MM/yyyy");
+    private static final DateTimeFormatter DD_MM_YYYY = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+    public PassPurchased(long studentId, String plateDisplay, YearMonth month, long price, LocalDate validUntil) {
+        this(studentId, plateDisplay, month, price, validUntil, 1);
+    }
 
     @Override
     public List<Notice> notices() {
         NumberFormat number = NumberFormat.getIntegerInstance(Locale.forLanguageTag("vi-VN"));
-        return List.of(Notice.toUser(studentId, "VE_THANG",
-                "Đã mua vé tháng " + month.format(DateTimeFormatter.ofPattern("MM/yyyy")),
+        String title;
+        if (monthsCount <= 1) {
+            title = "Đã mua vé tháng " + month.format(MM_YYYY);
+        } else {
+            YearMonth endMonth = month.plusMonths(monthsCount - 1L);
+            title = "Đã mua vé " + monthsCount + " tháng (" + month.format(MM_YYYY) + "–" + endMonth.format(MM_YYYY) + ")";
+        }
+        return List.of(Notice.toUser(studentId, "VE_THANG", title,
                 "Xe " + plateDisplay + " gửi miễn phí đến hết ngày "
-                        + validUntil.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ". Đã trừ "
+                        + validUntil.format(DD_MM_YYYY) + ". Đã trừ "
                         + number.format(price) + " điểm."));
     }
 }

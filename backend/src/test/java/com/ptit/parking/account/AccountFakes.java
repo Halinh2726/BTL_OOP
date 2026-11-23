@@ -53,12 +53,16 @@ public final class AccountFakes {
     public static final class Credentials implements CredentialRepository {
         public final Map<Long, AccountCredential> byId = new HashMap<>();
         public final Map<String, Long> idByEmail = new HashMap<>();
+        public final Map<String, Long> idByUsername = new HashMap<>();
         public final Map<String, Long> idByStudentCode = new HashMap<>();
+        public final Map<Long, String> emailById = new HashMap<>();
 
         public Credentials add(AccountCredential credential, String email) {
             byId.put(credential.userId(), credential);
+            idByUsername.put(credential.username(), credential.userId());
             if (email != null) {
                 idByEmail.put(email, credential.userId());
+                emailById.put(credential.userId(), email);
             }
             return this;
         }
@@ -71,6 +75,16 @@ public final class AccountFakes {
         @Override
         public Optional<AccountCredential> findByEmail(EmailAddress email) {
             return Optional.ofNullable(idByEmail.get(email.value())).map(byId::get);
+        }
+
+        @Override
+        public Optional<AccountCredential> findByUsername(String username) {
+            return Optional.ofNullable(idByUsername.get(username)).map(byId::get);
+        }
+
+        @Override
+        public Optional<EmailAddress> findEmailByUserId(long userId) {
+            return Optional.ofNullable(emailById.get(userId)).map(EmailAddress::of);
         }
 
         @Override

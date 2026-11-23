@@ -30,6 +30,7 @@ export interface RegisterStudentRequest {
   fullName: string;
   username: string;
   password: string;
+  email?: string;
 }
 
 export interface RegisteredStudent {
@@ -100,9 +101,49 @@ export interface ChangePasswordRequest {
 }
 
 export interface ConfirmPasswordResetRequest {
-  email: string;
+  email?: string;
+  identifier?: string;
   code: string;
   newPassword: string;
+}
+
+export interface SecurityActivityItem {
+  id: number;
+  action: AuditAction;
+  actorName: string;
+  detail: string;
+  createdAt: string;
+}
+
+export interface SecurityActivityResponse {
+  hasEmail: boolean;
+  maskedEmail: string | null;
+  mustChangePassword: boolean;
+  passwordChangedAt: string | null;
+  sessionMaxHours: number;
+  changePasswordBasis: string;
+  forgotPasswordBasis: string;
+  recentActivities: SecurityActivityItem[];
+}
+
+export interface StudentSessionView {
+  id: number;
+  plateNumber: string;
+  plateDisplay: string;
+  vehicleTypeCode: string;
+  enteredAt: string;
+  exitedAt: string | null;
+  fee: number | null;
+  paymentTransactionId: number | null;
+  paidByPass: boolean;
+  minutesParked: number;
+  entryGuardName: string | null;
+  exitGuardName: string | null;
+}
+
+export interface StudentSessionsResponse {
+  parked: StudentSessionView[];
+  recent: StudentSessionView[];
 }
 
 /** POST /manager/students/{mssv}/password-reset, /manager/guards/{id}/password-reset — chỉ hiện MỘT lần. */
@@ -652,9 +693,21 @@ export interface TrafficReport {
 
 // ===== Đợt 4b — khiếu nại, xử lý sự cố, bồi thường, phân ca =====
 
-export type ComplaintType = 'THU_PHI_SAI' | 'XE_HU_HONG' | 'MAT_DO' | 'KHAC';
+export type ComplaintType =
+  | 'THU_PHI_SAI'
+  | 'XE_HU_HONG'
+  | 'MAT_DO'
+  | 'TRICH_XUAT_CAMERA'
+  | 'DICH_VU_KHAC'
+  | 'KHAC';
 export type ComplaintStatus =
   | 'MOI' | 'DANG_XU_LY' | 'CHO_DUYET_BOI_THUONG' | 'DA_XU_LY' | 'TU_CHOI' | 'DA_HUY' | 'DA_BOI_THUONG' | 'KHONG_BOI_THUONG';
+export type CameraReviewStatus =
+  | 'KHONG_YEU_CAU'
+  | 'CHO_TRICH_XUAT'
+  | 'DANG_TRICH_XUAT'
+  | 'DA_TRICH_XUAT'
+  | 'KHONG_CO_DU_LIEU';
 
 export interface ComplaintSession {
   id: number;
@@ -688,12 +741,30 @@ export interface ComplaintView {
   decisionNote: string | null;
   compensationTransactionId: number | null;
   cancelledAt: string | null;
+  cameraRequested: boolean;
+  cameraStatus: CameraReviewStatus;
+  incidentArea: string | null;
+  incidentTimeRange: string | null;
+  cameraNote: string | null;
+  cameraReviewerName: string | null;
+  cameraReviewedAt: string | null;
+  hasCameraPhoto: boolean;
 }
 
 export interface SubmitComplaintRequest {
   type: ComplaintType;
   sessionId?: number;
   description: string;
+  photoContentType?: string;
+  photoBase64?: string;
+  cameraRequested?: boolean;
+  incidentArea?: string;
+  incidentTimeRange?: string;
+}
+
+export interface UpdateComplaintCameraRequest {
+  cameraStatus: CameraReviewStatus;
+  cameraNote?: string;
   photoContentType?: string;
   photoBase64?: string;
 }
@@ -763,6 +834,8 @@ export interface PassOption {
   price: number | null;
   current: PassView | null;
   next: PassView | null;
+  activeValidUntil: string | null;
+  remainingDays: number | null;
 }
 
 export interface PassOverview {
@@ -775,6 +848,19 @@ export interface PassOverview {
 export interface BuyPassResult {
   pass: PassView;
   balanceAfter: number;
+  monthsCount: number;
+  totalPrice: number;
+  validUntil: string;
+}
+
+export interface PassPriceView {
+  vehicleTypeCode: string;
+  vehicleTypeName: string;
+  monthlyPoints: number;
+}
+
+export interface ManagerPassCatalogResponse {
+  prices: PassPriceView[];
 }
 
 export interface NotificationItem {

@@ -109,13 +109,19 @@ public enum ProtectedEndpoint {
     UPDATE_GUARD       (HttpMethod.PATCH, "/api/v1/manager/guards/*",         ACCOUNT_MANAGE),     // Đợt 1
     RESET_GUARD_PASSWORD  (HttpMethod.POST, "/api/v1/manager/guards/*/password-reset",   ACCOUNT_MANAGE), // Đợt 1
     RESET_STUDENT_PASSWORD(HttpMethod.POST, "/api/v1/manager/students/*/password-reset", ACCOUNT_MANAGE), // Đợt 1
-    AUDIT_LOGS         (HttpMethod.GET,   "/api/v1/manager/audit-logs",       ACCOUNT_MANAGE),     // Đợt 1
-    GET_BANK_CONFIG    (HttpMethod.GET,   "/api/v1/manager/bank-config",      CASH_DEPOSIT),       // Cấu hình VietQR
-    UPDATE_BANK_CONFIG (HttpMethod.PUT,   "/api/v1/manager/bank-config",      CASH_DEPOSIT),       // Cập nhật VietQR
-    RESET_BANK_CONFIG  (HttpMethod.DELETE,"/api/v1/manager/bank-config",      CASH_DEPOSIT),       // Khôi phục VietQR .env
-    GET_PARKING_POLICY (HttpMethod.GET,   "/api/v1/manager/parking-policy",   CASH_DEPOSIT),       // Giờ khóa & phí qua đêm
-    UPDATE_PARKING_POLICY(HttpMethod.PUT, "/api/v1/manager/parking-policy",   CASH_DEPOSIT),       // Cập nhật giờ khóa & phí qua đêm
-    MANAGER_GATE_CASH  (HttpMethod.GET,   "/api/v1/manager/gate-cash",        CASH_RECONCILE);     // Tiền mặt bảo vệ thu theo ngày
+    AUDIT_LOGS            (HttpMethod.GET,   "/api/v1/manager/audit-logs",                  ACCOUNT_MANAGE),     // Đợt 1
+    GET_BANK_CONFIG       (HttpMethod.GET,   "/api/v1/manager/bank-config",                 CASH_DEPOSIT),       // Cấu hình VietQR
+    UPDATE_BANK_CONFIG    (HttpMethod.PUT,   "/api/v1/manager/bank-config",                 CASH_DEPOSIT),       // Cập nhật VietQR
+    RESET_BANK_CONFIG     (HttpMethod.DELETE,"/api/v1/manager/bank-config",                 CASH_DEPOSIT),       // Khôi phục VietQR .env
+    GET_PARKING_POLICY    (HttpMethod.GET,   "/api/v1/manager/parking-policy",              CASH_DEPOSIT),       // Giờ khóa & phí qua đêm
+    UPDATE_PARKING_POLICY (HttpMethod.PUT,   "/api/v1/manager/parking-policy",              CASH_DEPOSIT),       // Cập nhật giờ khóa & phí qua đêm
+    MANAGER_GATE_CASH     (HttpMethod.GET,   "/api/v1/manager/gate-cash",                   CASH_RECONCILE),     // Tiền mặt bảo vệ thu theo ngày
+    MY_SESSIONS                  (HttpMethod.GET, "/api/v1/me/sessions",                        VEHICLE_REGISTER),
+    MY_COMPLAINT_CAMERA_PHOTO    (HttpMethod.GET, "/api/v1/me/complaints/*/camera-photo",       COMPLAINT_SUBMIT),
+    MANAGER_COMPLAINT_CAMERA_PHOTO(HttpMethod.GET, "/api/v1/manager/complaints/*/camera-photo", CASE_HANDLE),
+    OWNER_COMPLAINT_CAMERA_PHOTO (HttpMethod.GET, "/api/v1/owner/complaints/*/camera-photo",   COMPENSATION_APPROVE),
+    MANAGER_PASS_CATALOG         (HttpMethod.GET, "/api/v1/manager/pass-catalog",               CASH_DEPOSIT),
+    UPDATE_PASS_PRICE            (HttpMethod.PUT, "/api/v1/manager/pass-prices/*",              CASH_DEPOSIT);
 
     private final HttpMethod method;
     private final String pathPattern;

@@ -80,6 +80,18 @@ class RegisterStudentUseCaseTest {
         assertThat(wallets.createdInsideTransaction).isTrue();
     }
 
+    @Test
+    void dangKyKemEmail_chuanHoaChuThuongVaChanEmailTrung() {
+        Student saved = register.register(new Command(
+                "B21DCCN001", "Nguyễn Văn A", "sv01", "MatKhau@123", "  Sv01@PTIT.edu.vn "));
+
+        assertThat(students.emailsByStudentId.get(saved.id())).isEqualTo("sv01@ptit.edu.vn");
+        assertError(() -> register.register(new Command(
+                        "B21DCCN002", "Trần Thị B", "sv02", "MatKhau@123", "sv01@ptit.edu.vn")),
+                ErrorCode.EMAIL_EXISTS);
+        assertThat(wallets.created).hasSize(1);
+    }
+
     private static void assertError(Runnable action, ErrorCode expected) {
         assertThatThrownBy(action::run)
                 .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.errorCode()).isEqualTo(expected));
@@ -106,6 +118,7 @@ class RegisterStudentUseCaseTest {
 
     static final class FakeStudents implements StudentAccountRepository {
         final List<Student> saved = new ArrayList<>();
+        final java.util.Map<Long, String> emailsByStudentId = new java.util.HashMap<>();
         boolean savedInsideTransaction;
         private final FakeTransactions transactions;
 
@@ -122,11 +135,24 @@ class RegisterStudentUseCaseTest {
         }
 
         @Override
+        public boolean emailExists(String email) {
+            return emailsByStudentId.containsValue(email);
+        }
+
+        @Override
         public Student save(Student student) {
+            return save(student, null);
+        }
+
+        @Override
+        public Student save(Student student, String email) {
             savedInsideTransaction = transactions.active;
             Student withId = new Student((long) saved.size() + 1, student.username(), student.passwordHash(),
                     student.fullName(), student.status(), student.studentCode());
             saved.add(withId);
+            if (email != null) {
+                emailsByStudentId.put(withId.id(), email);
+            }
             return withId;
         }
     }

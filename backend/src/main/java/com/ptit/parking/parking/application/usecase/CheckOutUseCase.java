@@ -1,6 +1,7 @@
 package com.ptit.parking.parking.application.usecase;
 
 import com.ptit.parking.parking.application.event.LowBalanceWarning;
+import com.ptit.parking.parking.application.event.VehicleCheckedOut;
 import com.ptit.parking.parking.application.port.out.ParkingSessionRepository;
 import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory;
 import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory.VehicleOwner;
@@ -99,6 +100,8 @@ public class CheckOutUseCase {
             }
             session.close(command.guardId(), now);
             sessions.saveExit(session);
+            events.publish(new VehicleCheckedOut(vehicle.studentUserId(), vehicle.plate().display(), 0, balance,
+                    quote.passValidUntil(), now, clock.getZone()));
             return new Result(null, false, new FreeExit(session.id(), now, balance, quote.passValidUntil()));
         });
     }
@@ -126,8 +129,11 @@ public class CheckOutUseCase {
                             session.id(), vehicle.studentUserId(), fee, command.guardId(),
                             command.idempotencyKey(), now));
                     sessions.saveExit(session);
+                    // Phát sự kiện xe ra trước, rồi mới tới cảnh báo số dư thấp để thông báo cảnh báo nằm trên cùng
+                    events.publish(new VehicleCheckedOut(vehicle.studentUserId(), vehicle.plate().display(),
+                            payment.points(), payment.sourceBalanceAfter(), null, now, clock.getZone()));
                     long nextMinimum = feePolicy.minimumFeeFor(vehicle.vehicleId(), nowZoned);
-                    if (payment.sourceBalanceAfter() < nextMinimum) {
+                    if (nextMinimum > 0 && payment.sourceBalanceAfter() < nextMinimum * 2) {
                         events.publish(new LowBalanceWarning(vehicle.studentUserId(), payment.sourceBalanceAfter(),
                                 nextMinimum));
                     }

@@ -5,8 +5,9 @@ import { Card } from '../../shared/components/Card';
 import { HOME_BY_ROLE, useCurrentUser } from '../auth/session';
 import { ChangePasswordForm } from './ChangePasswordForm';
 import { ProfileCard } from './ProfileCard';
+import { SecurityStatusCard } from './SecurityStatusCard';
 
-/** Trang "Tài khoản" — chung cho cả 4 vai trò: thông tin cá nhân và đổi mật khẩu. */
+/** Trang "Tài khoản" — chung cho cả 4 vai trò: thông tin cá nhân, đổi mật khẩu và trạng thái bảo mật. */
 export function AccountPage() {
   const { user } = useCurrentUser();
   const [changed, setChanged] = useState(false);
@@ -29,6 +30,7 @@ export function AccountPage() {
           </div>
         </Card>
       </div>
+      <SecurityStatusCard />
     </div>
   );
 }
