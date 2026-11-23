@@ -1,5 +1,6 @@
 package com.ptit.parking.report.config;
 
+import com.ptit.parking.parking.application.port.out.GateCashRepository;
 import com.ptit.parking.report.application.port.out.CashPositionQuery;
 import com.ptit.parking.report.application.port.out.LedgerQuery;
 import com.ptit.parking.report.application.port.out.ReconciliationRepository;
@@ -9,6 +10,7 @@ import com.ptit.parking.report.application.usecase.LedgerUseCase;
 import com.ptit.parking.report.application.usecase.ReconciliationUseCase;
 import com.ptit.parking.report.application.usecase.StudentProfileUseCase;
 import com.ptit.parking.report.application.usecase.TrafficStatsUseCase;
+import com.ptit.parking.report.application.usecase.ViewManagerGateCashUseCase;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
@@ -37,5 +39,10 @@ public class ReportUseCaseConfig {
     @Bean
     TrafficStatsUseCase trafficStatsUseCase(TrafficQuery traffic, Clock clock) {
         return new TrafficStatsUseCase(traffic, clock);
+    }
+
+    @Bean
+    ViewManagerGateCashUseCase viewManagerGateCashUseCase(GateCashRepository gateCash, Clock clock) {
+        return new ViewManagerGateCashUseCase(gateCash, clock.getZone());
     }
 }

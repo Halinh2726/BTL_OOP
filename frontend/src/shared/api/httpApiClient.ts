@@ -2,7 +2,7 @@ import type { ApiClient, Idempotent } from './ApiClient';
 import { ApiError, isApiErrorBody } from './ApiError';
 import { endsSession, notifySessionEnded } from './sessionEvents';
 
-type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
+type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 type QueryValue = string | number | undefined;
 
 interface RequestOptions {
@@ -251,6 +251,17 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
     notifications: () => json('/me/notifications'),
     markNotificationRead: (id) => json(`/me/notifications/${id}/read`, { method: 'POST' }),
     markAllNotificationsRead: () => json('/me/notifications/read-all', { method: 'POST' }),
+
+    getDepositInfo: (amount) => json('/me/deposit-info', { query: { amount } }),
+    parkingPolicy: () => json('/config/parking-policy'),
+    updateParkingPolicy: (body) => json('/manager/parking-policy', { method: 'PUT', body }),
+    bankConfig: () => json('/manager/bank-config'),
+    updateBankConfig: (body) => json('/manager/bank-config', { method: 'PUT', body }),
+    resetBankConfig: () => json('/manager/bank-config', { method: 'DELETE' }),
+    payVietQr: (sessionId, key) => idempotent('/guard/check-out/vietqr', { sessionId }, key),
+    checkOutCash: (sessionId, key) => idempotent('/guard/check-out/cash', { sessionId }, key),
+    guardCashSheet: () => json('/guard/cash-sheet'),
+    managerGateCash: (date) => json('/manager/gate-cash', { query: { date } }),
   };
 }
 

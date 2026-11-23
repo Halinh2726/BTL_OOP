@@ -4,6 +4,7 @@ spring:
   application:
     name: parking-backend
   config:
+    # Tự động nạp file .env ở thư mục gốc dự án (nếu có); biến môi trường hệ thống vẫn ưu tiên cao hơn.
     import: optional:file:../.env[.properties],optional:file:.env[.properties]
   autoconfigure:
     exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
@@ -28,7 +29,6 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-    ignore-migration-patterns: "*:missing"
 logging:
   pattern:
     level: "%5p [traceId=%X{traceId:-}]"   # mỗi dòng log kèm traceId của request (TraceIdFilter)
@@ -50,3 +50,10 @@ parking:
   zone-id: Asia/Ho_Chi_Minh        # R03: giờ tính phí là giờ Việt Nam theo đồng hồ máy chủ
   mail:
     from: ${PARKING_MAIL_FROM:no-reply@parking.ptit.edu.vn}
+  vietqr:
+    bank-id: ${VIETQR_BANK_ID:MB}
+    account-no: ${VIETQR_ACCOUNT_NO:0987654321}
+    account-name: ${VIETQR_ACCOUNT_NAME:BAI XE HOC VIEN PTIT}
+    template: ${VIETQR_TEMPLATE:compact2}
+  webhook:
+    api-key: ${WEBHOOK_API_KEY:sepay_secret_key_123456}

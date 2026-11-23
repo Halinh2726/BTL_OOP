@@ -51,4 +51,9 @@ export const queryKeys = {
   notifications: ['me', 'notifications'] as const,
   guardTimesheet: (from: string, to: string, guardId: number | undefined) =>
     ['manager', 'timesheet', from, to, guardId ?? 'ALL'] as const,
+  depositInfo: (amount: number) => ['me', 'deposit-info', amount] as const,
+  bankConfig: ['manager', 'bank-config'] as const,
+  parkingPolicy: ['config', 'parking-policy'] as const,
+  guardCashSheet: ['guard', 'cash-sheet'] as const,
+  managerGateCash: (date: string) => ['manager', 'gate-cash', date] as const,
 };

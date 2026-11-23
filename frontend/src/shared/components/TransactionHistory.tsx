@@ -27,6 +27,7 @@ export function TransactionHistory({ defaultType, types = TYPES }: TransactionHi
     queryFn: ({ pageParam }) => api.myTransactions({ type, limit: PAGE_SIZE, before: pageParam }),
     initialPageParam: undefined as number | undefined,
     getNextPageParam: (last) => (last.hasMore && last.nextBefore !== null ? last.nextBefore : undefined),
+    refetchOnWindowFocus: true,
   });
   const items = history.data?.pages.flatMap((page) => page.items) ?? [];
 

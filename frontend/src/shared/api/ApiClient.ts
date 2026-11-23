@@ -1,11 +1,20 @@
 import type {
+  BankConfig,
   BuyPassResult,
+  CashCheckOutResult,
+  DepositInfo,
+  GuardCashSheet,
+  ManagerGateCashReport,
   ManagerPassCatalogResponse,
   NotificationInbox,
+  ParkingPolicyConfig,
   PassOverview,
   SecurityActivityResponse,
   StudentSessionsResponse,
+  UpdateBankConfigRequest,
   UpdateComplaintCameraRequest,
+  UpdateParkingPolicyRequest,
+  VietQrCheckOutResult,
   CompensationDecision,
   ComplaintSession,
   ComplaintStatus,
@@ -227,4 +236,16 @@ export interface ApiClient {
   notifications(): Promise<NotificationInbox>;
   markNotificationRead(id: number): Promise<NotificationInbox>;
   markAllNotificationsRead(): Promise<NotificationInbox>;
+
+  // VietQR, giờ khóa / phí qua đêm & thu tiền mặt tại chốt
+  getDepositInfo(amount: number): Promise<DepositInfo>;
+  parkingPolicy(): Promise<ParkingPolicyConfig>;
+  updateParkingPolicy(body: UpdateParkingPolicyRequest): Promise<ParkingPolicyConfig>;
+  bankConfig(): Promise<BankConfig>;
+  updateBankConfig(body: UpdateBankConfigRequest): Promise<BankConfig>;
+  resetBankConfig(): Promise<BankConfig>;
+  payVietQr(sessionId: number, idempotencyKey: string): Promise<Idempotent<VietQrCheckOutResult>>;
+  checkOutCash(sessionId: number, idempotencyKey: string): Promise<Idempotent<CashCheckOutResult>>;
+  guardCashSheet(): Promise<GuardCashSheet>;
+  managerGateCash(date?: string): Promise<ManagerGateCashReport>;
 }

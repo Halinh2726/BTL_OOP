@@ -80,6 +80,7 @@ public enum ErrorCode {
     PASS_MONTH_INVALID(422, "Chỉ mua được vé cho tháng này hoặc tháng sau."),
     PASS_NOT_AVAILABLE(422, "Loại xe này chưa bán vé tháng."),
     DATE_RANGE_INVALID(422, "Khoảng ngày không hợp lệ: ngày bắt đầu phải trước ngày kết thúc, tối đa 93 ngày."),
+    CHECKOUT_CURFEW(422, "Đã quá giờ khóa lấy xe trong ngày. Lượt gửi giữ nguyên ĐANG GỬI và tính phí qua đêm vào hôm sau."),
 
     // 429 / 500
     TOO_MANY_REQUESTS(429, "Thao tác quá nhiều lần. Vui lòng thử lại sau ít phút."),

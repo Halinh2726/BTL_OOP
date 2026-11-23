@@ -40,11 +40,15 @@ public enum ProtectedEndpoint {
     UPDATE_VEHICLE     (HttpMethod.PATCH, "/api/v1/me/vehicles/*",            VEHICLE_REGISTER),   // Đợt 1: sửa loại xe
     DEACTIVATE_VEHICLE (HttpMethod.POST,  "/api/v1/me/vehicles/*/deactivate", VEHICLE_REGISTER),   // Đợt 1: ngừng sử dụng xe
     MY_WALLET          (HttpMethod.GET,   "/api/v1/me/wallet",                WALLET_VIEW_OWN),    // #7
+    MY_DEPOSIT_INFO    (HttpMethod.GET,   "/api/v1/me/deposit-info",          WALLET_VIEW_OWN),    // Nạp điểm VietQR
     MY_TRANSACTIONS    (HttpMethod.GET,   "/api/v1/me/transactions",          WALLET_VIEW_OWN),    // #8
     CHECK_IN_PREVIEW   (HttpMethod.GET,   "/api/v1/guard/check-in/preview",   PARKING_CHECK_IN),   // #12
     CHECK_IN           (HttpMethod.POST,  "/api/v1/guard/check-in",           PARKING_CHECK_IN),   // #13
     CHECK_OUT_PREVIEW  (HttpMethod.GET,   "/api/v1/guard/check-out/preview",  PARKING_CHECK_OUT),  // #14
     CHECK_OUT          (HttpMethod.POST,  "/api/v1/guard/check-out",          PARKING_CHECK_OUT),  // #15
+    CHECK_OUT_VIETQR   (HttpMethod.POST,  "/api/v1/guard/check-out/vietqr",   PARKING_CHECK_OUT),  // BV02-VietQR
+    CHECK_OUT_CASH     (HttpMethod.POST,  "/api/v1/guard/check-out/cash",     PARKING_CHECK_OUT),  // BV02-Tiền mặt
+    GUARD_CASH_SHEET   (HttpMethod.GET,   "/api/v1/guard/cash-sheet",         PARKING_CHECK_IN, PARKING_CHECK_OUT), // Bảng kê tiền mặt ca trực
     SUGGEST_PLATES     (HttpMethod.GET,   "/api/v1/guard/plates",             PARKING_CHECK_IN, PARKING_CHECK_OUT), // #24
     PARKED_VEHICLES    (HttpMethod.GET,   "/api/v1/guard/parked-vehicles",    PARKING_CHECK_IN, PARKING_CHECK_OUT), // Đợt 2
     MY_GATE_ACTIVITY   (HttpMethod.GET,   "/api/v1/guard/my-activity",        PARKING_CHECK_IN, PARKING_CHECK_OUT), // Đợt 2
@@ -105,7 +109,13 @@ public enum ProtectedEndpoint {
     UPDATE_GUARD       (HttpMethod.PATCH, "/api/v1/manager/guards/*",         ACCOUNT_MANAGE),     // Đợt 1
     RESET_GUARD_PASSWORD  (HttpMethod.POST, "/api/v1/manager/guards/*/password-reset",   ACCOUNT_MANAGE), // Đợt 1
     RESET_STUDENT_PASSWORD(HttpMethod.POST, "/api/v1/manager/students/*/password-reset", ACCOUNT_MANAGE), // Đợt 1
-    AUDIT_LOGS            (HttpMethod.GET,  "/api/v1/manager/audit-logs",                ACCOUNT_MANAGE), // Đợt 1
+    AUDIT_LOGS            (HttpMethod.GET,   "/api/v1/manager/audit-logs",                  ACCOUNT_MANAGE),     // Đợt 1
+    GET_BANK_CONFIG       (HttpMethod.GET,   "/api/v1/manager/bank-config",                 CASH_DEPOSIT),       // Cấu hình VietQR
+    UPDATE_BANK_CONFIG    (HttpMethod.PUT,   "/api/v1/manager/bank-config",                 CASH_DEPOSIT),       // Cập nhật VietQR
+    RESET_BANK_CONFIG     (HttpMethod.DELETE,"/api/v1/manager/bank-config",                 CASH_DEPOSIT),       // Khôi phục VietQR .env
+    GET_PARKING_POLICY    (HttpMethod.GET,   "/api/v1/manager/parking-policy",              CASH_DEPOSIT),       // Giờ khóa & phí qua đêm
+    UPDATE_PARKING_POLICY (HttpMethod.PUT,   "/api/v1/manager/parking-policy",              CASH_DEPOSIT),       // Cập nhật giờ khóa & phí qua đêm
+    MANAGER_GATE_CASH     (HttpMethod.GET,   "/api/v1/manager/gate-cash",                   CASH_RECONCILE),     // Tiền mặt bảo vệ thu theo ngày
     MY_SESSIONS                  (HttpMethod.GET, "/api/v1/me/sessions",                        VEHICLE_REGISTER),
     MY_COMPLAINT_CAMERA_PHOTO    (HttpMethod.GET, "/api/v1/me/complaints/*/camera-photo",       COMPLAINT_SUBMIT),
     MANAGER_COMPLAINT_CAMERA_PHOTO(HttpMethod.GET, "/api/v1/manager/complaints/*/camera-photo", CASE_HANDLE),

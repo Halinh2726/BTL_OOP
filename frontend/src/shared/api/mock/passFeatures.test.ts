@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ApiClient } from '../ApiClient';
 import { ApiError } from '../ApiError';
 import { createMockApiClient } from './mockApiClient';
@@ -16,8 +16,13 @@ describe('Đợt 5 — vé tháng & thông báo (mock)', () => {
   let api: ApiClient;
 
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-23T03:00:00Z') });
     sessionStorage.clear();
     api = createMockApiClient({ latencyMs: 0, initialState: seedState() });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   async function as(username: string) {

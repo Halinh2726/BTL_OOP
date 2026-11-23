@@ -3,6 +3,7 @@ import { Tabs } from '../../shared/components/Tabs';
 import { TrafficStatsCard } from '../stats/TrafficStatsCard';
 import { AccountsTab } from './AccountsTab';
 import { AdjustmentTab } from './AdjustmentTab';
+import { BankConfigTab } from './BankConfigTab';
 import { ComplaintsTab } from './ComplaintsTab';
 import { IncidentsQueueTab } from './IncidentsQueueTab';
 import { ShiftPlanTab } from './ShiftPlanTab';
@@ -36,6 +37,7 @@ const GROUPS: Record<Group, { label: string; sections: Section[] }> = {
       { id: 'withdraw', label: 'Yêu cầu rút', render: () => <WithdrawalRequestsTab /> },
       { id: 'adjust', label: 'Điều chỉnh', render: () => <AdjustmentTab /> },
       { id: 'reconcile', label: 'Đối soát cuối ngày', render: () => <ReconciliationTab /> },
+      { id: 'bank', label: 'Ngân hàng & Giờ khóa', render: () => <BankConfigTab /> },
     ],
   },
   cases: {

@@ -237,7 +237,7 @@ export interface CheckInResult {
   enteredAt: string;
 }
 
-export type CheckOutReason = 'PLATE_NOT_FOUND' | 'NO_OPEN_SESSION' | 'INSUFFICIENT_POINTS';
+export type CheckOutReason = 'PLATE_NOT_FOUND' | 'NO_OPEN_SESSION' | 'INSUFFICIENT_POINTS' | 'CHECKOUT_CURFEW';
 
 /** GET /guard/check-out/preview — trường nào không có (chưa đăng ký, không có lượt mở) thì null. */
 export interface CheckOutPreview {
@@ -253,6 +253,12 @@ export interface CheckOutPreview {
   reason: CheckOutReason | null;
   /** Đợt 5: xe có vé tháng thì phí 0 và có hạn vé. */
   passValidUntil?: string | null;
+  /** Qua đêm (ngày ra > ngày vào theo giờ VN) — áp dụng phí qua đêm cố định. */
+  overnight?: boolean;
+  /** Giờ khóa lấy xe trong ngày ("HH:mm") nếu đang bật. */
+  curfewTime?: string | null;
+  /** Đơn VietQR tự sinh khi thiếu điểm (nếu không quá giờ khóa). */
+  vietQrOrder?: VietQrOrder | null;
 }
 
 export interface CheckOutResult {
@@ -869,4 +875,140 @@ export interface NotificationItem {
 export interface NotificationInbox {
   unread: number;
   items: NotificationItem[];
+}
+
+// ===== VietQR, giờ khóa 20:00 / phí qua đêm & tiền mặt tại chốt =====
+
+export interface DepositInfo {
+  studentCode: string;
+  fullName: string;
+  bankId: string;
+  accountNo: string;
+  accountName: string;
+  transferContent: string;
+  amount: number;
+  qrCodeUrl: string;
+}
+
+export type VietQrTemplate = 'compact2' | 'compact' | 'qr_only' | 'print';
+export type BankConfigSource = 'DATABASE' | 'ENV_DEFAULT';
+
+export interface BankConfig {
+  bankId: string;
+  accountNo: string;
+  accountName: string;
+  template: VietQrTemplate;
+  source: BankConfigSource;
+  updatedAt: string | null;
+  envDefault: {
+    bankId: string;
+    accountNo: string;
+    accountName: string;
+    template: VietQrTemplate;
+  };
+}
+
+export interface UpdateBankConfigRequest {
+  bankId: string;
+  accountNo: string;
+  accountName: string;
+  template: VietQrTemplate;
+}
+
+export interface VietQrOrder {
+  sessionId: number;
+  plateNumber: string;
+  studentCode: string;
+  fullName: string;
+  fee: number;
+  bankId: string;
+  accountNo: string;
+  accountName: string;
+  transferContent: string;
+  qrCodeUrl: string;
+}
+
+export interface VietQrCheckOutResult {
+  transactionId: number;
+  sessionId: number;
+  plateNumber: string;
+  fee: number;
+  exitedAt: string;
+  balanceAfter: number;
+}
+
+export interface ParkingPolicyConfig {
+  checkoutCurfewTime: string;
+  overnightFeePoints: number;
+  curfewEnabled: boolean;
+}
+
+export interface UpdateParkingPolicyRequest {
+  checkoutCurfewTime: string;
+  overnightFeePoints: number;
+  curfewEnabled: boolean;
+}
+
+export interface CashCheckOutResult {
+  collectionId: number;
+  sessionId: number;
+  plateNumber: string;
+  studentCode: string;
+  fullName: string;
+  amount: number;
+  overnight: boolean;
+  collectedAt: string;
+  shiftId: number | null;
+}
+
+export interface GuardCashSheetItem {
+  collectionId: number;
+  sessionId: number;
+  plateNumber: string;
+  plateDisplay: string;
+  vehicleTypeCode: string;
+  studentCode: string;
+  fullName: string;
+  amount: number;
+  overnight: boolean;
+  collectedAt: string;
+}
+
+export interface GuardCashSheet {
+  from: string;
+  inShift: boolean;
+  shiftId: number | null;
+  openingCash: number;
+  totalCollected: number;
+  expectedClosingCash: number;
+  entries: GuardCashSheetItem[];
+}
+
+export interface ManagerGateCashGuardTotal {
+  guardId: number;
+  guardName: string;
+  count: number;
+  totalAmount: number;
+}
+
+export interface ManagerGateCashItem {
+  collectionId: number;
+  sessionId: number;
+  plateNumber: string;
+  plateDisplay: string;
+  studentCode: string;
+  fullName: string;
+  guardName: string;
+  shiftId: number | null;
+  amount: number;
+  overnight: boolean;
+  collectedAt: string;
+}
+
+export interface ManagerGateCashReport {
+  date: string;
+  totalAmount: number;
+  totalCount: number;
+  byGuard: ManagerGateCashGuardTotal[];
+  entries: ManagerGateCashItem[];
 }
