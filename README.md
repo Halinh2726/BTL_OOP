@@ -59,11 +59,11 @@ flowchart TB
     FE["Frontend: React + TypeScript + Vite"]
 
     subgraph BE["Backend: Java 21 + Spring Boot 4"]
-        API["REST Controller + Spring Security"]
+        API["Presentation / MVC Controller"]
         UC["Application / Use Cases"]
         DOMAIN["Domain / Quy tắc nghiệp vụ"]
         PORT["Outbound Ports / Interfaces"]
-        ADAPTER["Persistence Adapters"]
+        ADAPTER["Infrastructure / Persistence, Security, Integration"]
         API --> UC
         UC --> DOMAIN
         UC --> PORT
@@ -94,29 +94,42 @@ flowchart TB
 
 Mã nguồn backend được đặt tại `backend/src/main/java/com/ptit/parking/`.
 
-| Module | Trách nhiệm |
+| Module | Trách nhiệm và ranh giới |
 |---|---|
-| `auth` | Đăng nhập, quản lý phiên, người dùng và vai trò. |
-| `student` | Đăng ký sinh viên, đăng ký phương tiện. |
-| `catalog` | Quản lý danh mục loại xe, bảng phí và tỷ lệ quy đổi. |
-| `parking` | Quản lý lượt gửi, xác nhận xe vào/ra và tính phí. |
-| `payment` | Quản lý ví điểm, giao dịch và cơ chế tránh xử lý trùng. |
-| `manager` | Đổi điểm, rút điểm và quản lý tài khoản bảo vệ. |
-| `shared` | Các thành phần dùng chung: bảo mật, lỗi, giới hạn tần suất, transaction. |
+| `account` | Quản lý hồ sơ và bảo mật của chính người dùng: cập nhật thông tin cá nhân, đổi/quên mật khẩu bằng OTP, cấp mật khẩu tạm và lưu nhật ký thao tác tài khoản. |
+| `auth` | Xác thực và danh tính: mô hình người dùng/role, đăng nhập, đăng xuất, phiên đăng nhập và API lấy thông tin người dùng hiện tại. Không xử lý hồ sơ hay khôi phục mật khẩu. |
+| `catalog` | Cung cấp dữ liệu danh mục dùng chung cho nghiệp vụ: loại xe, bảng phí gửi xe và tỷ lệ quy đổi tiền–điểm. Chủ yếu là dữ liệu cấu hình chỉ đọc. |
+| `gate` | Nghiệp vụ vận hành của bảo vệ ngoài thao tác xe vào/ra: nhận/bàn giao ca, chấm công, lịch phân ca, xe đang trong bãi và báo/xử lý sự cố. |
+| `manager` | Các lệnh quản trị: đổi tiền mặt sang điểm, xử lý rút điểm, tạo/khóa/mở khóa tài khoản bảo vệ và cấu hình thông tin ngân hàng. |
+| `notification` | Lắng nghe sự kiện nghiệp vụ sau khi transaction thành công, tạo thông báo cho người nhận, cung cấp hộp thư và chức năng đánh dấu đã đọc. |
+| `owner` | Nghiệp vụ của chủ bãi/chủ tài khoản: xem doanh thu, ví nhận phí, lịch sử nhận/rút điểm, tạo yêu cầu rút và xử lý trạng thái yêu cầu rút. |
+| `parking` | Sở hữu lượt gửi xe (`ParkingSession`): xem trước/xác nhận xe vào, xem trước/xác nhận xe ra, tính phí, kiểm tra chính sách gửi xe và phối hợp thanh toán. |
+| `pass` | Quản lý gói và vé tháng: mua vé bằng điểm, kiểm tra thời hạn/phạm vi vé; cung cấp chính sách miễn phí cho lượt gửi xe có vé hợp lệ. |
+| `payment` | Sở hữu ví điểm và sổ giao dịch: cộng/trừ/chuyển điểm, thanh toán phí, nạp điểm, webhook ngân hàng, điều chỉnh giao dịch và chống xử lý trùng bằng idempotency. |
+| `report` | Truy vấn báo cáo và giám sát: sổ giao dịch toàn hệ thống, hồ sơ sinh viên, doanh thu, thống kê lượt xe, tiền mặt tại cổng, xuất CSV và đối soát cuối ngày. |
+| `shared` | Shared kernel và hạ tầng dùng chung: lỗi nghiệp vụ, transaction runner, event publisher, định dạng lỗi HTTP, bảo mật phiên/CSRF, rate limit, clock và múi giờ. Không chứa nghiệp vụ riêng của module khác. |
+| `student` | Sở hữu hồ sơ sinh viên và phương tiện: đăng ký tài khoản sinh viên, đăng ký/quản lý xe, tra cứu xe và lịch sử gửi xe của chính sinh viên. |
+| `support` | Quy trình hỗ trợ: khiếu nại thu phí, báo hư hỏng/mất đồ, tiếp nhận và kết luận sự cố, hoàn phí, đề xuất và phê duyệt bồi thường. |
 
 Trong từng module, mã nguồn được phân chia theo hướng:
 
 ```text
 <module>/
-├── domain/                    # Entity, value object và quy tắc nghiệp vụ
+├── domain/                    # Entity, value object và quy tắc nghiệp vụ thuần Java
 ├── application/
 │   ├── usecase/               # Điều phối nghiệp vụ
-│   └── port/out/              # Interface truy cập dịch vụ / dữ liệu ngoài
-├── adapter/
-│   ├── in/web/                # REST controller, request/response DTO
-│   └── out/persistence/       # Triển khai lưu trữ bằng JDBC / JPA
-└── config/                    # Cấu hình và lắp ráp thành phần Spring
+│   └── port/out/              # Hợp đồng truy cập dịch vụ / dữ liệu ngoài
+├── presentation/
+│   ├── web/                   # MVC controller và request/response view model
+│   └── startup/               # Điểm vào chạy khi khởi động (nếu có)
+├── infrastructure/
+│   ├── persistence/           # JDBC / JPA và repository adapter
+│   ├── security/              # Triển khai bảo mật (nếu có)
+│   └── notification/          # Email / thông báo ngoài (nếu có)
+└── configuration/            # Composition root, lắp ráp bean Spring
 ```
+
+MVC chỉ nằm ở vòng `presentation`: React/JSON response là View, các lớp request/response là presentation Model và Spring REST controller là Controller. Luồng nghiệp vụ vẫn tuân theo Dependency Rule của Clean Architecture. Xem [quy ước Clean Architecture + MVC](docs/architecture/clean-mvc.md).
 
 ## 4. Cấu trúc thư mục
 
@@ -129,13 +142,20 @@ BTL_OOP/
 │   └── src/
 │       ├── main/
 │       │   ├── java/com/ptit/parking/     # Các module nghiệp vụ
+│       │   │   ├── account/
 │       │   │   ├── auth/
-│       │   │   ├── student/
 │       │   │   ├── catalog/
-│       │   │   ├── parking/
-│       │   │   ├── payment/
+│       │   │   ├── gate/
 │       │   │   ├── manager/
-│       │   │   └── shared/
+│       │   │   ├── notification/
+│       │   │   ├── owner/
+│       │   │   ├── parking/
+│       │   │   ├── pass/
+│       │   │   ├── payment/
+│       │   │   ├── report/
+│       │   │   ├── shared/
+│       │   │   ├── student/
+│       │   │   └── support/
 │       │   └── resources/db/migration/    # Flyway SQL migrations
 │       └── test/                          # Unit và integration tests
 ├── frontend/                              # React + TypeScript + Vite
@@ -146,12 +166,12 @@ BTL_OOP/
 │   ├── public/                           # Tài nguyên tĩnh
 │   └── README.md                         # Tài liệu riêng cho frontend
 ├── docs/
-│   ├── database/ERD.md                   # Thiết kế cơ sở dữ liệu
-│   └── postman/
-│       └── parking-payment.postman_collection.json
-├── .env.example                          # Mẫu biến môi trường
+│   ├── architecture/clean-mvc.md         # Quy tắc kiến trúc và dependency
+│   └── database/ERD.md                   # Thiết kế cơ sở dữ liệu
 └── README.md                             # Tài liệu tổng quan dự án
 ```
+
+`backend/src/main/resources/db/migration/` chứa các migration Flyway đánh số từ `V001` trở đi. Khi backend khởi động, Flyway chỉ chạy những phiên bản chưa có trong `flyway_schema_history`, nhờ đó mọi môi trường có cùng cấu trúc cơ sở dữ liệu. Không sửa hoặc xóa migration đã được áp dụng; khi đổi schema, tạo migration có số phiên bản mới.
 
 Ngoài các thư mục trên, thư mục gốc có cấu hình **Docker Compose** để khởi chạy MySQL phục vụ phát triển và demo.
 
@@ -169,7 +189,6 @@ Ngoài các thư mục trên, thư mục gốc có cấu hình **Docker Compose*
 | **Môi trường chạy CSDL** | Docker Compose | Khởi chạy MySQL nhất quán giữa các máy. |
 | **Build backend** | Maven Wrapper | Chạy và kiểm thử backend mà không cần cài Maven riêng. |
 | **Kiểm thử** | JUnit 5, Mockito, AssertJ, Testcontainers, Vitest | Kiểm thử đơn vị, tích hợp và frontend. |
-| **Kiểm thử API** | Postman, Newman | Chạy kịch bản kiểm thử luồng nghiệp vụ. |
 
 ## 6. Hướng dẫn cài đặt và chạy
 
@@ -208,7 +227,7 @@ Thiết lập mặc định của môi trường demo:
 | Backend port | `8080` |
 | Frontend port | `5173` |
 
-Nếu cần thay đổi cấu hình, sao chép `.env.example` thành `.env`, chỉnh các thông số Docker Compose và thiết lập các biến môi trường tương ứng cho backend.
+Nếu cần thay đổi cấu hình mặc định, tạo file `.env` ở thư mục gốc, chỉnh các thông số Docker Compose và thiết lập các biến môi trường tương ứng cho backend. File `.env` đã được Git bỏ qua và không được commit.
 
 ### 6.4. Chạy backend
 
@@ -290,14 +309,6 @@ npm test
 npm run typecheck
 npm run build
 ```
-
-**Chạy kịch bản API bằng Newman** (từ thư mục gốc, cần Node.js):
-
-```bash
-npx newman run docs/postman/parking-payment.postman_collection.json
-```
-
-> Collection Postman ghi dữ liệu vào CSDL thật, vì vậy chỉ chạy trên môi trường phát triển hoặc demo.
 
 ### 6.8. Một số lưu ý khi vận hành
 

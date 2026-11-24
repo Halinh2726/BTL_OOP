@@ -1,4 +1,4 @@
-# Cấu hình chung. Mọi giá trị nhạy cảm lấy từ biến môi trường (xem .env.example),
+# Cấu hình chung. Mọi giá trị nhạy cảm lấy từ biến môi trường hoặc file .env cục bộ,
 # giá trị sau dấu ':' chỉ là mặc định cho máy dev.
 spring:
   application:

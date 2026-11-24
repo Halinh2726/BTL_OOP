@@ -6,7 +6,7 @@ import java.util.List;
 
 import com.ptit.parking.auth.domain.Role;
 import com.ptit.parking.auth.domain.User;
-import com.ptit.parking.shared.security.SessionUser;
+import com.ptit.parking.shared.infrastructure.security.SessionUser;
 
 /**
  * Người dùng đã đăng nhập — thông tin được lưu trong PHIÊN (session) phía máy chủ.
