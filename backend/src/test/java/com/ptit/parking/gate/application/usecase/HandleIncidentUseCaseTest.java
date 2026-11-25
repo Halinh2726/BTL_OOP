@@ -3,15 +3,19 @@ package com.ptit.parking.gate.application.usecase;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ptit.parking.gate.application.event.IncidentChanged;
 import com.ptit.parking.gate.domain.Incident;
 import com.ptit.parking.gate.domain.IncidentStatus;
 import com.ptit.parking.gate.domain.IncidentType;
+import com.ptit.parking.shared.application.port.out.EventPublisher;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 
@@ -26,7 +30,9 @@ class HandleIncidentUseCaseTest {
             return work.get();
         }
     };
-    private final HandleIncidentUseCase useCase = new HandleIncidentUseCase(incidents, directly, CLOCK);
+    private final List<Object> published = new ArrayList<>();
+    private final EventPublisher capture = published::add;
+    private final HandleIncidentUseCase useCase = new HandleIncidentUseCase(incidents, directly, capture, CLOCK);
 
     private long reported() {
         return incidents.save(Incident.report(4L, IncidentType.XE_HU_HONG, null, "Xe đổ", false, CLOCK.instant()), null).id();
@@ -56,5 +62,6 @@ class HandleIncidentUseCaseTest {
                 .extracting(e -> ((DomainException) e).errorCode()).isEqualTo(ErrorCode.INCIDENT_STATUS_CONFLICT);
         assertThatThrownBy(() -> useCase.start(1L, 999L))
                 .extracting(e -> ((DomainException) e).errorCode()).isEqualTo(ErrorCode.INCIDENT_NOT_FOUND);
+        assertThat(published).hasSize(2).allSatisfy(e -> assertThat(e).isInstanceOf(IncidentChanged.class));
     }
 }

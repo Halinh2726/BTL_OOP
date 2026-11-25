@@ -8,9 +8,11 @@ interface DialogProps {
   footer?: ReactNode;
   /** Đang gửi request: không cho đóng giữa chừng. */
   busy?: boolean;
+  /** Độ rộng tối đa của hộp thoại (mặc định max-w-md). */
+  maxWidthClass?: string;
 }
 
-export function Dialog({ title, onClose, children, footer, busy = false }: DialogProps) {
+export function Dialog({ title, onClose, children, footer, busy = false, maxWidthClass = 'max-w-md' }: DialogProps) {
   const titleId = useId();
   const panel = useRef<HTMLDivElement>(null);
 
@@ -29,22 +31,27 @@ export function Dialog({ title, onClose, children, footer, busy = false }: Dialo
   }, [busy, onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-3 sm:p-4 backdrop-blur-[1px]"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !busy) onClose();
+      }}
+    >
       <div
         ref={panel}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white shadow-xl focus:outline-none"
+        className={`flex max-h-[92vh] w-full ${maxWidthClass} flex-col overflow-hidden rounded-2xl bg-white shadow-2xl focus:outline-none`}
       >
-        <header className="border-b border-slate-200 px-5 py-4">
-          <h2 id={titleId} className="text-lg font-semibold">
+        <header className="shrink-0 border-b border-slate-200 px-5 py-3.5">
+          <h2 id={titleId} className="text-base font-bold text-slate-900 sm:text-lg">
             {title}
           </h2>
         </header>
-        <div className="space-y-4 px-5 py-4">{children}</div>
-        {footer && <footer className="flex justify-end gap-2 border-t border-slate-200 px-5 py-4">{footer}</footer>}
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">{children}</div>
+        {footer && <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-slate-200 bg-slate-50/70 px-5 py-3">{footer}</footer>}
       </div>
     </div>
   );

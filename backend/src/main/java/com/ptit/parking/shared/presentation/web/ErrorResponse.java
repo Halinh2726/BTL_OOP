@@ -13,7 +13,11 @@ import com.ptit.parking.shared.domain.ErrorCode;
 public record ErrorResponse(String code, String message, int status, String traceId, List<FieldViolation> fields) {
 
     public static ErrorResponse of(ErrorCode errorCode, String traceId) {
-        return new ErrorResponse(errorCode.name(), errorCode.defaultMessage(), errorCode.httpStatus(), traceId, null);
+        return of(errorCode, errorCode.defaultMessage(), traceId);
+    }
+
+    public static ErrorResponse of(ErrorCode errorCode, String message, String traceId) {
+        return new ErrorResponse(errorCode.name(), message, errorCode.httpStatus(), traceId, null);
     }
 
     public static ErrorResponse validation(String traceId, List<FieldViolation> fields) {

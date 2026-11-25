@@ -10,17 +10,7 @@ public final class DurationFeePolicy implements FeePolicy {
     private final List<FeeRule> rules;
 
     public DurationFeePolicy(List<FeeRule> rules) {
-        this.rules = rules.stream().sorted().toList();
-        if (this.rules.isEmpty() || this.rules.getLast().upToMinutes() != FeeRule.MINUTES_PER_DAY) {
-            throw new IllegalArgumentException("Bảng giá phải có bậc cuối đến 24 giờ");
-        }
-        for (int i = 1; i < this.rules.size(); i++) {
-            FeeRule previous = this.rules.get(i - 1);
-            FeeRule current = this.rules.get(i);
-            if (current.upToMinutes() == previous.upToMinutes() || current.feePoints() < previous.feePoints()) {
-                throw new IllegalArgumentException("Mốc thời lượng phải khác nhau và phí không được giảm");
-            }
-        }
+        this.rules = FeeRule.validateSchedule(rules);
     }
 
     @Override

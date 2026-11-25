@@ -22,7 +22,7 @@ public record PlateNumber(String value) {
     /** Định dạng SAU chuẩn hóa dùng khi tra cứu (Đặc tả API #6) — khớp ràng buộc ck_vehicles_plate của CSDL. */
     public static final String PATTERN = "^[A-Z0-9Đ]{5,20}$";
 
-    private static final String MOTORCYCLE_PLATE_PATTERN = "[0-9]{2}[ABCDEFGHKLMNPSTUVXYZ](?:[ABCDEFGHKLMNPSTUVXYZ][0-9]|[ABCDEFGHKLMNPSTUVXYZ])[0-9]{5}";
+    private static final String MOTORCYCLE_PLATE_PATTERN = "[0-9]{2}[ABCDEFGHKLMNPSTUVXYZ](?:[ABCDEFGHKLMNPSTUVXYZ0-9]|[ABCDEFGHKLMNPSTUVXYZ][0-9])[0-9]{5}";
     private static final String ELECTRIC_MOTORCYCLE_PLATE_PATTERN = "[0-9]{2}MĐ[0-9]{5}";
     private static final String BICYCLE_CODE_PATTERN = "XD[0-9]{5}";
 

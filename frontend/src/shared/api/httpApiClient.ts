@@ -108,6 +108,7 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
     registerStudent: (body) => json('/students/register', { method: 'POST', body }),
     vehicleTypes: () => json('/vehicle-types'),
     feeRules: () => json('/fee-rules'),
+    feeRulesByVehicleType: () => json('/fee-rules/by-vehicle-type'),
     exchangeRate: () => json('/config/exchange-rate'),
 
     myVehicles: () => json('/me/vehicles'),
@@ -246,6 +247,9 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
     managerPassCatalog: () => json('/manager/pass-catalog'),
     updatePassPrice: (vehicleTypeCode, monthlyPoints) =>
       json(`/manager/pass-prices/${encodeURIComponent(vehicleTypeCode)}`, { method: 'PUT', body: { monthlyPoints } }),
+    managerFeeCatalog: () => json('/manager/fee-rules'),
+    updateFeeRules: (vehicleTypeCode, rules) =>
+      json(`/manager/fee-rules/${encodeURIComponent(vehicleTypeCode)}`, { method: 'PUT', body: { rules } }),
     notifications: () => json('/me/notifications'),
     markNotificationRead: (id) => json(`/me/notifications/${id}/read`, { method: 'POST' }),
     markAllNotificationsRead: () => json('/me/notifications/read-all', { method: 'POST' }),
@@ -260,6 +264,11 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
     checkOutCash: (sessionId, key) => idempotent('/guard/check-out/cash', { sessionId }, key),
     guardCashSheet: () => json('/guard/cash-sheet'),
     managerGateCash: (date) => json('/manager/gate-cash', { query: { date } }),
+
+    smtpConfig: () => json('/manager/smtp-config'),
+    updateSmtpConfig: (body) => json('/manager/smtp-config', { method: 'PUT', body }),
+    resetSmtpConfig: () => json('/manager/smtp-config', { method: 'DELETE' }),
+    testSmtpConfig: (toEmail) => json('/manager/smtp-config/test', { method: 'POST', body: toEmail ? { toEmail } : {} }),
   };
 }
 

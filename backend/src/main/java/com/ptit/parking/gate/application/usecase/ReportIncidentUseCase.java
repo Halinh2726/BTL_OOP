@@ -1,9 +1,11 @@
 package com.ptit.parking.gate.application.usecase;
 
+import com.ptit.parking.gate.application.event.IncidentChanged;
 import com.ptit.parking.gate.application.port.out.IncidentRepository;
 import com.ptit.parking.gate.domain.Incident;
 import com.ptit.parking.gate.domain.IncidentPhoto;
 import com.ptit.parking.gate.domain.IncidentType;
+import com.ptit.parking.shared.application.port.out.EventPublisher;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
@@ -25,11 +27,18 @@ public class ReportIncidentUseCase {
 
     private final IncidentRepository incidents;
     private final TransactionRunner transactions;
+    private final EventPublisher events;
     private final Clock clock;
 
     public ReportIncidentUseCase(IncidentRepository incidents, TransactionRunner transactions, Clock clock) {
+        this(incidents, transactions, EventPublisher.NONE, clock);
+    }
+
+    public ReportIncidentUseCase(IncidentRepository incidents, TransactionRunner transactions,
+                                 EventPublisher events, Clock clock) {
         this.incidents = incidents;
         this.transactions = transactions;
+        this.events = events;
         this.clock = clock;
     }
 
@@ -42,7 +51,12 @@ public class ReportIncidentUseCase {
                 : IncidentPhoto.fromBase64(command.photoContentType(), command.photoBase64());
         Incident incident = Incident.report(command.guardId(), command.type(), plate, command.description(),
                 photo != null, clock.instant());
-        return transactions.inTransaction(() -> incidents.save(incident, photo));
+        return transactions.inTransaction(() -> {
+            Incident saved = incidents.save(incident, photo);
+            Long ownerId = plate == null ? null : incidents.findActiveVehicleOwnerId(plate).orElse(null);
+            events.publish(IncidentChanged.of(saved, ownerId));
+            return saved;
+        });
     }
 
     public List<Incident> mine(long guardId) {

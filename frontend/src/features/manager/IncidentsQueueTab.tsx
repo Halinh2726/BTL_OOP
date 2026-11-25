@@ -25,7 +25,11 @@ export function IncidentsQueueTab() {
   const [note, setNote] = useState('');
   const list = useQuery({ queryKey: queryKeys.managerIncidents(status), queryFn: () => api.managerIncidents(status), staleTime: 0 });
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.managerIncidentsAll });
+  const refresh = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.managerIncidentsAll }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications }),
+    ]);
   const start = useMutation({ mutationFn: (id: number) => api.startIncident(id), onSuccess: refresh });
   const act = useMutation({
     mutationFn: ({ kind, incident }: Action) =>

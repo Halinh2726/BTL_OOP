@@ -42,7 +42,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(DomainException.class)
     public ResponseEntity<Object> handleDomain(DomainException ex) {
-        return respond(ErrorResponse.of(ex.errorCode(), TraceIdFilter.currentTraceId()));
+        String traceId = TraceIdFilter.currentTraceId();
+        ErrorResponse body = ex.customMessage() != null
+                ? ErrorResponse.of(ex.errorCode(), ex.customMessage(), traceId)
+                : ErrorResponse.of(ex.errorCode(), traceId);
+        return respond(body);
     }
 
         // ===== Vượt giới hạn tần suất: 429 kèm header Retry-After (Đặc tả API mục 11) =====

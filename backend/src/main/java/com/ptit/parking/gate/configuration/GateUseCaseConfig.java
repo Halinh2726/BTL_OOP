@@ -49,15 +49,15 @@ public class GateUseCaseConfig {
 
     @Bean
     ReportIncidentUseCase reportIncidentUseCase(IncidentRepository incidents, TransactionRunner transactions,
-                                                Clock clock) {
-        return new ReportIncidentUseCase(incidents, transactions, clock);
+                                                EventPublisher events, Clock clock) {
+        return new ReportIncidentUseCase(incidents, transactions, events, clock);
     }
 
     /** Đợt 4b — quản lý xử lý sự cố bảo vệ báo. */
     @Bean
     HandleIncidentUseCase handleIncidentUseCase(IncidentRepository incidents, TransactionRunner transactions,
-                                                Clock clock) {
-        return new HandleIncidentUseCase(incidents, transactions, clock);
+                                                EventPublisher events, Clock clock) {
+        return new HandleIncidentUseCase(incidents, transactions, events, clock);
     }
 
     /** Đợt 4b — phân ca và đối chiếu chuyên cần. */

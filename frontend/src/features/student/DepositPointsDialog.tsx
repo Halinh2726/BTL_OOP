@@ -41,8 +41,6 @@ export function DepositPointsDialog({ onClose, currentBalance }: DepositPointsDi
   const [amountError, setAmountError] = useState<string | null>(null);
 
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [checking, setChecking] = useState(false);
-  const [checkMessage, setCheckMessage] = useState<string | null>(null);
   const [paidSummary, setPaidSummary] = useState<PaidSummary | null>(null);
 
   // Mốc số dư ban đầu khi mở hộp thoại để tự động phát hiện tiền vừa cộng
@@ -79,6 +77,7 @@ export function DepositPointsDialog({ onClose, currentBalance }: DepositPointsDi
     staleTime: 0,
     refetchInterval: paidSummary ? false : POLL_INTERVAL_MS,
     refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
 
   // Phát hiện tự động ngay khi số dư tăng -> phát âm thanh + reload lịch sử giao dịch + báo thành công
@@ -97,7 +96,6 @@ export function DepositPointsDialog({ onClose, currentBalance }: DepositPointsDi
       playSuccessSound();
       void queryClient.invalidateQueries({ queryKey: queryKeys.myTransactionsAll });
       setPaidSummary({ previousBalance: prev, newBalance: latest, credited });
-      setCheckMessage(null);
     }
   }, [walletPoll.data?.balance, paidSummary, queryClient]);
 
@@ -160,13 +158,11 @@ export function DepositPointsDialog({ onClose, currentBalance }: DepositPointsDi
     setDebouncedAmount(value);
     setCustomAmount('');
     setAmountError(null);
-    setCheckMessage(null);
   };
 
   const handleCustomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/\D/g, '');
     setCustomAmount(raw);
-    setCheckMessage(null);
     if (!raw) {
       setAmountError(null);
       return;
@@ -179,27 +175,6 @@ export function DepositPointsDialog({ onClose, currentBalance }: DepositPointsDi
     } else {
       setAmountError(null);
       setAmount(parsed);
-    }
-  };
-
-  const handleManualCheck = async () => {
-    setChecking(true);
-    setCheckMessage(null);
-    try {
-      const result = await walletPoll.refetch();
-      void queryClient.invalidateQueries({ queryKey: queryKeys.myTransactionsAll });
-      const latest = result.data?.balance;
-      const baseline = baselineBalanceRef.current;
-
-      if (latest !== undefined && baseline !== undefined && latest <= baseline) {
-        setCheckMessage(
-          `Số dư hiện tại: ${formatNumber(latest)} điểm — Chưa ghi nhận giao dịch mới. Nếu bạn vừa chuyển khoản, hệ thống đang tự động kiểm tra mỗi 2 giây.`,
-        );
-      }
-    } catch {
-      setCheckMessage('Không thể kết nối máy chủ để kiểm tra số dư.');
-    } finally {
-      setChecking(false);
     }
   };
 
@@ -216,7 +191,6 @@ export function DepositPointsDialog({ onClose, currentBalance }: DepositPointsDi
       baselineBalanceRef.current = paidSummary.newBalance;
     }
     setPaidSummary(null);
-    setCheckMessage(null);
   };
 
   // Màn hình chúc mừng ngay khi phát hiện nạp tiền thành công
@@ -251,7 +225,7 @@ export function DepositPointsDialog({ onClose, currentBalance }: DepositPointsDi
               <span className="text-slate-600">Số dư trước</span>
               <span className="font-medium text-slate-800">{formatNumber(paidSummary.previousBalance)} điểm</span>
             </div>
-            <div className="flex justify-between border-t border-emerald-200/80 pt-2 mt-1">
+            <div className="mt-1 flex justify-between border-t border-emerald-200/80 pt-2">
               <span className="font-semibold text-slate-800">Số dư mới</span>
               <span className="text-base font-bold text-blue-700">{formatNumber(paidSummary.newBalance)} điểm</span>
             </div>
@@ -266,81 +240,29 @@ export function DepositPointsDialog({ onClose, currentBalance }: DepositPointsDi
     <Dialog
       title="Nạp điểm ví bằng VietQR (Napas247)"
       onClose={onClose}
+      maxWidthClass="max-w-[840px]"
       footer={
-        <div className="flex w-full items-center justify-between gap-2">
-          <Button size="sm" variant="secondary" onClick={handleManualCheck} disabled={checking}>
-            {checking ? 'Đang kiểm tra...' : '🔄 Kiểm tra ngay'}
-          </Button>
-          <Button size="sm" onClick={onClose}>
-            Đóng
+        <div className="flex w-full items-center justify-between gap-3">
+          <span className="text-xs text-slate-500 sm:text-sm">
+            Hệ thống tự động kiểm tra và cộng điểm ngay khi nhận chuyển khoản.
+          </span>
+          <Button size="md" variant="secondary" onClick={onClose}>
+            Tắt mã QR
           </Button>
         </div>
       }
     >
-      <div className="space-y-4 text-sm text-slate-700">
-        {/* Thanh trạng thái tự động lắng nghe tiền về */}
-        <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-xs text-emerald-800">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-            </span>
-            <span className="font-medium">Đang tự động chờ tiền về (tự cập nhật mỗi 2 giây)</span>
-          </div>
-          <span className="font-mono text-[11px] font-semibold text-emerald-700">
-            {formatNumber(walletPoll.data?.balance ?? currentBalance ?? 0)} đ
-          </span>
-        </div>
-
-        {/* Chọn số tiền nạp */}
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-            Chọn số tiền muốn nạp
-          </label>
-          <div className="mt-1.5 grid grid-cols-3 gap-2 sm:grid-cols-5">
-            {PRESET_AMOUNTS.map((val) => (
-              <button
-                key={val}
-                type="button"
-                onClick={() => handleSelectPreset(val)}
-                className={`rounded-lg border px-2 py-1.5 text-center text-xs font-semibold transition ${
-                  amount === val && !customAmount
-                    ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-sm'
-                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                {formatNumber(val)} đ
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-2 flex items-center gap-2">
-            <span className="text-xs text-slate-500">Số tiền khác:</span>
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder="VD: 2000, 30000..."
-              value={customAmount}
-              onChange={handleCustomChange}
-              className={`flex-1 rounded-md border px-2.5 py-1 text-xs focus:outline-none ${
-                amountError ? 'border-red-400 focus:border-red-500' : 'border-slate-300 focus:border-blue-500'
-              }`}
-            />
-            <span className="text-xs font-medium text-slate-500">VNĐ</span>
-          </div>
-          {amountError && <p className="mt-1 text-xs text-red-600">{amountError}</p>}
-        </div>
-
-        {/* Mã VietQR động */}
-        <div className="flex flex-col items-center rounded-xl border border-blue-100 bg-blue-50/40 p-4">
-          <div className="relative flex h-56 w-56 items-center justify-center rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
+      <div className="grid gap-5 text-sm text-slate-700 sm:grid-cols-12">
+        {/* Cột trái: Mã QR và thao tác nhanh */}
+        <div className="flex flex-col items-center justify-center rounded-xl border border-blue-100 bg-gradient-to-b from-blue-50/60 to-slate-50/60 p-5 sm:col-span-5">
+          <div className="relative flex h-56 w-56 items-center justify-center rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm sm:h-64 sm:w-64">
             {!useLocalQr ? (
               <>
                 {!imgLoaded && localQrDataUrl && (
                   <img
                     src={localQrDataUrl}
                     alt="Đang tải thẻ VietQR"
-                    className="absolute inset-2 h-52 w-52 object-contain opacity-90"
+                    className="absolute inset-2.5 h-[calc(100%-1.25rem)] w-[calc(100%-1.25rem)] object-contain opacity-90"
                   />
                 )}
                 <img
@@ -355,95 +277,146 @@ export function DepositPointsDialog({ onClose, currentBalance }: DepositPointsDi
               </>
             ) : localQrDataUrl ? (
               <div className="flex flex-col items-center">
-                <img src={localQrDataUrl} alt="Mã QR Napas247 cục bộ" className="h-44 w-44 object-contain" />
-                <span className="text-[10px] font-medium text-slate-500">Mã QR Napas247 cục bộ</span>
+                <img src={localQrDataUrl} alt="Mã QR Napas247 cục bộ" className="h-52 w-52 object-contain" />
+                <span className="text-[11px] font-medium text-slate-500">Mã QR Napas247 cục bộ</span>
               </div>
             ) : (
               <Spinner className="h-8 w-8 text-blue-600" />
             )}
           </div>
 
-          <div className="mt-2.5 flex flex-wrap items-center justify-center gap-3">
-            <p className="text-xs font-medium text-slate-600">Quét bằng app ngân hàng hoặc Momo / VNPay</p>
-            <div className="flex items-center gap-2">
-              {localQrDataUrl && (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleDownloadQr}
-                    className="rounded bg-white px-2 py-0.5 text-[11px] font-semibold text-blue-700 shadow-sm ring-1 ring-slate-200 hover:bg-blue-50"
-                  >
-                    ⬇ Lưu mã QR
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUseLocalQr((prev) => !prev)}
-                    className="text-[11px] text-blue-600 hover:underline"
-                  >
-                    {useLocalQr ? 'Hiển thị mẫu thẻ' : 'QR gọn'}
-                  </button>
-                </>
-              )}
+          <p className="mt-3 text-center text-xs font-medium text-slate-600 sm:text-sm">
+            Quét bằng app ngân hàng, Momo hoặc VNPay
+          </p>
+
+          {localQrDataUrl && (
+            <div className="mt-2.5 flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadQr}
+                className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-sm ring-1 ring-slate-200 hover:bg-blue-50"
+              >
+                ⬇ Lưu mã QR
+              </button>
+              <button
+                type="button"
+                onClick={() => setUseLocalQr((prev) => !prev)}
+                className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 hover:underline"
+              >
+                {useLocalQr ? 'Mẫu thẻ' : 'QR gọn'}
+              </button>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Thông tin chuyển khoản chi tiết */}
-        <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50/60 p-3 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-slate-500">Ngân hàng:</span>
-            <span className="font-semibold text-slate-900">
-              {bankId} {bankShortName !== bankId ? `(${bankShortName})` : ''}
+        {/* Cột phải: Trạng thái tự động, chọn mệnh giá và thông tin chuyển khoản */}
+        <div className="flex flex-col justify-between space-y-4 sm:col-span-7">
+          {/* Trạng thái lắng nghe giao dịch tự động */}
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50/85 px-3.5 py-2.5 text-xs text-emerald-800 sm:text-sm">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2.5 w-2.5 shrink-0">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              </span>
+              <span className="font-medium">Tự động kiểm tra giao dịch (2s/lần)</span>
+              {walletPoll.isFetching && <Spinner className="h-3.5 w-3.5 text-emerald-600" />}
+            </div>
+            <span className="shrink-0 font-mono text-xs font-bold text-emerald-700 sm:text-sm">
+              {formatNumber(walletPoll.data?.balance ?? currentBalance ?? 0)} đ
             </span>
           </div>
 
-          <div className="flex items-center justify-between">
-            <span className="text-slate-500">Số tài khoản:</span>
-            <div className="flex items-center gap-1.5">
-              <span className="font-mono text-sm font-bold text-blue-700">{accountNo}</span>
+          {/* Chọn số tiền nạp */}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Chọn nhanh mệnh giá
+            </label>
+            <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">
+              {PRESET_AMOUNTS.map((val) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => handleSelectPreset(val)}
+                  className={`rounded-lg border px-2 py-2 text-center text-xs font-semibold transition sm:text-sm ${
+                    amount === val && !customAmount
+                      ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  {formatNumber(val)}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-2.5 flex items-center gap-2">
+              <span className="shrink-0 text-xs text-slate-500 sm:text-sm">Số khác:</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="VD: 30000"
+                value={customAmount}
+                onChange={handleCustomChange}
+                className={`min-w-0 flex-1 rounded-lg border px-3 py-1.5 text-sm focus:outline-none ${
+                  amountError ? 'border-red-400 focus:border-red-500' : 'border-slate-300 focus:border-blue-500'
+                }`}
+              />
+              <span className="text-xs font-medium text-slate-500 sm:text-sm">VNĐ</span>
+            </div>
+            {amountError && <p className="mt-1 text-xs text-red-600">{amountError}</p>}
+          </div>
+
+          {/* Thông tin chuyển khoản chi tiết */}
+          <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/70 p-4 text-xs sm:text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-slate-500">Ngân hàng</span>
+              <span className="font-semibold text-slate-900">
+                {bankId} {bankShortName !== bankId ? `(${bankShortName})` : ''}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-slate-500">Số tài khoản</span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-sm font-bold text-blue-700 sm:text-base">{accountNo}</span>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(accountNo, 'acc')}
+                  className="rounded bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700 hover:bg-slate-300"
+                >
+                  {copiedField === 'acc' ? '✓ Đã chép' : 'Sao chép'}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-slate-500">Chủ tài khoản</span>
+              <span className="truncate font-semibold text-slate-900">{accountName}</span>
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-slate-500">Số tiền nạp</span>
+              <span className="text-sm font-bold text-emerald-600 sm:text-base">
+                {formatNumber(debouncedAmount)} đ ({formatNumber(debouncedAmount)} điểm)
+              </span>
+            </div>
+
+            <div className="mt-1.5 flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50/80 p-2.5">
+              <div className="min-w-0">
+                <span className="block text-xs font-semibold text-amber-900">
+                  Nội dung chuyển khoản (Bắt buộc)
+                </span>
+                <span className="font-mono text-sm font-extrabold text-blue-800 sm:text-base">{transferContent}</span>
+              </div>
               <button
                 type="button"
-                onClick={() => handleCopy(accountNo, 'acc')}
-                className="rounded bg-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-300"
+                onClick={() => handleCopy(transferContent, 'content')}
+                className="shrink-0 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 sm:text-sm"
               >
-                {copiedField === 'acc' ? '✓ Đã chép' : 'Sao chép'}
+                {copiedField === 'content' ? '✓ Đã chép' : 'Sao chép'}
               </button>
             </div>
           </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-slate-500">Chủ tài khoản:</span>
-            <span className="font-semibold text-slate-900">{accountName}</span>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-slate-500">Số tiền nạp:</span>
-            <span className="text-sm font-bold text-emerald-600">
-              {formatNumber(debouncedAmount)} đ ({formatNumber(debouncedAmount)} điểm)
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between rounded border border-amber-200 bg-amber-50/70 p-2">
-            <div>
-              <span className="block font-semibold text-amber-900">Nội dung chuyển khoản (Bắt buộc):</span>
-              <span className="font-mono text-sm font-extrabold text-blue-800">{transferContent}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleCopy(transferContent, 'content')}
-              className="rounded bg-blue-600 px-2 py-1 text-xs font-semibold text-white shadow-sm hover:bg-blue-700"
-            >
-              {copiedField === 'content' ? '✓ Đã chép' : 'Sao chép'}
-            </button>
-          </div>
         </div>
-
-        {/* Kết quả kiểm tra thủ công (nếu người dùng bấm nút) */}
-        {checkMessage && (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 p-2.5 text-center text-xs font-medium text-blue-800">
-            {checkMessage}
-          </div>
-        )}
       </div>
     </Dialog>
   );

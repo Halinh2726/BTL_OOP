@@ -120,7 +120,13 @@ public enum ProtectedEndpoint {
     MANAGER_COMPLAINT_CAMERA_PHOTO(HttpMethod.GET, "/api/v1/manager/complaints/*/camera-photo", CASE_HANDLE),
     OWNER_COMPLAINT_CAMERA_PHOTO (HttpMethod.GET, "/api/v1/owner/complaints/*/camera-photo",   COMPENSATION_APPROVE),
     MANAGER_PASS_CATALOG         (HttpMethod.GET, "/api/v1/manager/pass-catalog",               CASH_DEPOSIT),
-    UPDATE_PASS_PRICE            (HttpMethod.PUT, "/api/v1/manager/pass-prices/*",              CASH_DEPOSIT);
+    UPDATE_PASS_PRICE            (HttpMethod.PUT, "/api/v1/manager/pass-prices/*",              CASH_DEPOSIT),
+    MANAGER_FEE_RULES            (HttpMethod.GET, "/api/v1/manager/fee-rules",                  CASH_DEPOSIT),
+    UPDATE_FEE_RULES             (HttpMethod.PUT, "/api/v1/manager/fee-rules/*",                CASH_DEPOSIT),
+    GET_SMTP_CONFIG              (HttpMethod.GET, "/api/v1/manager/smtp-config",                CASH_DEPOSIT),
+    UPDATE_SMTP_CONFIG           (HttpMethod.PUT, "/api/v1/manager/smtp-config",                CASH_DEPOSIT),
+    RESET_SMTP_CONFIG            (HttpMethod.DELETE, "/api/v1/manager/smtp-config",             CASH_DEPOSIT),
+    TEST_SMTP_CONFIG             (HttpMethod.POST, "/api/v1/manager/smtp-config/test",          CASH_DEPOSIT);
 
     private final HttpMethod method;
     private final String pathPattern;
