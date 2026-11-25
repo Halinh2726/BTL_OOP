@@ -137,7 +137,7 @@ const PERMISSIONS: Record<Role, string[]> = {
 const VEHICLE_TYPES: VehicleType[] = [
   { code: 'XE_MAY', name: 'Xe máy' },
   { code: 'XE_DAP', name: 'Xe đạp' },
-  { code: 'XE_DAP_DIEN', name: 'Xe máy điện' },
+  { code: 'XE_MAY_DIEN', name: 'Xe máy điện' },
 ];
 const FEE_RULES: FeeRule[] = [
   { startTime: '00:00', feePoints: 3000 },
@@ -218,7 +218,17 @@ function toVehicle(vehicle: MockVehicle): Vehicle {
 function loadState(): MockState {
   try {
     const saved = sessionStorage.getItem(STORAGE_KEY);
-    if (saved) return JSON.parse(saved) as MockState;
+    if (saved) {
+      const state = JSON.parse(saved) as MockState;
+      for (const vehicle of state.vehicles) {
+        if (vehicle.vehicleTypeCode === 'XE_DAP_DIEN') vehicle.vehicleTypeCode = 'XE_MAY_DIEN';
+      }
+      if (state.passPrices?.XE_DAP_DIEN !== undefined) {
+        state.passPrices.XE_MAY_DIEN ??= state.passPrices.XE_DAP_DIEN;
+        delete state.passPrices.XE_DAP_DIEN;
+      }
+      return state;
+    }
   } catch {
     // Không đọc được (chế độ riêng tư...) -> dùng dữ liệu mẫu
   }
@@ -498,7 +508,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
 
   // ===== Đợt 5: helpers =====
 
-  const DEFAULT_PASS_PRICES: Record<string, number> = { XE_MAY: 100_000, XE_DAP_DIEN: 80_000, XE_DAP: 50_000 };
+  const DEFAULT_PASS_PRICES: Record<string, number> = { XE_MAY: 100_000, XE_MAY_DIEN: 80_000, XE_DAP: 50_000 };
 
   function passPrices(): Record<string, number> {
     if (!state.passPrices) state.passPrices = { ...DEFAULT_PASS_PRICES };

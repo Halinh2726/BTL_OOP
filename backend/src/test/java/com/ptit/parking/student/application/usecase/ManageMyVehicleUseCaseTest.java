@@ -36,9 +36,9 @@ class ManageMyVehicleUseCaseTest {
 
     @Test
     void suaLoaiXe_thanhCong() {
-        Vehicle changed = manage.changeType(new ChangeTypeCommand(7L, vehicleId, "XE_DAP_DIEN"));
+        Vehicle changed = manage.changeType(new ChangeTypeCommand(7L, vehicleId, "XE_MAY_DIEN"));
 
-        assertThat(changed.vehicleTypeCode()).isEqualTo("XE_DAP_DIEN");
+        assertThat(changed.vehicleTypeCode()).isEqualTo("XE_MAY_DIEN");
     }
 
     @Test

@@ -69,17 +69,17 @@ class MyVehicleControllerTest {
 
     @Test
     void suaLoaiXe_nguoiGoiLayTuPhien() throws Exception {
-        when(manageVehicle.changeType(new ManageMyVehicleUseCase.ChangeTypeCommand(7L, 100L, "XE_DAP_DIEN")))
-                .thenReturn(new Vehicle(100L, 7L, PlateNumber.of("29A12345"), "XE_DAP_DIEN",
+        when(manageVehicle.changeType(new ManageMyVehicleUseCase.ChangeTypeCommand(7L, 100L, "XE_MAY_DIEN")))
+                .thenReturn(new Vehicle(100L, 7L, PlateNumber.of("29A12345"), "XE_MAY_DIEN",
                         Instant.parse("2026-10-01T01:00:00Z")));
 
         mvc.perform(patch(URL + "/100").with(csrf()).with(authentication(student(7L)))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"vehicleTypeCode":"XE_DAP_DIEN"}
+                                {"vehicleTypeCode":"XE_MAY_DIEN"}
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.vehicleTypeCode").value("XE_DAP_DIEN"));
+                .andExpect(jsonPath("$.vehicleTypeCode").value("XE_MAY_DIEN"));
     }
 
     @Test
