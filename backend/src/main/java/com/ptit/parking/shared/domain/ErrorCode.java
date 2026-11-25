@@ -65,6 +65,7 @@ public enum ErrorCode {
     RESET_CODE_EXPIRED(422, "Mã xác nhận đã hết hạn hoặc đã được dùng. Vui lòng yêu cầu mã mới."),
     RESET_CODE_LOCKED(422, "Nhập sai mã quá 5 lần. Vui lòng yêu cầu mã mới."),
     PLATE_REQUIRED(422, "Vui lòng nhập biển số. Chỉ xe đạp không có biển mới được bãi cấp mã."),
+    PLATE_TYPE_MISMATCH(422, "Cấu trúc biển số không khớp với loại xe đã chọn."),
     VEHICLE_LIMIT_REACHED(422, "Mỗi sinh viên được tối đa 3 xe đang sử dụng."),
     PHOTO_INVALID(422, "Ảnh phải là JPG, PNG hoặc WEBP và không quá 2 MB."),
     WITHDRAWAL_EXCEEDS_AVAILABLE(422, "Số điểm yêu cầu vượt số điểm còn có thể rút (đã trừ các yêu cầu đang chờ)."),

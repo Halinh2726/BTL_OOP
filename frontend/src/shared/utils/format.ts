@@ -210,16 +210,26 @@ export function normalizePlate(raw: string): string {
 }
 
 /** Đợt 1 — biển số theo quy định SAU chuẩn hóa (khớp PlateNumber.STANDARD_PATTERN của backend). */
-export const STANDARD_PLATE = /^([0-9]{2}[A-Z]{1,2}[0-9]{4,6}|XD[0-9]{5})$/;
+export const MOTORCYCLE_PLATE = /^[0-9]{2}[ABCDEFGHKLMNPSTUVXYZ](?:[ABCDEFGHKLMNPSTUVXYZ][0-9]|[ABCDEFGHKLMNPSTUVXYZ])[0-9]{5}$/;
+export const ELECTRIC_MOTORCYCLE_PLATE = /^[0-9]{2}MĐ[0-9]{5}$/;
+export const STANDARD_PLATE = /^(?:[0-9]{2}[ABCDEFGHKLMNPSTUVXYZ](?:[ABCDEFGHKLMNPSTUVXYZ][0-9]|[ABCDEFGHKLMNPSTUVXYZ])[0-9]{5}|[0-9]{2}MĐ[0-9]{5}|XD[0-9]{5})$/;
+
+export function isPlateValidForVehicleType(plate: string, vehicleTypeCode: string): boolean {
+  if (vehicleTypeCode === 'XE_MAY') return MOTORCYCLE_PLATE.test(plate);
+  if (vehicleTypeCode === 'XE_MAY_DIEN') return ELECTRIC_MOTORCYCLE_PLATE.test(plate);
+  return false;
+}
 
 /**
  * Dạng hiển thị có dấu, cùng quy tắc PlateNumber.display() của backend:
- * "29A1514" → "29A-1514", "29A12345" → "29A-123.45", "29A112345" → "29A1-123.45", "XD00001" → "XD-00001".
+ * "29A1514" → "29A-1514", "36S412345" → "36S4-12345", "29MĐ12345" → "29MĐ-123.45", "XD00001" → "XD-00001".
  */
 export function formatPlate(normalized: string): string {
   const bicycle = /^XD([0-9]{5})$/.exec(normalized);
   if (bicycle) return `XD-${bicycle[1]}`;
-  const parts = /^([0-9]{2}[A-Z]{1,2})([0-9]{4,6})$/.exec(normalized);
+  const electric = /^([0-9]{2}MĐ)([0-9]{5})$/.exec(normalized);
+  if (electric) return `${electric[1]}-${electric[2]?.slice(0, 3)}.${electric[2]?.slice(3)}`;
+  const parts = /^([0-9]{2}[A-ZĐ][A-Z0-9Đ]?)([0-9]{4,6})$/.exec(normalized);
   if (!parts) return normalized;
   let series = parts[1] ?? '';
   let digits = parts[2] ?? '';

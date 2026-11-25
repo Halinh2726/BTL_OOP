@@ -14,7 +14,7 @@ import jakarta.validation.constraints.Size;
  */
 record RegisterVehicleRequest(
         @Pattern(regexp = "^$|" + PlateNumber.STANDARD_PATTERN,
-                message = "Biển số theo dạng 29A-1514 hoặc 29A-123.45 (tối đa 5 số cuối)")
+                message = "Biển xe xăng theo dạng 36S4-12345 hoặc 26DC-12345; xe điện theo dạng 29MĐ-123.45")
         String plateNumber,
 
         @NotBlank(message = "Vui lòng chọn loại xe")

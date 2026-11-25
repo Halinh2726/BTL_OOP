@@ -37,7 +37,6 @@ public enum ProtectedEndpoint {
 
     MY_VEHICLES        (HttpMethod.GET,   "/api/v1/me/vehicles",              VEHICLE_REGISTER),   // #5
     REGISTER_VEHICLE   (HttpMethod.POST,  "/api/v1/me/vehicles",              VEHICLE_REGISTER),   // #6
-    UPDATE_VEHICLE     (HttpMethod.PATCH, "/api/v1/me/vehicles/*",            VEHICLE_REGISTER),   // Đợt 1: sửa loại xe
     DEACTIVATE_VEHICLE (HttpMethod.POST,  "/api/v1/me/vehicles/*/deactivate", VEHICLE_REGISTER),   // Đợt 1: ngừng sử dụng xe
     MY_WALLET          (HttpMethod.GET,   "/api/v1/me/wallet",                WALLET_VIEW_OWN),    // #7
     MY_DEPOSIT_INFO    (HttpMethod.GET,   "/api/v1/me/deposit-info",          WALLET_VIEW_OWN),    // Nạp điểm VietQR

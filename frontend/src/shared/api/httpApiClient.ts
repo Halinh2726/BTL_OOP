@@ -153,8 +153,6 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
       });
     },
 
-    changeVehicleType: (vehicleId, vehicleTypeCode) =>
-      json(`/me/vehicles/${vehicleId}`, { method: 'PATCH', body: { vehicleTypeCode } }),
     deactivateVehicle: (vehicleId) => json(`/me/vehicles/${vehicleId}/deactivate`, { method: 'POST' }),
 
     resetStudentPassword: (studentCode) =>

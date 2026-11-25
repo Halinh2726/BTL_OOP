@@ -11,8 +11,8 @@ import java.util.regex.Pattern;
  * <p>Đối tượng tạo ra được thì CHẮC CHẮN hợp lệ — không có biển số "nửa đúng nửa sai" trong hệ thống.
  * <p>Đợt 1 — biển số theo quy định:
  * <ul>
- *   <li>Đăng ký xe MỚI phải đúng dạng biển Việt Nam {@link #STANDARD_PATTERN}: 2 số tỉnh + 1–2 chữ seri
- *       (+ 1 số seri với xe máy) + 4–5 số, ví dụ 29A-1514, 29A-123.45, 29A1-123.45.</li>
+ *   <li>Đăng ký xe MỚI phải khớp cấu trúc theo loại xe: mô tô xăng dùng sê-ri chữ/số, xe điện dùng MĐ;
+ *       xe đạp dùng mã XD-xxxxx do bãi cấp.</li>
  *   <li>Xe đạp không có biển dùng mã do bãi cấp XD-xxxxx ({@link #bicycleCode}).</li>
  *   <li>Vẫn LƯU dạng chuẩn hóa (chỉ chữ và số) để tìm kiếm và chống trùng; {@link #display()} thêm dấu khi hiển thị.</li>
  * </ul>
@@ -20,10 +20,15 @@ import java.util.regex.Pattern;
 public record PlateNumber(String value) {
 
     /** Định dạng SAU chuẩn hóa dùng khi tra cứu (Đặc tả API #6) — khớp ràng buộc ck_vehicles_plate của CSDL. */
-    public static final String PATTERN = "^[A-Z0-9]{5,20}$";
+    public static final String PATTERN = "^[A-Z0-9Đ]{5,20}$";
 
-    /** Biển số Việt Nam hoặc mã xe đạp, SAU chuẩn hóa: bắt buộc khi đăng ký xe mới. */
-    public static final String STANDARD_PATTERN = "^([0-9]{2}[A-Z]{1,2}[0-9]{4,6}|XD[0-9]{5})$";
+    private static final String MOTORCYCLE_PLATE_PATTERN = "[0-9]{2}[ABCDEFGHKLMNPSTUVXYZ](?:[ABCDEFGHKLMNPSTUVXYZ][0-9]|[ABCDEFGHKLMNPSTUVXYZ])[0-9]{5}";
+    private static final String ELECTRIC_MOTORCYCLE_PLATE_PATTERN = "[0-9]{2}MĐ[0-9]{5}";
+    private static final String BICYCLE_CODE_PATTERN = "XD[0-9]{5}";
+
+    /** Các dạng biển hợp lệ về cấu trúc, bất kể loại xe (đối chiếu loại xe ở use case đăng ký). */
+    public static final String STANDARD_PATTERN = "^(?:" + MOTORCYCLE_PLATE_PATTERN + "|"
+            + ELECTRIC_MOTORCYCLE_PLATE_PATTERN + "|" + BICYCLE_CODE_PATTERN + ")$";
 
     public static final String BICYCLE_PREFIX = "XD";
 
@@ -31,7 +36,9 @@ public record PlateNumber(String value) {
     private static final Pattern STANDARD = Pattern.compile(STANDARD_PATTERN);
     private static final Pattern SEPARATORS = Pattern.compile("[\\s.\\-]");
     /** Tách phần seri và phần số: 2 số tỉnh + chữ seri, rồi phần còn lại toàn số. */
-    private static final Pattern PARTS = Pattern.compile("^([0-9]{2}[A-Z]{1,2})([0-9]{4,6})$");
+    private static final Pattern MOTORCYCLE_PLATE = Pattern.compile("^" + MOTORCYCLE_PLATE_PATTERN + "$");
+    private static final Pattern ELECTRIC_MOTORCYCLE_PLATE = Pattern.compile("^" + ELECTRIC_MOTORCYCLE_PLATE_PATTERN + "$");
+    private static final Pattern PARTS = Pattern.compile("^([0-9]{2}[A-ZĐ][A-Z0-9Đ]?)([0-9]{4,6})$");
     private static final Pattern BICYCLE = Pattern.compile("^XD([0-9]{5})$");
 
     public PlateNumber {
@@ -74,6 +81,14 @@ public record PlateNumber(String value) {
         return BICYCLE.matcher(value).matches();
     }
 
+    public boolean isMotorcyclePlate() {
+        return MOTORCYCLE_PLATE.matcher(value).matches();
+    }
+
+    public boolean isElectricMotorcyclePlate() {
+        return ELECTRIC_MOTORCYCLE_PLATE.matcher(value).matches();
+    }
+
     /**
      * Dạng hiển thị: "XD00001" → "XD-00001"; 4 số cuối → "29A-1514"; 5 số → "29A-123.45";
      * 6 số (xe máy có số seri) → "29A1-123.45". Dữ liệu cũ không đúng quy định thì hiển thị nguyên văn.
@@ -82,6 +97,11 @@ public record PlateNumber(String value) {
         Matcher bicycle = BICYCLE.matcher(value);
         if (bicycle.matches()) {
             return BICYCLE_PREFIX + "-" + bicycle.group(1);
+        }
+        Matcher electric = ELECTRIC_MOTORCYCLE_PLATE.matcher(value);
+        if (electric.matches()) {
+            String digits = value.substring(value.length() - 5);
+            return value.substring(0, value.length() - 5) + "-" + digits.substring(0, 3) + "." + digits.substring(3);
         }
         Matcher parts = PARTS.matcher(value);
         if (!parts.matches()) {

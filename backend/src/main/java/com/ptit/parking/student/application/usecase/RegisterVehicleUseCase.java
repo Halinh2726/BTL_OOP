@@ -16,7 +16,7 @@ import java.time.Clock;
  * <p>Đợt 1:
  * <ul>
  *   <li>Biển số phải đúng quy định (29A-1514, 29A-123.45...). Xe đạp để trống biển số → bãi cấp mã XD-xxxxx.</li>
- *   <li>Tối đa {@value Vehicle#MAX_ACTIVE_PER_STUDENT} xe đang dùng. "Đổi xe" = ngừng xe cũ rồi đăng ký xe mới.</li>
+ *   <li>Tối đa {@value Vehicle#MAX_ACTIVE_PER_STUDENT} xe đang dùng.</li>
  * </ul>
  * Một transaction: khóa dòng sinh viên (đếm xe) → cấp mã nếu cần → kiểm tra trùng → lưu.
  */
@@ -24,6 +24,8 @@ public class RegisterVehicleUseCase {
 
     /** Loại xe được bãi cấp mã khi không có biển số. */
     public static final String BICYCLE_TYPE = "XE_DAP";
+    public static final String MOTORCYCLE_TYPE = "XE_MAY";
+    public static final String ELECTRIC_MOTORCYCLE_TYPE = "XE_MAY_DIEN";
 
     /** {@code plateNumber} rỗng/null chỉ hợp lệ với xe đạp. */
     public record Command(long studentId, String plateNumber, String vehicleTypeCode) {}
@@ -50,6 +52,9 @@ public class RegisterVehicleUseCase {
         if (typed != null && !typed.isStandard()) {
             throw new DomainException(ErrorCode.VALIDATION_ERROR);
         }
+        if (typed != null && !matchesVehicleType(typed, command.vehicleTypeCode())) {
+            throw new DomainException(ErrorCode.PLATE_TYPE_MISMATCH);
+        }
 
         return transactions.inTransaction(() -> {
             Vehicle.ensureQuota(vehicles.countActiveForUpdate(command.studentId()));
@@ -63,5 +68,14 @@ public class RegisterVehicleUseCase {
             return vehicles.save(Vehicle.register(command.studentId(), plate, command.vehicleTypeCode(),
                     clock.instant()));
         });
+    }
+
+    private static boolean matchesVehicleType(PlateNumber plate, String vehicleTypeCode) {
+        return switch (vehicleTypeCode) {
+            case BICYCLE_TYPE -> false; // xe đạp phải để trống, bãi tự cấp XD
+            case MOTORCYCLE_TYPE -> plate.isMotorcyclePlate();
+            case ELECTRIC_MOTORCYCLE_TYPE -> plate.isElectricMotorcyclePlate();
+            default -> false;
+        };
     }
 }

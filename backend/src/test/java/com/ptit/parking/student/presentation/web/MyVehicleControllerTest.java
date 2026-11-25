@@ -5,7 +5,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -65,21 +64,6 @@ class MyVehicleControllerTest {
                 .andExpect(jsonPath("$[0].plateDisplay").value("29A-1514"))
                 .andExpect(jsonPath("$[0].status").value("NGUNG_SU_DUNG"))
                 .andExpect(jsonPath("$[0].deactivatedAt").value("2026-10-05T08:00:00+07:00"));
-    }
-
-    @Test
-    void suaLoaiXe_nguoiGoiLayTuPhien() throws Exception {
-        when(manageVehicle.changeType(new ManageMyVehicleUseCase.ChangeTypeCommand(7L, 100L, "XE_DAP_DIEN")))
-                .thenReturn(new Vehicle(100L, 7L, PlateNumber.of("29A12345"), "XE_DAP_DIEN",
-                        Instant.parse("2026-10-01T01:00:00Z")));
-
-        mvc.perform(patch(URL + "/100").with(csrf()).with(authentication(student(7L)))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"vehicleTypeCode":"XE_DAP_DIEN"}
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.vehicleTypeCode").value("XE_DAP_DIEN"));
     }
 
     @Test

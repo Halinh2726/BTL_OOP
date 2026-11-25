@@ -9,16 +9,14 @@ import com.ptit.parking.student.domain.Vehicle;
 import java.time.Clock;
 
 /**
- * Đợt 1 — sinh viên sửa loại xe hoặc ngừng sử dụng xe ("xóa xe"). Quy tắc chung của hai thao tác:
+ * Sinh viên ngừng sử dụng xe đã đăng ký. Quy tắc:
  * <ul>
  *   <li>Chỉ thao tác trên xe của CHÍNH MÌNH: xe của người khác → VEHICLE_NOT_FOUND (không tiết lộ xe đó tồn tại).</li>
- *   <li>Xe đang trong bãi → VEHICLE_PARKED: bảo vệ đang đối chiếu xe này, đổi dữ liệu giữa chừng sẽ gây nhầm lẫn.</li>
+ *   <li>Xe đang trong bãi → VEHICLE_PARKED: bảo vệ đang đối chiếu xe này, không thể ngừng giữa chừng.</li>
  *   <li>Xe đã ngừng → VEHICLE_INACTIVE (do {@link Vehicle} tự kiểm tra).</li>
  * </ul>
  */
 public class ManageMyVehicleUseCase {
-
-    public record ChangeTypeCommand(long studentId, long vehicleId, String vehicleTypeCode) {}
 
     public record DeactivateCommand(long studentId, long vehicleId) {}
 
@@ -33,16 +31,6 @@ public class ManageMyVehicleUseCase {
         this.parking = parking;
         this.transactions = transactions;
         this.clock = clock;
-    }
-
-    public Vehicle changeType(ChangeTypeCommand command) {
-        return transactions.inTransaction(() -> {
-            Vehicle vehicle = ownedIdleVehicle(command.studentId(), command.vehicleId());
-            if (vehicle.changeType(command.vehicleTypeCode())) {
-                vehicles.update(vehicle);         // loại xe không tồn tại: fk_vehicles_type -> VALIDATION_ERROR
-            }
-            return vehicle;
-        });
     }
 
     public Vehicle deactivate(DeactivateCommand command) {

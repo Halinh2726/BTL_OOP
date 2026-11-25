@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
-import com.ptit.parking.student.application.usecase.ManageMyVehicleUseCase.ChangeTypeCommand;
 import com.ptit.parking.student.application.usecase.ManageMyVehicleUseCase.DeactivateCommand;
 import com.ptit.parking.student.domain.PlateNumber;
 import com.ptit.parking.student.domain.Vehicle;
@@ -18,7 +17,7 @@ import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** Đợt 1 — sửa loại xe, ngừng sử dụng xe. */
+/** Vòng đời xe — chỉ ngừng sử dụng xe sau khi đăng ký. */
 class ManageMyVehicleUseCaseTest {
 
     private static final Instant NOW = Instant.parse("2026-11-01T03:00:00Z");
@@ -32,13 +31,6 @@ class ManageMyVehicleUseCaseTest {
     @BeforeEach
     void coMotXeCuaSinhVien7() {
         vehicleId = vehicles.save(Vehicle.register(7L, PlateNumber.of("29A12345"), "XE_MAY", NOW)).id();
-    }
-
-    @Test
-    void suaLoaiXe_thanhCong() {
-        Vehicle changed = manage.changeType(new ChangeTypeCommand(7L, vehicleId, "XE_DAP_DIEN"));
-
-        assertThat(changed.vehicleTypeCode()).isEqualTo("XE_DAP_DIEN");
     }
 
     @Test
@@ -61,9 +53,6 @@ class ManageMyVehicleUseCaseTest {
     void xeDangTrongBai_khongSuaKhongNgungDuoc() {
         parked.add(vehicleId);
 
-        assertThatThrownBy(() -> manage.changeType(new ChangeTypeCommand(7L, vehicleId, "XE_DAP")))
-                .isInstanceOfSatisfying(DomainException.class,
-                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.VEHICLE_PARKED));
         assertThatThrownBy(() -> manage.deactivate(new DeactivateCommand(7L, vehicleId)))
                 .isInstanceOfSatisfying(DomainException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.VEHICLE_PARKED));
@@ -74,9 +63,6 @@ class ManageMyVehicleUseCaseTest {
         manage.deactivate(new DeactivateCommand(7L, vehicleId));
 
         assertThatThrownBy(() -> manage.deactivate(new DeactivateCommand(7L, vehicleId)))
-                .isInstanceOfSatisfying(DomainException.class,
-                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.VEHICLE_INACTIVE));
-        assertThatThrownBy(() -> manage.changeType(new ChangeTypeCommand(7L, vehicleId, "XE_DAP")))
                 .isInstanceOfSatisfying(DomainException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.VEHICLE_INACTIVE));
     }

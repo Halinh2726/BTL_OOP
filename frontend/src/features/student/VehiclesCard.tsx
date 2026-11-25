@@ -11,29 +11,21 @@ import { QueryError } from '../../shared/components/QueryError';
 import { LoadingBlock } from '../../shared/components/Spinner';
 import type { Vehicle } from '../../shared/types/api';
 import { VEHICLE_STATUS_LABELS, formatDateTime } from '../../shared/utils/format';
-import { ChangeVehicleTypeDialog } from './ChangeVehicleTypeDialog';
 import { RegisterVehicleDialog } from './RegisterVehicleDialog';
 import { VehicleQrDialog } from './VehicleQrDialog';
 
 /** Tối đa 3 xe ĐANG DÙNG cho mỗi sinh viên (cùng Vehicle.MAX_ACTIVE_PER_STUDENT của backend). */
 export const MAX_ACTIVE_VEHICLES = 3;
 
-/** Ngừng xe cũ: chỉ ngừng, hoặc ngừng rồi mở ngay form đăng ký xe mới ("đổi xe"). */
-interface Deactivation {
-  vehicle: Vehicle;
-  thenRegister: boolean;
-}
-
 /**
- * "Xe của tôi" (GET /me/vehicles). Đợt 1: sửa loại xe, ngừng sử dụng ("xóa xe" — vẫn giữ lịch sử lượt gửi),
- * đổi xe (= ngừng xe cũ + đăng ký xe mới), tối đa 3 xe đang dùng, biển số hiển thị theo quy định.
+ * "Xe của tôi" (GET /me/vehicles). Thông tin xe đã đăng ký không sửa được; chỉ có thể ngừng sử dụng,
+ * tối đa 3 xe đang dùng, biển số hiển thị theo quy định.
  */
 export function VehiclesCard() {
   const queryClient = useQueryClient();
   const [registering, setRegistering] = useState(false);
   const [qrVehicle, setQrVehicle] = useState<Vehicle | null>(null);
-  const [editing, setEditing] = useState<Vehicle | null>(null);
-  const [deactivation, setDeactivation] = useState<Deactivation | null>(null);
+  const [deactivation, setDeactivation] = useState<Vehicle | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const vehicles = useQuery({ queryKey: queryKeys.myVehicles, queryFn: api.myVehicles });
   const types = useQuery({ queryKey: queryKeys.vehicleTypes, queryFn: api.vehicleTypes, staleTime: Infinity });
@@ -43,12 +35,11 @@ export function VehiclesCard() {
   const full = activeCount >= MAX_ACTIVE_VEHICLES;
 
   const deactivate = useMutation({
-    mutationFn: (target: Deactivation) => api.deactivateVehicle(target.vehicle.id),
-    onSuccess: async (stopped, target) => {
+    mutationFn: (vehicle: Vehicle) => api.deactivateVehicle(vehicle.id),
+    onSuccess: async (stopped) => {
       setDeactivation(null);
       setMessage(`Đã ngừng sử dụng xe ${stopped.plateDisplay}. Lịch sử gửi xe vẫn được giữ.`);
       await queryClient.invalidateQueries({ queryKey: queryKeys.myVehicles });
-      if (target.thenRegister) setRegistering(true);
     },
   });
 
@@ -66,7 +57,7 @@ export function VehiclesCard() {
         <Button
           size="sm"
           disabled={full}
-          title={full ? 'Đã đủ 3 xe đang dùng — ngừng hoặc đổi một xe trước' : undefined}
+          title={full ? 'Đã đủ 3 xe đang dùng — ngừng một xe trước' : undefined}
           onClick={() => {
             setMessage(null);
             setRegistering(true);
@@ -113,26 +104,13 @@ export function VehiclesCard() {
                     <Button size="sm" variant="secondary" onClick={() => setQrVehicle(vehicle)}>
                       Mã QR
                     </Button>
-                    <Button size="sm" variant="secondary" onClick={() => setEditing(vehicle)}>
-                      Sửa loại xe
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => {
-                        deactivate.reset();
-                        setDeactivation({ vehicle, thenRegister: true });
-                      }}
-                    >
-                      Đổi xe
-                    </Button>
                     <Button
                       size="sm"
                       variant="ghost"
                       className="!text-red-700"
                       onClick={() => {
                         deactivate.reset();
-                        setDeactivation({ vehicle, thenRegister: false });
+                        setDeactivation(vehicle);
                       }}
                     >
                       Ngừng sử dụng
@@ -147,8 +125,8 @@ export function VehiclesCard() {
 
       {deactivation && (
         <ConfirmDialog
-          title={deactivation.thenRegister ? 'Đổi xe' : 'Ngừng sử dụng xe'}
-          confirmLabel={deactivation.thenRegister ? 'Ngừng xe này và đăng ký xe mới' : 'Ngừng sử dụng'}
+          title="Ngừng sử dụng xe"
+          confirmLabel="Ngừng sử dụng"
           tone="danger"
           pending={deactivate.isPending}
           onCancel={() => setDeactivation(null)}
@@ -156,24 +134,13 @@ export function VehiclesCard() {
           error={deactivate.isError && <Alert tone="error">{errorMessage(deactivate.error)}</Alert>}
         >
           <p>
-            Ngừng sử dụng xe <strong className="font-mono">{deactivation.vehicle.plateDisplay}</strong>?
+            Ngừng sử dụng xe <strong className="font-mono">{deactivation.plateDisplay}</strong>?
           </p>
           <p className="text-sm text-slate-500">
             Bảo vệ sẽ không cho xe này vào bãi nữa. Lịch sử gửi xe vẫn được giữ; biển số được giải phóng để người mua lại
             xe có thể đăng ký. Không ngừng được khi xe đang trong bãi.
           </p>
         </ConfirmDialog>
-      )}
-      {editing && (
-        <ChangeVehicleTypeDialog
-          vehicle={editing}
-          types={types.data ?? []}
-          onClose={() => setEditing(null)}
-          onChanged={(changed) => {
-            setEditing(null);
-            setMessage(`Đã đổi loại xe ${changed.plateDisplay} thành ${typeName(changed.vehicleTypeCode)}.`);
-          }}
-        />
       )}
       {qrVehicle && <VehicleQrDialog vehicle={qrVehicle} onClose={() => setQrVehicle(null)} />}
       {registering && <RegisterVehicleDialog types={types.data ?? []} onClose={() => setRegistering(false)} />}

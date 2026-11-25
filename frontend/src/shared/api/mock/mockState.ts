@@ -292,7 +292,7 @@ export function seedState(now = new Date()): MockState {
     wallets: { [OWNER_ID]: 4000, [STUDENT_ID]: 44000, [STUDENT2_ID]: 2000 },
     vehicles: [
       { id: 1, userId: STUDENT_ID, plateNumber: '29A12345', vehicleTypeCode: 'XE_MAY', registeredAt: at(24 * 7) },
-      { id: 2, userId: STUDENT2_ID, plateNumber: '30B67890', vehicleTypeCode: 'XE_DAP_DIEN', registeredAt: at(24 * 6) },
+      { id: 2, userId: STUDENT2_ID, plateNumber: '30B67890', vehicleTypeCode: 'XE_MAY_DIEN', registeredAt: at(24 * 6) },
       { id: 3, userId: STUDENT2_ID, plateNumber: '29T67021', vehicleTypeCode: 'XE_MAY', registeredAt: at(24 * 4) },
     ],
     sessions: [
@@ -331,6 +331,6 @@ export function seedState(now = new Date()): MockState {
     assignments: [],
     passes: [],
     notifications: [],
-    passPrices: { XE_MAY: 100_000, XE_DAP_DIEN: 80_000, XE_DAP: 50_000 },
+    passPrices: { XE_MAY: 100_000, XE_MAY_DIEN: 80_000, XE_DAP: 50_000 },
   };
 }
