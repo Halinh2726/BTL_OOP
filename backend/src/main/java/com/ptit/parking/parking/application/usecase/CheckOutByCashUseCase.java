@@ -24,7 +24,7 @@ import java.util.UUID;
  * BV02-Tiền mặt (Mục 3.5, 3.6 PDF): bảo vệ thu tiền mặt tại chốt khi cho xe ra.
  * <ul>
  *   <li>Mức tiền do backend tự tính theo biểu phí và tỷ lệ quy đổi; bảo vệ không nhập hay sửa số tiền (Mục 3.8).</li>
- *   <li>Kiểm tra giờ khóa (mặc định 20:00) và áp dụng phí qua đêm (15.000đ) nếu lượt qua ngày.</li>
+ *   <li>Kiểm tra giờ khóa (mặc định 22:00) và áp dụng phí qua đêm (15.000đ) nếu lượt qua ngày.</li>
  *   <li>Tiền mặt chỉ ghi vào {@code gate_cash_collections} gắn với ca trực, KHÔNG cộng ví điểm và KHÔNG ghi
  *       {@code point_transactions} để giữ nguyên bất biến đối soát R12.</li>
  *   <li>An toàn idempotency: bấm nhiều lần cùng {@code idempotencyKey} trả lại đúng khoản thu đã lưu.</li>

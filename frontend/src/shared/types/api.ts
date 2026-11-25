@@ -877,7 +877,7 @@ export interface NotificationInbox {
   items: NotificationItem[];
 }
 
-// ===== VietQR, giờ khóa 20:00 / phí qua đêm & tiền mặt tại chốt =====
+// ===== VietQR, giờ khóa lấy xe / phí qua đêm & tiền mặt tại chốt =====
 
 export interface DepositInfo {
   studentCode: string;

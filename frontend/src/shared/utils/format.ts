@@ -201,7 +201,7 @@ export const REASON_LABELS: Record<string, string> = {
   SESSION_ALREADY_OPEN: 'Xe đang có lượt gửi chưa kết thúc',
   NO_OPEN_SESSION: 'Xe không có lượt gửi đang mở',
   INSUFFICIENT_POINTS: 'Không đủ điểm',
-  CHECKOUT_CURFEW: 'Đã quá giờ khóa lấy xe trong ngày (từ 20:00)',
+  CHECKOUT_CURFEW: 'Đã quá giờ khóa lấy xe trong ngày (từ 22:00)',
 };
 
 /** Bỏ khoảng trắng, dấu chấm, gạch ngang và viết hoa — cùng quy tắc chuẩn hóa biển số với backend. */

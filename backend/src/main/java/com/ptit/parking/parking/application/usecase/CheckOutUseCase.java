@@ -28,7 +28,7 @@ import java.util.UUID;
 
 /**
  * BV02 «include» HT01 (Đặc tả API #15) — bảo vệ xác nhận cho xe ra, hệ thống tự trừ phí.
- * <p>Kiểm tra giờ khóa lấy xe (Mục 3.9, mặc định từ 20:00 giờ VN) và tính phí qua đêm (15.000 điểm)
+ * <p>Kiểm tra giờ khóa lấy xe (Mục 3.9, mặc định từ 22:00 giờ VN) và tính phí qua đêm (15.000 điểm)
  * nếu lượt gửi còn mở qua ngày hôm sau.
  */
 public class CheckOutUseCase {

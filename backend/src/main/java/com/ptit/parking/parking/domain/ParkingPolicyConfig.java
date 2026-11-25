@@ -8,7 +8,7 @@ import java.util.Objects;
 
 /**
  * Cấu hình giờ khóa lấy xe trong ngày và mức phí qua đêm (Mục 3.8, 3.9).
- * Mặc định: khóa lấy xe từ 20:00 giờ Việt Nam; lượt mở qua ngày tính 15.000 điểm tổng cộng.
+ * Mặc định: khóa lấy xe từ 22:00 giờ Việt Nam; lượt mở qua ngày tính 15.000 điểm tổng cộng.
  */
 public record ParkingPolicyConfig(
         LocalTime checkoutCurfewTime,
@@ -17,7 +17,7 @@ public record ParkingPolicyConfig(
 ) {
 
     public static final ParkingPolicyConfig DEFAULT =
-            new ParkingPolicyConfig(LocalTime.of(20, 0), 15_000L, true);
+            new ParkingPolicyConfig(LocalTime.of(22, 0), 15_000L, true);
 
     public ParkingPolicyConfig {
         Objects.requireNonNull(checkoutCurfewTime, "checkoutCurfewTime");
@@ -27,7 +27,7 @@ public record ParkingPolicyConfig(
     }
 
     public static ParkingPolicyConfig disabled() {
-        return new ParkingPolicyConfig(LocalTime.of(20, 0), 15_000L, false);
+        return new ParkingPolicyConfig(LocalTime.of(22, 0), 15_000L, false);
     }
 
     /** Đã tới hoặc quá giờ khóa lấy xe trong ngày (theo giờ Việt Nam) khi tính năng khóa được bật. */

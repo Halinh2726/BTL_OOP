@@ -367,7 +367,7 @@ function ParkingPolicyCard() {
   const queryClient = useQueryClient();
   const policyQuery = useQuery({ queryKey: queryKeys.parkingPolicy, queryFn: api.parkingPolicy });
   const [curfewEnabled, setCurfewEnabled] = useState(true);
-  const [checkoutCurfewTime, setCheckoutCurfewTime] = useState('20:00');
+  const [checkoutCurfewTime, setCheckoutCurfewTime] = useState('22:00');
   const [overnightFeePoints, setOvernightFeePoints] = useState('15000');
   const [notice, setNotice] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -395,7 +395,7 @@ function ParkingPolicyCard() {
     event.preventDefault();
     setNotice(null);
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(checkoutCurfewTime)) {
-      setValidationError('Giờ khóa phải đúng định dạng HH:mm (ví dụ: 20:00).');
+      setValidationError('Giờ khóa phải đúng định dạng HH:mm (ví dụ: 22:00).');
       return;
     }
     const fee = Number(overnightFeePoints.replace(/\D/g, ''));
@@ -444,7 +444,7 @@ function ParkingPolicyCard() {
                 disabled={!curfewEnabled}
                 className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
               />
-              <p className="text-xs text-slate-500">Mặc định 20:00 — sau giờ này cổng không cho xác nhận xe ra.</p>
+              <p className="text-xs text-slate-500">Mặc định 22:00 — sau giờ này cổng không cho xác nhận xe ra.</p>
             </div>
 
             <div className="space-y-1">

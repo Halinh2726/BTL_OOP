@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Cấu hình giờ khóa lấy xe (mặc định 20:00) và mức phí qua đêm (mặc định 15.000 điểm):
+ * Cấu hình giờ khóa lấy xe (mặc định 22:00) và mức phí qua đêm (mặc định 15.000 điểm):
  * <ul>
  *   <li>{@code GET /api/v1/config/parking-policy}: mọi vai trò đã đăng nhập đều xem được (hiển thị cho SV/BV).</li>
  *   <li>{@code GET/PUT /api/v1/manager/parking-policy}: Quản lý (quyền CASH_DEPOSIT) cấu hình trực tiếp.</li>
@@ -40,7 +40,7 @@ class ParkingPolicyController {
 
     record UpdateParkingPolicyRequest(
             @NotBlank(message = "Vui lòng nhập giờ khóa lấy xe")
-            @Pattern(regexp = "^([01]\\d|2[0-3]):[0-5]\\d$", message = "Giờ khóa có dạng HH:mm (VD: 20:00)")
+            @Pattern(regexp = "^([01]\\d|2[0-3]):[0-5]\\d$", message = "Giờ khóa có dạng HH:mm (VD: 22:00)")
             String checkoutCurfewTime,
 
             @NotNull(message = "Vui lòng nhập mức phí qua đêm")

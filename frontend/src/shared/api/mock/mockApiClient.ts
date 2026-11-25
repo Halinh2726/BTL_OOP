@@ -247,7 +247,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
     envDefault: { ...ENV_DEFAULT_BANK },
   };
   let mockPolicy: ParkingPolicyConfig = {
-    checkoutCurfewTime: '20:00',
+    checkoutCurfewTime: '22:00',
     overnightFeePoints: 15_000,
     curfewEnabled: true,
   };
@@ -2335,7 +2335,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
       call(() => {
         requireRole('QUAN_LY');
         if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(body.checkoutCurfewTime)) {
-          invalid([{ field: 'checkoutCurfewTime', code: 'PATTERN', message: 'Giờ khóa có dạng HH:mm (VD: 20:00)' }]);
+          invalid([{ field: 'checkoutCurfewTime', code: 'PATTERN', message: 'Giờ khóa có dạng HH:mm (VD: 22:00)' }]);
         }
         if (body.overnightFeePoints < 1000 || body.overnightFeePoints > 1_000_000) {
           invalid([{ field: 'overnightFeePoints', code: 'RANGE', message: 'Phí qua đêm từ 1.000 đến 1.000.000 điểm' }]);
