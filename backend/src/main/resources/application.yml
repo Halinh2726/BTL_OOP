@@ -14,7 +14,7 @@ spring:
     username: ${DB_USERNAME:parking}
     password: ${DB_PASSWORD:parking}
     hikari:
-      connection-timeout: 3000     # ms; CSDL sập thì báo lỗi nhanh (health trả 503) thay vì treo 30s
+      connection-timeout: ${DB_CONNECTION_TIMEOUT_MS:3000} # Docker dùng 10s để đủ thời gian cho lần khởi động lạnh
             # Chờ khóa dòng (ví đang bị giao dịch khác khóa) tối đa 5 giây thay vì 50 giây mặc định của InnoDB
       connection-init-sql: SET SESSION innodb_lock_wait_timeout = 5
   jpa: 
