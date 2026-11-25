@@ -38,6 +38,7 @@ public enum ErrorCode {
     STUDENT_CODE_EXISTS(409, "MSSV đã tồn tại"),
     USERNAME_EXISTS(409, "Tên đăng nhập đã tồn tại"),
     PLATE_EXISTS(409, "Biển số đã được đăng ký"),
+    STUDENT_ALREADY_PARKED(409, "Sinh viên đã có xe đang gửi. Hãy lấy xe đó ra trước khi cho xe khác vào."),
     SESSION_ALREADY_OPEN(409, "Xe đang có lượt gửi chưa kết thúc. Không cho xe vào."),
     SESSION_ALREADY_PAID(409, "Lượt gửi này đã được thanh toán. Không trừ điểm lần hai."),
     CONCURRENT_UPDATE(409, "Hệ thống đang bận. Vui lòng thử lại."),
@@ -65,6 +66,7 @@ public enum ErrorCode {
     RESET_CODE_EXPIRED(422, "Mã xác nhận đã hết hạn hoặc đã được dùng. Vui lòng yêu cầu mã mới."),
     RESET_CODE_LOCKED(422, "Nhập sai mã quá 5 lần. Vui lòng yêu cầu mã mới."),
     PLATE_REQUIRED(422, "Vui lòng nhập biển số. Chỉ xe đạp không có biển mới được bãi cấp mã."),
+    PLATE_TYPE_MISMATCH(422, "Cấu trúc biển số không khớp với loại xe đã chọn."),
     VEHICLE_LIMIT_REACHED(422, "Mỗi sinh viên được tối đa 3 xe đang sử dụng."),
     PHOTO_INVALID(422, "Ảnh phải là JPG, PNG hoặc WEBP và không quá 2 MB."),
     WITHDRAWAL_EXCEEDS_AVAILABLE(422, "Số điểm yêu cầu vượt số điểm còn có thể rút (đã trừ các yêu cầu đang chờ)."),
@@ -80,6 +82,7 @@ public enum ErrorCode {
     PASS_MONTH_INVALID(422, "Chỉ mua được vé cho tháng này hoặc tháng sau."),
     PASS_NOT_AVAILABLE(422, "Loại xe này chưa bán vé tháng."),
     DATE_RANGE_INVALID(422, "Khoảng ngày không hợp lệ: ngày bắt đầu phải trước ngày kết thúc, tối đa 93 ngày."),
+    CHECKOUT_CURFEW(422, "Đã quá giờ khóa lấy xe trong ngày. Lượt gửi giữ nguyên ĐANG GỬI và tính phí qua đêm vào hôm sau."),
 
     // 429 / 500
     TOO_MANY_REQUESTS(429, "Thao tác quá nhiều lần. Vui lòng thử lại sau ít phút."),

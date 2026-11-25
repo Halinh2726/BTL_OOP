@@ -10,7 +10,7 @@ import { ConfirmDialog } from '../../shared/components/Dialog';
 import { QueryError } from '../../shared/components/QueryError';
 import { LoadingBlock } from '../../shared/components/Spinner';
 import type { ClosedReconciliation, ReconciliationOutcome } from '../../shared/types/api';
-import { formatCash, formatDateTime, formatNumber, formatPoints, RECONCILIATION_OUTCOME_LABELS } from '../../shared/utils/format';
+import { formatCash, formatDateTime, formatNumber, formatPoints, formatTime, RECONCILIATION_OUTCOME_LABELS } from '../../shared/utils/format';
 import { vietnamToday } from '../owner/revenue/revenueMath';
 import { parseAmount } from './amount';
 
@@ -32,6 +32,7 @@ export function ReconciliationTab() {
   const [note, setNote] = useState('');
   const [confirming, setConfirming] = useState(false);
   const day = useQuery({ queryKey: queryKeys.reconciliationDay(date), queryFn: () => api.reconciliationDay(date), enabled: date <= today });
+  const gateCash = useQuery({ queryKey: queryKeys.managerGateCash(date), queryFn: () => api.managerGateCash(date), enabled: date <= today });
   const history = useQuery({ queryKey: queryKeys.reconciliationHistory, queryFn: api.reconciliationHistory });
 
   const countedCash = counted.trim() === '' ? null : parseAmount(counted);
@@ -126,6 +127,67 @@ export function ReconciliationTab() {
                 <Button disabled={!canClose} onClick={() => { close.reset(); setConfirming(true); }}>
                   Chốt sổ ngày {date.split('-').reverse().join('/')}
                 </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+
+      <Card title={`Tiền mặt bảo vệ thu tại chốt ngày ${date.split('-').reverse().join('/')}`}>
+        {gateCash.isPending && <LoadingBlock />}
+        {gateCash.isError && <QueryError error={gateCash.error} onRetry={() => void gateCash.refetch()} />}
+        {gateCash.data && (
+          <div className="space-y-4">
+            <p className="text-xs text-slate-600">
+              Khoản này bảo vệ thu trực tiếp bằng tiền mặt cho các lượt xe ra tại cổng, theo dõi tách biệt với sổ đổi điểm (
+              <code className="font-mono">DOI_DIEM</code>) để đảm bảo bảo toàn điểm (R12).
+            </p>
+            <div className="flex flex-wrap items-center gap-3" style={{ fontVariantNumeric: 'tabular-nums' }}>
+              <div className="rounded-xl bg-amber-50 px-4 py-3 ring-1 ring-amber-200">
+                <p className="text-xs text-amber-800">Tổng thu tiền mặt tại cổng ({gateCash.data.totalCount} lượt)</p>
+                <p className="text-xl font-bold text-amber-900">{formatCash(gateCash.data.totalAmount)}</p>
+              </div>
+              {gateCash.data.byGuard.map((g) => (
+                <div key={g.guardId} className="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200">
+                  <p className="text-xs text-slate-500">
+                    {g.guardName} ({g.count} lượt)
+                  </p>
+                  <p className="text-base font-bold text-slate-900">{formatCash(g.totalAmount)}</p>
+                </div>
+              ))}
+            </div>
+            {gateCash.data.entries.length === 0 ? (
+              <p className="text-sm text-slate-500">Không có lượt thu tiền mặt tại chốt trong ngày này.</p>
+            ) : (
+              <div className="-mx-5 overflow-x-auto">
+                <table className="min-w-full text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                  <thead className="bg-slate-50 text-left text-slate-500">
+                    <tr>
+                      <th className="px-5 py-2 font-medium">Giờ thu</th>
+                      <th className="px-3 py-2 font-medium">Biển số</th>
+                      <th className="px-3 py-2 font-medium">Sinh viên</th>
+                      <th className="px-3 py-2 font-medium">Bảo vệ thu</th>
+                      <th className="px-3 py-2 font-medium">Loại phí</th>
+                      <th className="px-5 py-2 text-right font-medium">Số tiền</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {gateCash.data.entries.map((entry) => (
+                      <tr key={entry.collectionId}>
+                        <td className="whitespace-nowrap px-5 py-2 text-slate-600">{formatTime(entry.collectedAt)}</td>
+                        <td className="whitespace-nowrap px-3 py-2 font-mono font-semibold">{entry.plateDisplay}</td>
+                        <td className="px-3 py-2">
+                          {entry.fullName} <span className="text-xs text-slate-500">({entry.studentCode})</span>
+                        </td>
+                        <td className="px-3 py-2">{entry.guardName}</td>
+                        <td className="px-3 py-2">
+                          {entry.overnight ? <Badge tone="amber">Qua đêm</Badge> : <Badge tone="gray">Thường</Badge>}
+                        </td>
+                        <td className="whitespace-nowrap px-5 py-2 text-right font-semibold">{formatCash(entry.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

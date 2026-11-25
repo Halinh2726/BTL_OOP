@@ -59,6 +59,16 @@ export const checkOutFlow: GateFlow = {
   async preview(plate) {
     const result = await api.previewCheckOut(plate);
     if (result.sessionId !== null) sessionByPlate.set(plate, result.sessionId);
+    const detail =
+      result.reason === 'CHECKOUT_CURFEW'
+        ? `Khóa lấy xe từ ${result.curfewTime ?? '22:00'}`
+        : result.passValidUntil
+          ? `Vé tháng đến ${formatDay(result.passValidUntil)} — miễn phí`
+          : result.fee === null
+            ? null
+            : result.overnight
+              ? `Phí qua đêm: ${formatPoints(result.fee)}`
+              : `Phí: ${formatPoints(result.fee)}`;
     return {
       plate,
       plateDisplay: formatPlate(result.plateNumber ?? plate),
@@ -67,8 +77,7 @@ export const checkOutFlow: GateFlow = {
       fullName: result.fullName,
       studentCode: result.studentCode,
       vehicleTypeCode: result.vehicleTypeCode,
-      detail: result.passValidUntil ? `Vé tháng đến ${formatDay(result.passValidUntil)} — miễn phí`
-        : result.fee === null ? null : `Phí: ${formatPoints(result.fee)}`,
+      detail,
       shortfall: result.fee === null || result.balance === null ? null : result.fee - result.balance,
     };
   },

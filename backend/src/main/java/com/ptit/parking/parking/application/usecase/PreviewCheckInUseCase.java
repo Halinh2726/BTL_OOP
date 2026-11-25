@@ -73,6 +73,8 @@ public class PreviewCheckInUseCase {
         ErrorCode reason = null;
         if (sessions.hasOpenSession(owner.vehicleId())) {
             reason = ErrorCode.SESSION_ALREADY_OPEN;                         // R05
+        } else if (sessions.hasOpenSessionForStudent(owner.studentUserId())) {
+            reason = ErrorCode.STUDENT_ALREADY_PARKED;
         } else if (!wallet.hasAtLeast(required)) {
             reason = ErrorCode.INSUFFICIENT_POINTS;                          // R04: chỉ kiểm tra, không trừ
         }

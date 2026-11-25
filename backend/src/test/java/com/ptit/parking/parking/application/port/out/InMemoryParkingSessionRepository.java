@@ -19,7 +19,18 @@ import com.ptit.parking.shared.domain.ErrorCode;
 public class InMemoryParkingSessionRepository implements ParkingSessionRepository {
 
     private final Map<Long, ParkingSession> byId = new LinkedHashMap<>();
+    private final Map<Long, Long> studentByVehicle = new LinkedHashMap<>();
     private long nextId = 1;
+
+    public synchronized void assignVehicle(long vehicleId, long studentUserId) {
+        studentByVehicle.put(vehicleId, studentUserId);
+    }
+
+    @Override
+    public synchronized boolean hasOpenSessionForStudent(long studentUserId) {
+        return byId.values().stream().anyMatch(s -> s.isOpen()
+                && Long.valueOf(studentUserId).equals(studentByVehicle.get(s.vehicleId())));
+    }
 
     @Override
     public synchronized boolean hasOpenSession(long vehicleId) {

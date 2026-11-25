@@ -25,8 +25,23 @@ public class StudentComplaintUseCase {
     /** Tránh gửi tràn lan: tối đa 5 khiếu nại đang mở cùng lúc. */
     public static final int MAX_OPEN = 5;
 
-    public record Command(long studentId, ComplaintType type, Long sessionId, String description,
-                          String photoContentType, String photoBase64) {}
+    public record Command(
+            long studentId,
+            ComplaintType type,
+            Long sessionId,
+            String description,
+            String photoContentType,
+            String photoBase64,
+            boolean cameraRequested,
+            String incidentArea,
+            String incidentTimeRange) {
+
+        public Command(long studentId, ComplaintType type, Long sessionId, String description,
+                       String photoContentType, String photoBase64) {
+            this(studentId, type, sessionId, description, photoContentType, photoBase64,
+                    type != null && type.defaultCameraRequest(), null, null);
+        }
+    }
 
     private final ComplaintRepository complaints;
     private final ComplaintDirectory directory;
@@ -50,8 +65,16 @@ public class StudentComplaintUseCase {
         }
         IncidentPhoto photo = command.photoBase64() == null || command.photoBase64().isBlank()
                 ? null : IncidentPhoto.fromBase64(command.photoContentType(), command.photoBase64());
-        Complaint complaint = Complaint.submit(command.studentId(), command.type(), command.sessionId(),
-                command.description(), photo != null, clock.instant());
+        Complaint complaint = Complaint.submit(
+                command.studentId(),
+                command.type(),
+                command.sessionId(),
+                command.description(),
+                photo != null,
+                command.cameraRequested(),
+                command.incidentArea(),
+                command.incidentTimeRange(),
+                clock.instant());
         Complaint saved = transactions.inTransaction(() -> {
             long open = complaints.findByStudent(command.studentId(), MY_LIMIT).stream().filter(Complaint::isOpen).count();
             if (open >= MAX_OPEN) {
@@ -84,6 +107,14 @@ public class StudentComplaintUseCase {
         complaints.findById(complaintId).filter(c -> c.submittedBy(studentId))
                 .orElseThrow(() -> new DomainException(ErrorCode.COMPLAINT_NOT_FOUND));
         return complaints.findPhoto(complaintId).orElseThrow(() -> new DomainException(ErrorCode.COMPLAINT_NOT_FOUND));
+    }
+
+    /** Ảnh trích xuất camera phản hồi từ quản lý cho khiếu nại của CHÍNH sinh viên đó. */
+    public IncidentPhoto cameraPhoto(long studentId, long complaintId) {
+        complaints.findById(complaintId).filter(c -> c.submittedBy(studentId))
+                .orElseThrow(() -> new DomainException(ErrorCode.COMPLAINT_NOT_FOUND));
+        return complaints.findCameraPhoto(complaintId)
+                .orElseThrow(() -> new DomainException(ErrorCode.COMPLAINT_NOT_FOUND));
     }
 
     /** Các lượt gửi gần đây để chọn khi gửi khiếu nại. */

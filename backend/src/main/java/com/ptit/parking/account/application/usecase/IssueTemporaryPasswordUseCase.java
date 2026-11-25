@@ -1,5 +1,6 @@
 package com.ptit.parking.account.application.usecase;
 
+import com.ptit.parking.account.application.event.SecurityChanged;
 import com.ptit.parking.account.application.port.out.CredentialRepository;
 import com.ptit.parking.account.application.port.out.SecretGenerator;
 import com.ptit.parking.account.domain.AccountCredential;
@@ -8,6 +9,7 @@ import com.ptit.parking.auth.domain.Role;
 import com.ptit.parking.shared.application.port.out.AuditTrail;
 import com.ptit.parking.shared.application.port.out.AuditTrail.AuditAction;
 import com.ptit.parking.shared.application.port.out.AuditTrail.AuditEntry;
+import com.ptit.parking.shared.application.port.out.EventPublisher;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
@@ -30,16 +32,24 @@ public class IssueTemporaryPasswordUseCase {
     private final SecretGenerator secrets;
     private final AuditTrail audit;
     private final TransactionRunner transactions;
+    private final EventPublisher events;
     private final Clock clock;
 
     public IssueTemporaryPasswordUseCase(CredentialRepository credentials, PasswordHasher hasher,
                                          SecretGenerator secrets, AuditTrail audit,
                                          TransactionRunner transactions, Clock clock) {
+        this(credentials, hasher, secrets, audit, transactions, EventPublisher.NONE, clock);
+    }
+
+    public IssueTemporaryPasswordUseCase(CredentialRepository credentials, PasswordHasher hasher,
+                                         SecretGenerator secrets, AuditTrail audit,
+                                         TransactionRunner transactions, EventPublisher events, Clock clock) {
         this.credentials = credentials;
         this.hasher = hasher;
         this.secrets = secrets;
         this.audit = audit;
         this.transactions = transactions;
+        this.events = events;
         this.clock = clock;
     }
 
@@ -65,6 +75,10 @@ public class IssueTemporaryPasswordUseCase {
             credentials.save(credential);
             audit.record(new AuditEntry(managerId, AuditAction.CAP_MAT_KHAU_TAM, credential.userId(),
                     "Cấp mật khẩu tạm cho " + credential.username(), credential.passwordChangedAt()));
+            events.publish(new SecurityChanged(
+                    credential.userId(),
+                    "Quản lý vừa cấp mật khẩu tạm cho tài khoản của bạn",
+                    "Vui lòng đặt lại mật khẩu cá nhân mới ngay khi đăng nhập."));
             return new TemporaryPassword(credential.userId(), credential.username(), credential.fullName(), password);
         });
     }

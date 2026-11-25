@@ -7,18 +7,14 @@ import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 
 /**
- * Khiếu nại của sinh viên. Đóng gói: trạng thái chỉ đổi qua các hành vi nghiệp vụ, mỗi hành vi tự kiểm tra
- * ĐÚNG NGƯỜI, ĐÚNG TRẠNG THÁI ({@link ComplaintStatus#canMoveTo}) và ĐÚNG LOẠI ({@link ComplaintType}).
- * <ul>
- *   <li>Sinh viên: gửi, hủy khi quản lý chưa tiếp nhận.</li>
- *   <li>Quản lý: tiếp nhận, kết luận (kèm hoàn phí nếu thu sai), từ chối, đề xuất bồi thường.</li>
- *   <li>Chủ bãi xe: duyệt / từ chối bồi thường — người duyệt KHÁC người đề xuất (hai người cùng chịu trách nhiệm).</li>
- * </ul>
+ * Khiếu nại / yêu cầu trích xuất camera & hỗ trợ của sinh viên. Đóng gói: trạng thái chỉ đổi qua các hành vi nghiệp vụ.
  */
 public final class Complaint {
 
     public static final int MAX_TEXT = 1000;
     public static final int MAX_NOTE = 500;
+    public static final int MAX_AREA = 150;
+    public static final int MAX_TIME_RANGE = 100;
     public static final long MAX_COMPENSATION = 10_000_000;
 
     private final Long id;
@@ -28,6 +24,8 @@ public final class Complaint {
     private final String description;
     private final Instant createdAt;
     private final boolean hasPhoto;
+    private final String incidentArea;
+    private final String incidentTimeRange;
     private ComplaintStatus status;
     private Instant cancelledAt;
     private Long handledBy;
@@ -41,6 +39,12 @@ public final class Complaint {
     private Instant decidedAt;
     private String decisionNote;
     private Long compensationTransactionId;
+    private boolean cameraRequested;
+    private CameraReviewStatus cameraStatus;
+    private String cameraNote;
+    private Long cameraReviewedBy;
+    private Instant cameraReviewedAt;
+    private boolean hasCameraPhoto;
 
     private Complaint(Builder b) {
         this.id = b.id;
@@ -50,6 +54,8 @@ public final class Complaint {
         this.description = requireText(b.description, MAX_TEXT);
         this.createdAt = Objects.requireNonNull(b.createdAt, "createdAt");
         this.hasPhoto = b.hasPhoto;
+        this.incidentArea = trimOptional(b.incidentArea, MAX_AREA);
+        this.incidentTimeRange = trimOptional(b.incidentTimeRange, MAX_TIME_RANGE);
         this.status = Objects.requireNonNull(b.status, "status");
         this.cancelledAt = b.cancelledAt;
         this.handledBy = b.handledBy;
@@ -63,14 +69,42 @@ public final class Complaint {
         this.decidedAt = b.decidedAt;
         this.decisionNote = b.decisionNote;
         this.compensationTransactionId = b.compensationTransactionId;
+        this.cameraRequested = b.cameraRequested;
+        this.cameraStatus = b.cameraStatus != null
+                ? b.cameraStatus
+                : (b.cameraRequested ? CameraReviewStatus.CHO_TRICH_XUAT : CameraReviewStatus.KHONG_YEU_CAU);
+        this.cameraNote = b.cameraNote;
+        this.cameraReviewedBy = b.cameraReviewedBy;
+        this.cameraReviewedAt = b.cameraReviewedAt;
+        this.hasCameraPhoto = b.hasCameraPhoto;
     }
 
     // ===== Sinh viên =====
 
     public static Complaint submit(long studentId, ComplaintType type, Long sessionId, String description,
                                    boolean hasPhoto, Instant now) {
-        return restore().studentId(studentId).type(type).sessionId(sessionId).description(description)
-                .hasPhoto(hasPhoto).createdAt(micros(now)).status(ComplaintStatus.MOI).build();
+        return submit(studentId, type, sessionId, description, hasPhoto,
+                type != null && type.defaultCameraRequest(), null, null, now);
+    }
+
+    public static Complaint submit(long studentId, ComplaintType type, Long sessionId, String description,
+                                   boolean hasPhoto, boolean cameraRequested, String incidentArea,
+                                   String incidentTimeRange, Instant now) {
+        boolean requested = cameraRequested || (type != null && type.defaultCameraRequest());
+        CameraReviewStatus camStatus = requested ? CameraReviewStatus.CHO_TRICH_XUAT : CameraReviewStatus.KHONG_YEU_CAU;
+        return restore()
+                .studentId(studentId)
+                .type(type)
+                .sessionId(sessionId)
+                .description(description)
+                .hasPhoto(hasPhoto)
+                .cameraRequested(requested)
+                .cameraStatus(camStatus)
+                .incidentArea(incidentArea)
+                .incidentTimeRange(incidentTimeRange)
+                .createdAt(micros(now))
+                .status(ComplaintStatus.MOI)
+                .build();
     }
 
     /** Sinh viên rút lại khiếu nại khi quản lý CHƯA tiếp nhận. */
@@ -86,6 +120,31 @@ public final class Complaint {
         moveTo(ComplaintStatus.DANG_XU_LY);
         handledBy = managerId;
         handledAt = micros(now);
+    }
+
+    /**
+     * Ghi nhận kết quả / tiến trình trích xuất camera từ quản lý.
+     * Nếu khiếu nại đang ở trạng thái MOI thì tự động chuyển sang DANG_XU_LY.
+     */
+    public void recordCameraReview(long managerId, CameraReviewStatus nextStatus, String note,
+                                   boolean attachedPhoto, Instant now) {
+        if (nextStatus == null || !nextStatus.isRequested()) {
+            throw new DomainException(ErrorCode.VALIDATION_ERROR);
+        }
+        if (status == ComplaintStatus.DA_HUY) {
+            throw new DomainException(ErrorCode.COMPLAINT_STATUS_CONFLICT);
+        }
+        if (status == ComplaintStatus.MOI) {
+            startHandling(managerId, now);
+        }
+        this.cameraRequested = true;
+        this.cameraStatus = nextStatus;
+        this.cameraNote = trimOptional(note, MAX_TEXT);
+        this.cameraReviewedBy = managerId;
+        this.cameraReviewedAt = micros(now);
+        if (attachedPhoto) {
+            this.hasCameraPhoto = true;
+        }
     }
 
     /**
@@ -129,7 +188,6 @@ public final class Complaint {
 
     // ===== Chủ bãi xe =====
 
-    /** Duyệt: {@code transactionId} là giao dịch điều chỉnh chủ bãi → sinh viên vừa ghi. */
     public void approveCompensation(long ownerId, String note, long transactionId, Instant now) {
         requireNotProposer(ownerId);
         String text = note == null || note.isBlank() ? null : requireText(note, MAX_NOTE);
@@ -138,7 +196,6 @@ public final class Complaint {
         compensationTransactionId = transactionId;
     }
 
-    /** Từ chối: bắt buộc ghi lý do để quản lý và sinh viên biết. */
     public void rejectCompensation(long ownerId, String reason, Instant now) {
         requireNotProposer(ownerId);
         String text = requireText(reason, MAX_NOTE);
@@ -146,7 +203,6 @@ public final class Complaint {
         decide(ownerId, text, now);
     }
 
-    /** Kiểm tra TRƯỚC khi chuyển tiền: đúng trạng thái và người duyệt khác người đề xuất. */
     public void requireAwaitingDecisionBy(long ownerId) {
         requireNotProposer(ownerId);
         if (status != ComplaintStatus.CHO_DUYET_BOI_THUONG) {
@@ -180,7 +236,7 @@ public final class Complaint {
 
     private void requireOwner(long requesterId) {
         if (studentId != requesterId) {
-            throw new DomainException(ErrorCode.COMPLAINT_NOT_FOUND);       // không tiết lộ khiếu nại của người khác
+            throw new DomainException(ErrorCode.COMPLAINT_NOT_FOUND);
         }
     }
 
@@ -197,6 +253,20 @@ public final class Complaint {
             throw new DomainException(ErrorCode.VALIDATION_ERROR);
         }
         return text;
+    }
+
+    private static String trimOptional(String value, int max) {
+        if (value == null) {
+            return null;
+        }
+        String stripped = value.strip();
+        if (stripped.isEmpty()) {
+            return null;
+        }
+        if (stripped.length() > max) {
+            throw new DomainException(ErrorCode.VALIDATION_ERROR);
+        }
+        return stripped;
     }
 
     private static Instant micros(Instant instant) {
@@ -245,7 +315,23 @@ public final class Complaint {
 
     public Long compensationTransactionId() { return compensationTransactionId; }
 
-    // ===== Builder: dựng lại 20 trường từ CSDL mà không nhầm thứ tự tham số =====
+    public boolean cameraRequested() { return cameraRequested; }
+
+    public CameraReviewStatus cameraStatus() { return cameraStatus; }
+
+    public String incidentArea() { return incidentArea; }
+
+    public String incidentTimeRange() { return incidentTimeRange; }
+
+    public String cameraNote() { return cameraNote; }
+
+    public Long cameraReviewedBy() { return cameraReviewedBy; }
+
+    public Instant cameraReviewedAt() { return cameraReviewedAt; }
+
+    public boolean hasCameraPhoto() { return hasCameraPhoto; }
+
+    // ===== Builder =====
 
     public static Builder restore() {
         return new Builder();
@@ -256,7 +342,10 @@ public final class Complaint {
                 .createdAt(createdAt).hasPhoto(hasPhoto).status(status).cancelledAt(cancelledAt).handledBy(handledBy)
                 .handledAt(handledAt).resolution(resolution).refundTransactionId(refundTransactionId)
                 .proposedPoints(proposedPoints).proposedBy(proposedBy).proposedAt(proposedAt).decidedBy(decidedBy)
-                .decidedAt(decidedAt).decisionNote(decisionNote).compensationTransactionId(compensationTransactionId);
+                .decidedAt(decidedAt).decisionNote(decisionNote).compensationTransactionId(compensationTransactionId)
+                .cameraRequested(cameraRequested).cameraStatus(cameraStatus).incidentArea(incidentArea)
+                .incidentTimeRange(incidentTimeRange).cameraNote(cameraNote).cameraReviewedBy(cameraReviewedBy)
+                .cameraReviewedAt(cameraReviewedAt).hasCameraPhoto(hasCameraPhoto);
     }
 
     public static final class Builder {
@@ -280,6 +369,14 @@ public final class Complaint {
         private Instant decidedAt;
         private String decisionNote;
         private Long compensationTransactionId;
+        private boolean cameraRequested;
+        private CameraReviewStatus cameraStatus;
+        private String incidentArea;
+        private String incidentTimeRange;
+        private String cameraNote;
+        private Long cameraReviewedBy;
+        private Instant cameraReviewedAt;
+        private boolean hasCameraPhoto;
 
         private Builder() {
         }
@@ -323,6 +420,22 @@ public final class Complaint {
         public Builder decisionNote(String value) { decisionNote = value; return this; }
 
         public Builder compensationTransactionId(Long value) { compensationTransactionId = value; return this; }
+
+        public Builder cameraRequested(boolean value) { cameraRequested = value; return this; }
+
+        public Builder cameraStatus(CameraReviewStatus value) { cameraStatus = value; return this; }
+
+        public Builder incidentArea(String value) { incidentArea = value; return this; }
+
+        public Builder incidentTimeRange(String value) { incidentTimeRange = value; return this; }
+
+        public Builder cameraNote(String value) { cameraNote = value; return this; }
+
+        public Builder cameraReviewedBy(Long value) { cameraReviewedBy = value; return this; }
+
+        public Builder cameraReviewedAt(Instant value) { cameraReviewedAt = value; return this; }
+
+        public Builder hasCameraPhoto(boolean value) { hasCameraPhoto = value; return this; }
 
         public Complaint build() {
             return new Complaint(this);

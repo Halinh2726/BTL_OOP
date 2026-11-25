@@ -1,11 +1,13 @@
 package com.ptit.parking.account.application.usecase;
 
+import com.ptit.parking.account.application.event.SecurityChanged;
 import com.ptit.parking.account.application.port.out.CredentialRepository;
 import com.ptit.parking.account.domain.AccountCredential;
 import com.ptit.parking.auth.domain.PasswordHasher;
 import com.ptit.parking.shared.application.port.out.AuditTrail;
 import com.ptit.parking.shared.application.port.out.AuditTrail.AuditAction;
 import com.ptit.parking.shared.application.port.out.AuditTrail.AuditEntry;
+import com.ptit.parking.shared.application.port.out.EventPublisher;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
@@ -25,14 +27,21 @@ public class ChangePasswordUseCase {
     private final PasswordHasher hasher;
     private final AuditTrail audit;
     private final TransactionRunner transactions;
+    private final EventPublisher events;
     private final Clock clock;
 
     public ChangePasswordUseCase(CredentialRepository credentials, PasswordHasher hasher, AuditTrail audit,
                                  TransactionRunner transactions, Clock clock) {
+        this(credentials, hasher, audit, transactions, EventPublisher.NONE, clock);
+    }
+
+    public ChangePasswordUseCase(CredentialRepository credentials, PasswordHasher hasher, AuditTrail audit,
+                                 TransactionRunner transactions, EventPublisher events, Clock clock) {
         this.credentials = credentials;
         this.hasher = hasher;
         this.audit = audit;
         this.transactions = transactions;
+        this.events = events;
         this.clock = clock;
     }
 
@@ -44,6 +53,10 @@ public class ChangePasswordUseCase {
             credentials.save(credential);
             audit.record(new AuditEntry(command.userId(), AuditAction.DOI_MAT_KHAU, command.userId(),
                     "Tự đổi mật khẩu", credential.passwordChangedAt()));
+            events.publish(new SecurityChanged(
+                    command.userId(),
+                    "Mật khẩu tài khoản vừa được thay đổi",
+                    "Bạn đã đổi mật khẩu thành công. Các phiên đăng nhập trên thiết bị khác đã được đăng xuất để bảo mật."));
             return credential.passwordChangedAt();
         });
     }

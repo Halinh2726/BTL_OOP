@@ -17,8 +17,8 @@ public interface VehicleOwnerDirectory {
     Optional<VehicleOwner> findByPlate(PlateNumber plate);
 
     /**
-     * Như {@link #findByPlate} nhưng KHÓA dòng xe (SELECT ... FOR UPDATE) tới hết transaction: hai bảo vệ
-     * xác nhận cùng một xe thì người sau phải chờ người trước xong. Phải gọi BÊN TRONG transaction.
+     * Như {@link #findByPlate} nhưng khóa xe và sinh viên tới hết transaction: hai bảo vệ
+     * xác nhận xe của cùng sinh viên thì người sau phải chờ người trước xong. Phải gọi BÊN TRONG transaction.
      */
     Optional<VehicleOwner> lockByPlate(PlateNumber plate);
     

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ApiClient } from '../ApiClient';
 import { ApiError } from '../ApiError';
 import { createMockApiClient } from './mockApiClient';
@@ -16,8 +16,13 @@ describe('Đợt 5 — vé tháng & thông báo (mock)', () => {
   let api: ApiClient;
 
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-23T03:00:00Z') });
     sessionStorage.clear();
     api = createMockApiClient({ latencyMs: 0, initialState: seedState() });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   async function as(username: string) {
@@ -65,12 +70,12 @@ describe('Đợt 5 — vé tháng & thông báo (mock)', () => {
     const exit = await api.checkOut(preview.sessionId ?? 0, 'exit-1');
     expect(exit.data).toMatchObject({ transactionId: null, fee: 0, balanceAfter: 4_000 });
 
-    // sv02 gửi xe 30 giờ: phí 12.000 điểm. Nạp thêm để sau khi trả phí còn 1.000 điểm.
+    // sv02 gửi qua đêm: phí 15.000 điểm. Nạp thêm để sau khi trả phí còn 1.000 điểm.
     expect(await api.previewCheckOut('29T67021')).toMatchObject({
-      fee: 12_000, allowed: false, reason: 'INSUFFICIENT_POINTS',
+      fee: 15_000, allowed: false, reason: 'INSUFFICIENT_POINTS',
     });
     await as('quanly01');
-    await api.deposit({ studentCode: 'B21DCCN002', cashAmount: 11_000 }, 'dep-2');
+    await api.deposit({ studentCode: 'B21DCCN002', cashAmount: 14_000 }, 'dep-2');
     await as('baove01');
     const lowPreview = await api.previewCheckOut('29T67021');
     expect(lowPreview.passValidUntil).toBeNull();

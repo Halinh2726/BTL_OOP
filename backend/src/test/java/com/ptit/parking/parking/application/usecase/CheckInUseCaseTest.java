@@ -77,6 +77,7 @@ class CheckInUseCaseTest {
 
     CheckInUseCaseTest() {
         vehicles.add(OWNER);
+        sessions.assignVehicle(VEHICLE, STUDENT);
     }
 
     @Test
@@ -122,6 +123,24 @@ class CheckInUseCaseTest {
 
         assertError(() -> checkIn.checkIn(new Command(GUARD, "29A12345")), ErrorCode.SESSION_ALREADY_OPEN);
         assertThat(sessions.all()).hasSize(1);
+    }
+
+    @Test
+    void xeThuHaiCungSinhVien_chiVaoDuocSauKhiXeDauRa() {
+        VehicleOwner second = new VehicleOwner(101L, new PlateNumber("29BA198765"), "XE_MAY",
+                STUDENT, OWNER.studentCode(), OWNER.fullName());
+        vehicles.add(second);
+        sessions.assignVehicle(second.vehicleId(), STUDENT);
+        wallets.insert(new Wallet(null, STUDENT, 10_000));
+
+        ParkingSession first = checkIn.checkIn(new Command(GUARD, OWNER.plate().value())).session();
+        Command secondEntry = new Command(GUARD, second.plate().value());
+        assertError(() -> checkIn.checkIn(secondEntry), ErrorCode.STUDENT_ALREADY_PARKED);
+        assertThat(sessions.all()).hasSize(1);
+
+        first.close(GUARD, NOW);
+        sessions.saveExit(first);
+        assertThat(checkIn.checkIn(secondEntry).session().vehicleId()).isEqualTo(second.vehicleId());
     }
 
     @Test

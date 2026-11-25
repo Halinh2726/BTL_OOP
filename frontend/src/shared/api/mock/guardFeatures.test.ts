@@ -32,7 +32,7 @@ describe('Đợt 2 — màn hình bảo vệ trên dữ liệu giả lập', () 
     const lot = await api.parkedVehicles();
     expect(lot.total).toBe(1);
     expect(lot.overdue).toBe(1);
-    expect(lot.items[0]).toMatchObject({ plateDisplay: '29T-670.21', overdue: true });
+    expect(lot.items[0]).toMatchObject({ plateDisplay: '29T6-7021', overdue: true });
     expect(lot.items[0]).not.toHaveProperty('balance');
     expect((await api.parkedVehicles('999')).items).toHaveLength(0);
   });
@@ -74,7 +74,7 @@ describe('Đợt 2 — màn hình bảo vệ trên dữ liệu giả lập', () 
       type: 'XE_HU_HONG', plateNumber: '30b-678.90', description: 'Vỡ gương',
       photoContentType: 'image/jpeg', photoBase64: 'data:image/jpeg;base64,/9j/AA==',
     });
-    expect(incident).toMatchObject({ status: 'MOI', hasPhoto: true, plateDisplay: '30B-678.90' });
+    expect(incident).toMatchObject({ status: 'MOI', hasPhoto: true, plateDisplay: '30B6-7890' });
     expect(api.incidentPhotoUrl(incident.id)).toMatch(/^data:image\/jpeg/);
     expect((await api.currentShift()).openIncidents.map((item) => item.id)).toContain(incident.id);
   });

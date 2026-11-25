@@ -11,9 +11,20 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-/** Khiếu nại kèm thông tin hiển thị (sinh viên, lượt gửi, tên người xử lý / đề xuất / duyệt). */
-public record ComplaintDetails(Complaint complaint, StudentInfo student, SessionInfo session, String handlerName,
-                               String proposerName, String deciderName) {
+/** Khiếu nại kèm thông tin hiển thị (sinh viên, lượt gửi, tên người xử lý / đề xuất / duyệt / trích xuất camera). */
+public record ComplaintDetails(
+        Complaint complaint,
+        StudentInfo student,
+        SessionInfo session,
+        String handlerName,
+        String proposerName,
+        String deciderName,
+        String cameraReviewerName) {
+
+    public ComplaintDetails(Complaint complaint, StudentInfo student, SessionInfo session,
+                            String handlerName, String proposerName, String deciderName) {
+        this(complaint, student, session, handlerName, proposerName, deciderName, null);
+    }
 
     /** Ghép thông tin cho cả danh sách bằng 3 câu truy vấn (không truy vấn theo từng dòng). */
     static List<ComplaintDetails> of(List<Complaint> complaints, ComplaintDirectory directory) {
@@ -25,7 +36,7 @@ public record ComplaintDetails(Complaint complaint, StudentInfo student, Session
             if (c.sessionId() != null) {
                 sessions.add(c.sessionId());
             }
-            for (Long id : new Long[] {c.handledBy(), c.proposedBy(), c.decidedBy()}) {
+            for (Long id : new Long[] {c.handledBy(), c.proposedBy(), c.decidedBy(), c.cameraReviewedBy()}) {
                 if (id != null) {
                     people.add(id);
                 }
@@ -38,7 +49,8 @@ public record ComplaintDetails(Complaint complaint, StudentInfo student, Session
         for (Complaint c : complaints) {
             result.add(new ComplaintDetails(c, studentInfo.get(c.studentId()),
                     c.sessionId() == null ? null : sessionInfo.get(c.sessionId()),
-                    name(names, c.handledBy()), name(names, c.proposedBy()), name(names, c.decidedBy())));
+                    name(names, c.handledBy()), name(names, c.proposedBy()), name(names, c.decidedBy()),
+                    name(names, c.cameraReviewedBy())));
         }
         return result;
     }

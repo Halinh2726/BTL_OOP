@@ -30,6 +30,7 @@ export interface RegisterStudentRequest {
   fullName: string;
   username: string;
   password: string;
+  email?: string;
 }
 
 export interface RegisteredStudent {
@@ -100,9 +101,49 @@ export interface ChangePasswordRequest {
 }
 
 export interface ConfirmPasswordResetRequest {
-  email: string;
+  email?: string;
+  identifier?: string;
   code: string;
   newPassword: string;
+}
+
+export interface SecurityActivityItem {
+  id: number;
+  action: AuditAction;
+  actorName: string;
+  detail: string;
+  createdAt: string;
+}
+
+export interface SecurityActivityResponse {
+  hasEmail: boolean;
+  maskedEmail: string | null;
+  mustChangePassword: boolean;
+  passwordChangedAt: string | null;
+  sessionMaxHours: number;
+  changePasswordBasis: string;
+  forgotPasswordBasis: string;
+  recentActivities: SecurityActivityItem[];
+}
+
+export interface StudentSessionView {
+  id: number;
+  plateNumber: string;
+  plateDisplay: string;
+  vehicleTypeCode: string;
+  enteredAt: string;
+  exitedAt: string | null;
+  fee: number | null;
+  paymentTransactionId: number | null;
+  paidByPass: boolean;
+  minutesParked: number;
+  entryGuardName: string | null;
+  exitGuardName: string | null;
+}
+
+export interface StudentSessionsResponse {
+  parked: StudentSessionView[];
+  recent: StudentSessionView[];
 }
 
 /** POST /manager/students/{mssv}/password-reset, /manager/guards/{id}/password-reset — chỉ hiện MỘT lần. */
@@ -174,7 +215,7 @@ export interface TransactionQuery {
   before?: number;
 }
 
-export type CheckInReason = 'PLATE_NOT_FOUND' | 'SESSION_ALREADY_OPEN' | 'INSUFFICIENT_POINTS';
+export type CheckInReason = 'PLATE_NOT_FOUND' | 'SESSION_ALREADY_OPEN' | 'STUDENT_ALREADY_PARKED' | 'INSUFFICIENT_POINTS';
 
 /** GET /guard/check-in/preview — thông tin chủ xe null khi biển số chưa đăng ký. */
 export interface CheckInPreview {
@@ -196,7 +237,7 @@ export interface CheckInResult {
   enteredAt: string;
 }
 
-export type CheckOutReason = 'PLATE_NOT_FOUND' | 'NO_OPEN_SESSION' | 'INSUFFICIENT_POINTS';
+export type CheckOutReason = 'PLATE_NOT_FOUND' | 'NO_OPEN_SESSION' | 'INSUFFICIENT_POINTS' | 'CHECKOUT_CURFEW';
 
 /** GET /guard/check-out/preview — trường nào không có (chưa đăng ký, không có lượt mở) thì null. */
 export interface CheckOutPreview {
@@ -212,6 +253,12 @@ export interface CheckOutPreview {
   reason: CheckOutReason | null;
   /** Đợt 5: xe có vé tháng thì phí 0 và có hạn vé. */
   passValidUntil?: string | null;
+  /** Qua đêm (ngày ra > ngày vào theo giờ VN) — áp dụng phí qua đêm cố định. */
+  overnight?: boolean;
+  /** Giờ khóa lấy xe trong ngày ("HH:mm") nếu đang bật. */
+  curfewTime?: string | null;
+  /** Đơn VietQR tự sinh khi thiếu điểm (nếu không quá giờ khóa). */
+  vietQrOrder?: VietQrOrder | null;
 }
 
 export interface CheckOutResult {
@@ -646,9 +693,21 @@ export interface TrafficReport {
 
 // ===== Đợt 4b — khiếu nại, xử lý sự cố, bồi thường, phân ca =====
 
-export type ComplaintType = 'THU_PHI_SAI' | 'XE_HU_HONG' | 'MAT_DO' | 'KHAC';
+export type ComplaintType =
+  | 'THU_PHI_SAI'
+  | 'XE_HU_HONG'
+  | 'MAT_DO'
+  | 'TRICH_XUAT_CAMERA'
+  | 'DICH_VU_KHAC'
+  | 'KHAC';
 export type ComplaintStatus =
   | 'MOI' | 'DANG_XU_LY' | 'CHO_DUYET_BOI_THUONG' | 'DA_XU_LY' | 'TU_CHOI' | 'DA_HUY' | 'DA_BOI_THUONG' | 'KHONG_BOI_THUONG';
+export type CameraReviewStatus =
+  | 'KHONG_YEU_CAU'
+  | 'CHO_TRICH_XUAT'
+  | 'DANG_TRICH_XUAT'
+  | 'DA_TRICH_XUAT'
+  | 'KHONG_CO_DU_LIEU';
 
 export interface ComplaintSession {
   id: number;
@@ -682,12 +741,30 @@ export interface ComplaintView {
   decisionNote: string | null;
   compensationTransactionId: number | null;
   cancelledAt: string | null;
+  cameraRequested: boolean;
+  cameraStatus: CameraReviewStatus;
+  incidentArea: string | null;
+  incidentTimeRange: string | null;
+  cameraNote: string | null;
+  cameraReviewerName: string | null;
+  cameraReviewedAt: string | null;
+  hasCameraPhoto: boolean;
 }
 
 export interface SubmitComplaintRequest {
   type: ComplaintType;
   sessionId?: number;
   description: string;
+  photoContentType?: string;
+  photoBase64?: string;
+  cameraRequested?: boolean;
+  incidentArea?: string;
+  incidentTimeRange?: string;
+}
+
+export interface UpdateComplaintCameraRequest {
+  cameraStatus: CameraReviewStatus;
+  cameraNote?: string;
   photoContentType?: string;
   photoBase64?: string;
 }
@@ -757,6 +834,8 @@ export interface PassOption {
   price: number | null;
   current: PassView | null;
   next: PassView | null;
+  activeValidUntil: string | null;
+  remainingDays: number | null;
 }
 
 export interface PassOverview {
@@ -769,6 +848,19 @@ export interface PassOverview {
 export interface BuyPassResult {
   pass: PassView;
   balanceAfter: number;
+  monthsCount: number;
+  totalPrice: number;
+  validUntil: string;
+}
+
+export interface PassPriceView {
+  vehicleTypeCode: string;
+  vehicleTypeName: string;
+  monthlyPoints: number;
+}
+
+export interface ManagerPassCatalogResponse {
+  prices: PassPriceView[];
 }
 
 export interface NotificationItem {
@@ -783,4 +875,140 @@ export interface NotificationItem {
 export interface NotificationInbox {
   unread: number;
   items: NotificationItem[];
+}
+
+// ===== VietQR, giờ khóa lấy xe / phí qua đêm & tiền mặt tại chốt =====
+
+export interface DepositInfo {
+  studentCode: string;
+  fullName: string;
+  bankId: string;
+  accountNo: string;
+  accountName: string;
+  transferContent: string;
+  amount: number;
+  qrCodeUrl: string;
+}
+
+export type VietQrTemplate = 'compact2' | 'compact' | 'qr_only' | 'print';
+export type BankConfigSource = 'DATABASE' | 'ENV_DEFAULT';
+
+export interface BankConfig {
+  bankId: string;
+  accountNo: string;
+  accountName: string;
+  template: VietQrTemplate;
+  source: BankConfigSource;
+  updatedAt: string | null;
+  envDefault: {
+    bankId: string;
+    accountNo: string;
+    accountName: string;
+    template: VietQrTemplate;
+  };
+}
+
+export interface UpdateBankConfigRequest {
+  bankId: string;
+  accountNo: string;
+  accountName: string;
+  template: VietQrTemplate;
+}
+
+export interface VietQrOrder {
+  sessionId: number;
+  plateNumber: string;
+  studentCode: string;
+  fullName: string;
+  fee: number;
+  bankId: string;
+  accountNo: string;
+  accountName: string;
+  transferContent: string;
+  qrCodeUrl: string;
+}
+
+export interface VietQrCheckOutResult {
+  transactionId: number;
+  sessionId: number;
+  plateNumber: string;
+  fee: number;
+  exitedAt: string;
+  balanceAfter: number;
+}
+
+export interface ParkingPolicyConfig {
+  checkoutCurfewTime: string;
+  overnightFeePoints: number;
+  curfewEnabled: boolean;
+}
+
+export interface UpdateParkingPolicyRequest {
+  checkoutCurfewTime: string;
+  overnightFeePoints: number;
+  curfewEnabled: boolean;
+}
+
+export interface CashCheckOutResult {
+  collectionId: number;
+  sessionId: number;
+  plateNumber: string;
+  studentCode: string;
+  fullName: string;
+  amount: number;
+  overnight: boolean;
+  collectedAt: string;
+  shiftId: number | null;
+}
+
+export interface GuardCashSheetItem {
+  collectionId: number;
+  sessionId: number;
+  plateNumber: string;
+  plateDisplay: string;
+  vehicleTypeCode: string;
+  studentCode: string;
+  fullName: string;
+  amount: number;
+  overnight: boolean;
+  collectedAt: string;
+}
+
+export interface GuardCashSheet {
+  from: string;
+  inShift: boolean;
+  shiftId: number | null;
+  openingCash: number;
+  totalCollected: number;
+  expectedClosingCash: number;
+  entries: GuardCashSheetItem[];
+}
+
+export interface ManagerGateCashGuardTotal {
+  guardId: number;
+  guardName: string;
+  count: number;
+  totalAmount: number;
+}
+
+export interface ManagerGateCashItem {
+  collectionId: number;
+  sessionId: number;
+  plateNumber: string;
+  plateDisplay: string;
+  studentCode: string;
+  fullName: string;
+  guardName: string;
+  shiftId: number | null;
+  amount: number;
+  overnight: boolean;
+  collectedAt: string;
+}
+
+export interface ManagerGateCashReport {
+  date: string;
+  totalAmount: number;
+  totalCount: number;
+  byGuard: ManagerGateCashGuardTotal[];
+  entries: ManagerGateCashItem[];
 }

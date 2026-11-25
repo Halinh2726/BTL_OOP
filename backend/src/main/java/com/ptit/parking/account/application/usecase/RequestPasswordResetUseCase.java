@@ -5,7 +5,7 @@ import com.ptit.parking.account.application.port.out.EmailSender;
 import com.ptit.parking.account.application.port.out.EmailSender.EmailMessage;
 import com.ptit.parking.account.application.port.out.PasswordResetCodeRepository;
 import com.ptit.parking.account.application.port.out.SecretGenerator;
-import com.ptit.parking.account.domain.AccountCredential;
+import com.ptit.parking.account.application.usecase.PasswordResetLookup.EmailTarget;
 import com.ptit.parking.account.domain.EmailAddress;
 import com.ptit.parking.account.domain.PasswordResetCode;
 import com.ptit.parking.auth.domain.PasswordHasher;
@@ -46,14 +46,14 @@ public class RequestPasswordResetUseCase {
         this.clock = clock;
     }
 
-    public void request(String rawEmail) {
-        EmailAddress email = EmailAddress.of(rawEmail);
+    public void request(String rawIdentifier) {
+        Optional<EmailTarget> resolved = PasswordResetLookup.resolveEmailTarget(credentials, rawIdentifier);
         Instant now = clock.instant();
-        Optional<AccountCredential> account = credentials.findByEmail(email).filter(c -> !c.isLocked());
-        if (account.isEmpty()) {
+        if (resolved.isEmpty()) {
             return;
         }
-        long userId = account.get().userId();
+        long userId = resolved.get().credential().userId();
+        EmailAddress email = resolved.get().email();
         if (codes.findLatest(userId).filter(code -> code.issuedRecently(now)).isPresent()) {
             return;                                           // chống spam: mã cũ vẫn dùng được
         }
@@ -67,7 +67,7 @@ public class RequestPasswordResetUseCase {
             return null;
         });
         emails.send(new EmailMessage(email, "Mã khôi phục mật khẩu — Bãi gửi xe PTIT",
-                "Xin chào " + account.get().fullName() + ",\n\n"
+                "Xin chào " + resolved.get().credential().fullName() + ",\n\n"
                         + "Mã khôi phục mật khẩu của bạn là: " + rawCode + "\n"
                         + "Mã có hiệu lực " + PasswordResetCode.TTL.toMinutes() + " phút và chỉ dùng được một lần.\n"
                         + "Nếu bạn không yêu cầu, hãy bỏ qua email này."));

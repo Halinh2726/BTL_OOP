@@ -18,7 +18,22 @@ public interface FeePolicy {
         return FeeQuote.charge(feeFor(Duration.between(enteredAt, exitTime.toInstant())));
     }
 
-    /** Mức điểm tối thiểu để một xe cụ thể được vào bãi. */
+    /** Phí của MỘT lượt gửi có xét thời điểm xe vào (hỗ trợ tính phí qua đêm theo Mục 3.9). */
+    default FeeQuote quoteSession(long vehicleId, Instant enteredAt, ZonedDateTime exitTime) {
+        return quote(vehicleId, enteredAt, exitTime);
+    }
+
+    /** Kiểm tra đã tới giờ khóa không cho hoàn tất lấy xe trong ngày chưa (Mục 3.9). */
+    default boolean isCheckoutLocked(ZonedDateTime exitTime) {
+        return false;
+    }
+
+    /** Cấu hình giờ khóa / phí qua đêm đang áp dụng. */
+    default ParkingPolicyConfig policyConfig() {
+        return ParkingPolicyConfig.disabled();
+    }
+
+    /** Đợt 5 — mức điểm tối thiểu để xe này được VÀO lúc {@code at}. Mặc định: như nhau với mọi xe. */
     default long minimumFeeFor(long vehicleId, ZonedDateTime at) {
         return minimumFee();
     }

@@ -36,6 +36,7 @@ export function ShiftTab() {
       ) : (
         <StartShiftCard pending={pendingHandovers} openIncidents={openIncidents} />
       )}
+      <GuardCashSheetCard />
       <MyScheduleCard />
       <MyActivityCard />
       <ShiftHistoryCard />
@@ -154,6 +155,8 @@ function CurrentShiftCard({ shift, summary }: { shift: ShiftView; summary: Shift
   const [cash, setCash] = useState('');
   const closingCash = readCash(cash);
   const cashOk = closingCash !== null && !Number.isNaN(closingCash);
+  const cashSheet = useQuery({ queryKey: queryKeys.guardCashSheet, queryFn: api.guardCashSheet });
+  const expectedHandover = cashSheet.data ? cashSheet.data.expectedClosingCash : shift.openingCash;
   const end = useMutation({
     mutationFn: () => api.endShift(note, closingCash ?? 0),
     onSuccess: async () => {
@@ -178,6 +181,7 @@ function CurrentShiftCard({ shift, summary }: { shift: ShiftView; summary: Shift
           onClick={() => {
             // Lấy số liệu mới nhất để bảo vệ xem trước; backend vẫn tự đếm lại lúc lưu biên bản
             void queryClient.invalidateQueries({ queryKey: queryKeys.currentShift });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.guardCashSheet });
             setEnding(true);
           }}
         >
@@ -190,6 +194,12 @@ function CurrentShiftCard({ shift, summary }: { shift: ShiftView; summary: Shift
         <p className="text-sm text-slate-600">
           Tiền mặt khai lúc nhận ca: <strong>{formatCash(shift.openingCash)}</strong>
           <CashDifference difference={shift.openingDiscrepancy} />
+          {cashSheet.data && cashSheet.data.totalCollected > 0 && (
+            <>
+              {' '}
+              · Đã thu tại chốt: <strong>{formatCash(cashSheet.data.totalCollected)}</strong>
+            </>
+          )}
         </p>
       </div>
       {ending && (
@@ -206,12 +216,32 @@ function CurrentShiftCard({ shift, summary }: { shift: ShiftView; summary: Shift
         >
           <p className="text-sm text-slate-600">Hệ thống tự ghi số liệu dưới đây vào biên bản; bảo vệ ca sau phải xác nhận khi nhận ca.</p>
           <SummaryGrid summary={summary} />
+          <div className="rounded-lg bg-slate-50 p-3 text-sm space-y-1">
+            <div className="flex justify-between">
+              <span className="text-slate-600">Tiền mặt nhận đầu ca:</span>
+              <span className="font-semibold">{formatCash(shift.openingCash)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-600">Tiền mặt thu tại chốt trong ca:</span>
+              <span className="font-semibold">{formatCash(cashSheet.data?.totalCollected ?? 0)}</span>
+            </div>
+            <div className="flex justify-between border-t border-slate-200 pt-1 font-semibold text-blue-900">
+              <span>Dự kiến bàn giao (= nhận ca + thu tại chốt):</span>
+              <span>{formatCash(expectedHandover)}</span>
+            </div>
+          </div>
           <CashField
             label="Tiền mặt bàn giao cho ca sau"
             value={cash}
             onChange={setCash}
-            hint={`Lúc nhận ca bạn khai ${formatCash(shift.openingCash)}.`}
+            hint={`Nhận ca ${formatCash(shift.openingCash)} + thu tại chốt ${formatCash(cashSheet.data?.totalCollected ?? 0)} = ${formatCash(expectedHandover)}.`}
           />
+          {cashOk && cashSheet.data && closingCash !== expectedHandover && (
+            <Alert tone="warning">
+              Số tiền bàn giao {closingCash > expectedHandover ? 'nhiều' : 'ít'} hơn dự kiến{' '}
+              {formatCash(Math.abs(closingCash - expectedHandover))}.
+            </Alert>
+          )}
           <div className="space-y-1">
             <label htmlFor="handover-note" className="block text-sm font-medium text-slate-700">
               Ghi chú cho ca sau (không bắt buộc)
@@ -227,6 +257,82 @@ function CurrentShiftCard({ shift, summary }: { shift: ShiftView; summary: Shift
             />
           </div>
         </ConfirmDialog>
+      )}
+    </Card>
+  );
+}
+
+/** Mục 3.6 PDF — bảng kê tiền mặt đã thu tại chốt trong ca trực của bảo vệ đang đăng nhập. */
+function GuardCashSheetCard() {
+  const sheet = useQuery({ queryKey: queryKeys.guardCashSheet, queryFn: api.guardCashSheet, refetchInterval: 30_000 });
+
+  return (
+    <Card
+      title={
+        <>
+          Bảng kê tiền mặt tại chốt{' '}
+          {sheet.data && (
+            <span className="text-sm font-normal text-slate-500">
+              {sheet.data.inShift ? 'trong ca hiện tại' : '12 giờ gần nhất'}
+            </span>
+          )}
+        </>
+      }
+    >
+      {sheet.isPending && <LoadingBlock />}
+      {sheet.isError && <QueryError error={sheet.error} onRetry={() => void sheet.refetch()} />}
+      {sheet.data && (
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-3" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            <div className="rounded-xl bg-slate-50 p-3">
+              <p className="text-xs text-slate-500">Tiền nhận ca</p>
+              <p className="text-lg font-bold text-slate-900">{formatCash(sheet.data.openingCash)}</p>
+            </div>
+            <div className="rounded-xl bg-amber-50 p-3 ring-1 ring-amber-200">
+              <p className="text-xs text-amber-800">+ Thu tiền mặt tại chốt ({sheet.data.entries.length} lượt)</p>
+              <p className="text-lg font-bold text-amber-900">{formatCash(sheet.data.totalCollected)}</p>
+            </div>
+            <div className="rounded-xl bg-blue-50 p-3 ring-1 ring-blue-200">
+              <p className="text-xs text-blue-800">= Dự kiến bàn giao</p>
+              <p className="text-lg font-bold text-blue-900">{formatCash(sheet.data.expectedClosingCash)}</p>
+            </div>
+          </div>
+
+          {sheet.data.entries.length === 0 ? (
+            <p className="py-3 text-center text-sm text-slate-500">Chưa thu tiền mặt lượt nào trong ca này.</p>
+          ) : (
+            <div className="-mx-5 overflow-x-auto">
+              <table className="min-w-full text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                <thead className="bg-slate-50 text-left text-slate-500">
+                  <tr>
+                    <th className="px-5 py-2 font-medium">Giờ thu</th>
+                    <th className="px-3 py-2 font-medium">Biển số</th>
+                    <th className="px-3 py-2 font-medium">Sinh viên</th>
+                    <th className="px-3 py-2 font-medium">Loại phí</th>
+                    <th className="px-5 py-2 text-right font-medium">Số tiền</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {sheet.data.entries.map((entry) => (
+                    <tr key={entry.collectionId}>
+                      <td className="whitespace-nowrap px-5 py-2 text-slate-600">{formatTime(entry.collectedAt)}</td>
+                      <td className="whitespace-nowrap px-3 py-2 font-mono font-semibold">{entry.plateDisplay}</td>
+                      <td className="px-3 py-2">
+                        {entry.fullName} <span className="text-xs text-slate-500">({entry.studentCode})</span>
+                      </td>
+                      <td className="px-3 py-2">
+                        {entry.overnight ? <Badge tone="amber">Qua đêm</Badge> : <Badge tone="gray">Thường</Badge>}
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-2 text-right font-semibold text-slate-900">
+                        {formatCash(entry.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
     </Card>
   );

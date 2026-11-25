@@ -1,7 +1,12 @@
 import type {
+  BankConfig,
   ComplaintStatus,
   ComplaintView,
+  GuardCashSheetItem,
   ManagedIncident,
+  ManagerGateCashGuardTotal,
+  ManagerGateCashItem,
+  ParkingPolicyConfig,
   PlannedShift,
   ShiftSlot,
   ClosedReconciliation,
@@ -11,6 +16,7 @@ import type {
   ReconciliationDay,
   AuditItem,
   RevenueDay,
+  VietQrOrder,
   WithdrawalView,
   IncidentItem,
   ParkedVehicleItem,
@@ -26,6 +32,8 @@ import type {
   Vehicle,
   VehicleType,
 } from '../../types/api';
+import { buildVietQrImageUrl, normalizeBankAccountName } from '../../utils/vietQr';
+import { STANDARD_PLATE, isPlateValidForVehicleType } from '../../utils/format';
 import type { ApiClient, Idempotent } from '../ApiClient';
 import { ApiError } from '../ApiError';
 import { endsSession, notifySessionEnded } from '../sessionEvents';
@@ -72,6 +80,7 @@ const ERRORS = {
   RESET_CODE_EXPIRED: [422, 'Mã xác nhận đã hết hạn hoặc đã được dùng. Vui lòng yêu cầu mã mới.'],
   RESET_CODE_LOCKED: [422, 'Nhập sai mã quá 5 lần. Vui lòng yêu cầu mã mới.'],
   PLATE_REQUIRED: [422, 'Vui lòng nhập biển số. Chỉ xe đạp không có biển mới được bãi cấp mã.'],
+  PLATE_TYPE_MISMATCH: [422, 'Cấu trúc biển số không khớp với loại xe đã chọn.'],
   VEHICLE_LIMIT_REACHED: [422, 'Mỗi sinh viên được tối đa 3 xe đang sử dụng.'],
   NO_OPEN_SHIFT: [409, 'Bạn chưa nhận ca trực.'],
   HANDOVER_PENDING: [409, 'Có biên bản bàn giao ca chưa được xác nhận. Xem lại rồi bấm Nhận ca.'],
@@ -109,9 +118,11 @@ const ERRORS = {
   STUDENT_CODE_EXISTS: [409, 'MSSV đã tồn tại'],
   USERNAME_EXISTS: [409, 'Tên đăng nhập đã tồn tại'],
   PLATE_EXISTS: [409, 'Biển số đã được đăng ký'],
+  STUDENT_ALREADY_PARKED: [409, 'Sinh viên đã có xe đang gửi. Hãy lấy xe đó ra trước khi cho xe khác vào.'],
   SESSION_ALREADY_OPEN: [409, 'Xe đang có lượt gửi chưa kết thúc. Không cho xe vào.'],
   SESSION_ALREADY_PAID: [409, 'Lượt gửi này đã được thanh toán. Không trừ điểm lần hai.'],
   INSUFFICIENT_POINTS: [422, 'Không đủ điểm.'],
+  CHECKOUT_CURFEW: [422, 'Đã quá giờ khóa lấy xe trong ngày. Vui lòng lấy xe vào ngày hôm sau.'],
   INVALID_AMOUNT: [422, 'Số tiền hoặc số điểm không hợp lệ.'],
   IDEMPOTENCY_KEY_REUSED: [422, 'Khóa chống xử lý trùng đã được dùng cho yêu cầu khác.'],
   TOO_MANY_REQUESTS: [429, 'Thao tác quá nhiều lần. Vui lòng thử lại sau ít phút.'],
@@ -129,7 +140,7 @@ const PERMISSIONS: Record<Role, string[]> = {
 const VEHICLE_TYPES: VehicleType[] = [
   { code: 'XE_MAY', name: 'Xe máy' },
   { code: 'XE_DAP', name: 'Xe đạp' },
-  { code: 'XE_DAP_DIEN', name: 'Xe đạp điện' },
+  { code: 'XE_MAY_DIEN', name: 'Xe máy điện' },
 ];
 const FEE_RULES: FeeRule[] = [
   { upToMinutes: 120, feePoints: 3000 },
@@ -143,11 +154,10 @@ const LOGIN_WINDOW_MS = 60_000;
 const MAX_SUGGESTIONS = 8;
 
 const USERNAME = /^[a-z0-9._]{4,50}$/;
-const PLATE = /^[A-Z0-9]{5,20}$/;
+const PLATE = /^[A-Z0-9Đ]{5,20}$/;
 const STUDENT_CODE = /^[A-Z0-9]{1,20}$/;
 const PHONE = /^0[0-9]{9,10}$/;
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-const STANDARD_PLATE = /^([0-9]{2}[A-Z]{1,2}[0-9]{4,6}|XD[0-9]{5})$/;
 const MAX_ACTIVE_VEHICLES = 3;
 const RESET_CODE_TTL_MS = 10 * 60_000;
 const TEMPORARY_PASSWORD = 'TamThoi2345';
@@ -194,7 +204,9 @@ const MIN_FEE = Math.min(...FEE_RULES.map((rule) => rule.feePoints));
 function displayPlate(plate: string): string {
   const bicycle = /^XD([0-9]{5})$/.exec(plate);
   if (bicycle) return `XD-${bicycle[1]}`;
-  const parts = /^([0-9]{2}[A-Z]{1,2})([0-9]{4,6})$/.exec(plate);
+  const electric = /^([0-9]{2}MĐ)([0-9]{5})$/.exec(plate);
+  if (electric) return `${electric[1]}-${electric[2]?.slice(0, 3)}.${electric[2]?.slice(3)}`;
+  const parts = /^([0-9]{2}[A-ZĐ][A-Z0-9Đ]?)([0-9]{4,6})$/.exec(plate);
   if (!parts) return plate;
   let series = parts[1] ?? '';
   let digits = parts[2] ?? '';
@@ -224,7 +236,17 @@ function toVehicle(vehicle: MockVehicle): Vehicle {
 function loadState(): MockState {
   try {
     const saved = sessionStorage.getItem(STORAGE_KEY);
-    if (saved) return JSON.parse(saved) as MockState;
+    if (saved) {
+      const state = JSON.parse(saved) as MockState;
+      for (const vehicle of state.vehicles) {
+        if (vehicle.vehicleTypeCode === 'XE_DAP_DIEN') vehicle.vehicleTypeCode = 'XE_MAY_DIEN';
+      }
+      if (state.passPrices?.XE_DAP_DIEN !== undefined) {
+        state.passPrices.XE_MAY_DIEN ??= state.passPrices.XE_DAP_DIEN;
+        delete state.passPrices.XE_DAP_DIEN;
+      }
+      return state;
+    }
   } catch {
     // Không đọc được (chế độ riêng tư...) -> dùng dữ liệu mẫu
   }
@@ -239,6 +261,68 @@ function loadState(): MockState {
 export function createMockApiClient(options: { latencyMs?: number; initialState?: MockState } = {}): ApiClient {
   const latencyMs = options.latencyMs ?? 250;
   const state: MockState = options.initialState ?? loadState();
+
+  const ENV_DEFAULT_BANK = {
+    bankId: 'MB',
+    accountNo: '0987654321',
+    accountName: 'BAI XE HOC VIEN PTIT',
+    template: 'compact2' as const,
+  };
+  let mockBankConfig: BankConfig = {
+    ...ENV_DEFAULT_BANK,
+    source: 'ENV_DEFAULT',
+    updatedAt: null,
+    envDefault: { ...ENV_DEFAULT_BANK },
+  };
+  let mockPolicy: ParkingPolicyConfig = {
+    checkoutCurfewTime: '22:00',
+    overnightFeePoints: 15_000,
+    curfewEnabled: true,
+  };
+  interface MockGateCash {
+    collectionId: number;
+    sessionId: number;
+    plateNumber: string;
+    vehicleTypeCode: string;
+    studentCode: string;
+    fullName: string;
+    guardId: number;
+    guardName: string;
+    shiftId: number | null;
+    amount: number;
+    overnight: boolean;
+    collectedAt: string;
+  }
+  const mockGateCash: MockGateCash[] = [];
+
+  function buildVietQrOrderFor(
+    sessionId: number,
+    plateNumber: string,
+    studentCode: string,
+    fullName: string,
+    fee: number,
+  ): VietQrOrder {
+    const transferContent = `TTGX ${sessionId}`;
+    return {
+      sessionId,
+      plateNumber,
+      studentCode,
+      fullName,
+      fee,
+      bankId: mockBankConfig.bankId,
+      accountNo: mockBankConfig.accountNo,
+      accountName: mockBankConfig.accountName,
+      transferContent,
+      qrCodeUrl: buildVietQrImageUrl({
+        bankId: mockBankConfig.bankId,
+        accountNo: mockBankConfig.accountNo,
+        accountName: mockBankConfig.accountName,
+        template: mockBankConfig.template,
+        amount: fee,
+        message: transferContent,
+      }),
+    };
+  }
 
   function save(): void {
     try {
@@ -442,7 +526,12 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
 
   // ===== Đợt 5: helpers =====
 
-  const PASS_PRICES: Record<string, number> = { XE_MAY: 100_000, XE_DAP_DIEN: 80_000, XE_DAP: 50_000 };
+  const DEFAULT_PASS_PRICES: Record<string, number> = { XE_MAY: 100_000, XE_MAY_DIEN: 80_000, XE_DAP: 50_000 };
+
+  function passPrices(): Record<string, number> {
+    if (!state.passPrices) state.passPrices = { ...DEFAULT_PASS_PRICES };
+    return state.passPrices;
+  }
 
   /** "2026-11" -> "2026-11-30" */
   function lastDayOf(month: string): string {
@@ -455,6 +544,29 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
     const [year, mon] = month.split('-').map(Number);
     const next = new Date(Date.UTC(year ?? 2000, mon ?? 1, 1));
     return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}`;
+  }
+
+  function monthsFrom(startMonth: string, count: number): string[] {
+    const result: string[] = [];
+    let cursor = startMonth;
+    for (let i = 0; i < count; i += 1) {
+      result.push(cursor);
+      cursor = nextMonthOf(cursor);
+    }
+    return result;
+  }
+
+  function activeCoverage(vehicleId: number, todayIso: string): { activeValidUntil: string | null; remainingDays: number | null } {
+    const todayMonth = todayIso.slice(0, 7);
+    const months = new Set((state.passes ?? []).filter((p) => p.vehicleId === vehicleId).map((p) => p.month));
+    if (!months.has(todayMonth)) return { activeValidUntil: null, remainingDays: null };
+    let cursor = todayMonth;
+    while (months.has(nextMonthOf(cursor))) cursor = nextMonthOf(cursor);
+    const validUntil = lastDayOf(cursor);
+    const todayMs = Date.parse(`${todayIso.slice(0, 10)}T00:00:00Z`);
+    const untilMs = Date.parse(`${validUntil}T00:00:00Z`);
+    const remainingDays = Math.max(0, Math.round((untilMs - todayMs) / 86_400_000) + 1);
+    return { activeValidUntil: validUntil, remainingDays };
   }
 
   /** Vé tháng của xe trong tháng (giờ VN) của thời điểm `at`; null nếu không có. */
@@ -540,6 +652,14 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
       proposerName: c.proposedBy ? nameOf(c.proposedBy) : null, proposedAt: c.proposedAt,
       deciderName: c.decidedBy ? nameOf(c.decidedBy) : null, decidedAt: c.decidedAt, decisionNote: c.decisionNote,
       compensationTransactionId: c.compensationTransactionId, cancelledAt: c.cancelledAt,
+      cameraRequested: c.cameraRequested ?? false,
+      cameraStatus: c.cameraStatus ?? 'KHONG_YEU_CAU',
+      incidentArea: c.incidentArea ?? null,
+      incidentTimeRange: c.incidentTimeRange ?? null,
+      cameraNote: c.cameraNote ?? null,
+      cameraReviewerName: c.cameraReviewerId ? nameOf(c.cameraReviewerId) : null,
+      cameraReviewedAt: c.cameraReviewedAt ?? null,
+      hasCameraPhoto: Boolean(c.cameraPhoto),
     };
   }
 
@@ -721,6 +841,20 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
     return vehicle && owner ? { vehicle, owner } : null;
   }
 
+  function studentHasParkedVehicle(studentId: number): boolean {
+    return state.vehicles.some((vehicle) => vehicle.userId === studentId && openSessionOf(vehicle.id));
+  }
+
+  function quoteSession(session: { enteredAt: string; vehicleId: number }, now: Date) {
+    const exitedAt = toVietnamIso(now);
+    const elapsed = parkingDurationMs(session.enteredAt, exitedAt);
+    const passValidUntil = passUntil(session.vehicleId, now);
+    const overnight = !passValidUntil && exitedAt.slice(0, 10) > session.enteredAt.slice(0, 10);
+    const fee = passValidUntil ? 0 : overnight ? mockPolicy.overnightFeePoints : feeForStay(elapsed);
+    const checkoutLocked = mockPolicy.curfewEnabled && exitedAt.slice(11, 16) >= mockPolicy.checkoutCurfewTime;
+    return { exitedAt, passValidUntil, overnight, fee, checkoutLocked };
+  }
+
   function openSessionOf(vehicleId: number) {
     return state.sessions.find((session) => session.vehicleId === vehicleId && session.exitedAt === null);
   }
@@ -771,6 +905,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
       call(() => {
         const studentCode = body.studentCode.trim().toUpperCase();
         const fullName = body.fullName.trim();
+        const email = body.email?.trim().toLowerCase() ?? '';
         const fields: FieldViolation[] = [];
         if (!STUDENT_CODE.test(studentCode)) {
           fields.push({ field: 'studentCode', code: 'PATTERN', message: 'MSSV chỉ gồm chữ và số, tối đa 20 ký tự' });
@@ -787,12 +922,16 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         if (body.password.length < 8 || body.password.length > 72) {
           fields.push({ field: 'password', code: 'LENGTH', message: 'Mật khẩu từ 8 đến 72 ký tự' });
         }
+        if (email && (email.length > 100 || !EMAIL.test(email))) {
+          fields.push({ field: 'email', code: 'PATTERN', message: 'Email không hợp lệ' });
+        }
         invalid(fields);
         if (state.users.some((user) => user.studentCode === studentCode)) fail('STUDENT_CODE_EXISTS');
         if (usernameTaken(body.username)) fail('USERNAME_EXISTS');
+        if (email && state.users.some((user) => user.email === email)) fail('EMAIL_EXISTS');
         const user: MockUser = {
           id: nextId(), username: body.username, password: body.password, fullName, role: 'SINH_VIEN',
-          status: 'HOAT_DONG', studentCode,
+          status: 'HOAT_DONG', studentCode, ...(email ? { email } : {}),
         };
         state.users.push(user);
         state.wallets[user.id] = 0;
@@ -820,7 +959,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         if (plateNumber !== '' && !STANDARD_PLATE.test(plateNumber)) {
           fields.push({
             field: 'plateNumber', code: 'PATTERN',
-            message: 'Biển số theo dạng 29A-1514 hoặc 29A-123.45 (tối đa 5 số cuối)',
+            message: 'Biển xăng theo dạng 36S4-12345 hoặc 26DC-12345; xe điện theo dạng 29MĐ-123.45',
           });
         }
         if (!VEHICLE_TYPES.some((type) => type.code === body.vehicleTypeCode)) {
@@ -828,6 +967,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         }
         invalid(fields);
         if (plateNumber === '' && body.vehicleTypeCode !== 'XE_DAP') fail('PLATE_REQUIRED');
+        if (plateNumber !== '' && !isPlateValidForVehicleType(plateNumber, body.vehicleTypeCode)) fail('PLATE_TYPE_MISMATCH');
         const active = state.vehicles.filter((vehicle) => vehicle.userId === user.id && isActive(vehicle)).length;
         if (active >= MAX_ACTIVE_VEHICLES) fail('VEHICLE_LIMIT_REACHED');
         if (plateNumber === '') {
@@ -904,6 +1044,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         const required = passValidUntil ? 0 : MIN_FEE;                     // Đợt 5: có vé tháng thì không cần điểm
         const reason = openSessionOf(found.vehicle.id)
           ? ('SESSION_ALREADY_OPEN' as const)
+          : studentHasParkedVehicle(found.owner.id) ? ('STUDENT_ALREADY_PARKED' as const)
           : balance < required ? ('INSUFFICIENT_POINTS' as const) : null;
         return {
           plateNumber: plate, vehicleTypeCode: found.vehicle.vehicleTypeCode,
@@ -920,13 +1061,23 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         const found = findOwnerByPlate(plate);
         if (!found) return fail('PLATE_NOT_FOUND');
         if (openSessionOf(found.vehicle.id)) fail('SESSION_ALREADY_OPEN');
+        if (studentHasParkedVehicle(found.owner.id)) fail('STUDENT_ALREADY_PARKED');
         if (!passUntil(found.vehicle.id, new Date()) && balanceOf(found.owner.id) < MIN_FEE) fail('INSUFFICIENT_POINTS');
         const guard = currentUser();
+        const hasPass = Boolean(passUntil(found.vehicle.id, new Date()));
         const session = {
           id: nextId(), vehicleId: found.vehicle.id, enteredAt: toVietnamIso(new Date()), exitedAt: null,
           entryGuardId: guard.id, exitGuardId: null,
         };
         state.sessions.push(session);
+        notify(
+          found.owner.id,
+          'XE_VAO',
+          `Xe ${displayPlate(plate)} vừa vào bãi`,
+          hasPass
+            ? 'Xe đã qua cổng hợp lệ bằng vé tháng còn hạn.'
+            : `Ghi nhận lúc ${session.enteredAt.slice(11, 16)}. Số dư hiện tại: ${balanceOf(found.owner.id).toLocaleString('vi-VN')} điểm.`,
+        );
         return { sessionId: session.id, plateNumber: plate, enteredAt: session.enteredAt };
       }),
 
@@ -953,14 +1104,19 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
             reason: 'NO_OPEN_SESSION' as const,
           };
         }
-        const now = new Date();
-        const elapsed = parkingDurationMs(session.enteredAt, toVietnamIso(now));
-        const passValidUntil = passUntil(found.vehicle.id, now);
-        const fee = passValidUntil ? 0 : feeForStay(elapsed);
-        const reason = balance < fee ? ('INSUFFICIENT_POINTS' as const) : null;
+        const { passValidUntil, fee, overnight, checkoutLocked } = quoteSession(session, new Date());
+        const reason = checkoutLocked ? ('CHECKOUT_CURFEW' as const)
+          : balance < fee ? ('INSUFFICIENT_POINTS' as const) : null;
+        const vietQrOrder =
+          reason === 'INSUFFICIENT_POINTS'
+            ? buildVietQrOrderFor(session.id, plate, found.owner.studentCode ?? '', found.owner.fullName, fee)
+            : null;
         return {
           ...owner, sessionId: session.id, enteredAt: session.enteredAt, balance, fee, allowed: reason === null, reason,
           passValidUntil,
+          overnight,
+          curfewTime: mockPolicy.curfewEnabled ? mockPolicy.checkoutCurfewTime : null,
+          vietQrOrder,
         };
       }),
 
@@ -974,19 +1130,19 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           const vehicle = state.vehicles.find((candidate) => candidate.id === session.vehicleId);
           if (!vehicle) return fail('NO_OPEN_SESSION');
           const now = new Date();
-          const exitedAt = toVietnamIso(now);
-          const elapsed = parkingDurationMs(session.enteredAt, exitedAt);
-          const passValidUntil = passUntil(vehicle.id, now);
+          const { exitedAt, passValidUntil, fee, checkoutLocked } = quoteSession(session, now);
+          if (checkoutLocked) fail('CHECKOUT_CURFEW');
           if (passValidUntil) {
             // Đợt 5: vé tháng -> chỉ đóng lượt, không ghi giao dịch
             session.exitedAt = exitedAt;
             session.exitGuardId = guard.id;
+            notify(vehicle.userId, 'XE_RA', `Xe ${displayPlate(vehicle.plateNumber)} vừa ra bãi (vé tháng)`,
+              `Lượt gửi miễn phí bằng vé tháng (hiệu lực đến ${passValidUntil.split('-').reverse().join('/')}).`);
             return {
               transactionId: null, sessionId, fee: 0, exitedAt: session.exitedAt, balanceAfter: balanceOf(vehicle.userId),
               passValidUntil,
             };
           }
-          const fee = feeForStay(elapsed);
           if (balanceOf(vehicle.userId) < fee) fail('INSUFFICIENT_POINTS');
           session.exitedAt = exitedAt;
           session.exitGuardId = guard.id;
@@ -994,9 +1150,11 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
             performedBy: guard.id, sessionId: session.id,
           });
           const balanceAfter = balanceOf(vehicle.userId);
-          if (balanceAfter < MIN_FEE) {
-            notify(vehicle.userId, 'SO_DU_THAP', 'Số điểm sắp hết',
-              `Bạn còn ${balanceAfter.toLocaleString('vi-VN')} điểm, chưa đủ ${MIN_FEE.toLocaleString('vi-VN')} điểm cho lượt gửi tiếp theo.`);
+          notify(vehicle.userId, 'XE_RA', `Xe ${displayPlate(vehicle.plateNumber)} vừa ra bãi`,
+            `Đã trừ ${fee.toLocaleString('vi-VN')} điểm phí gửi xe. Số dư còn lại: ${balanceAfter.toLocaleString('vi-VN')} điểm.`);
+          if (balanceAfter < MIN_FEE * 2) {
+            notify(vehicle.userId, 'SO_DU_THAP', balanceAfter < MIN_FEE ? 'Số điểm không đủ lượt tiếp theo' : 'Số điểm sắp hết',
+              `Bạn còn ${balanceAfter.toLocaleString('vi-VN')} điểm (${balanceAfter < MIN_FEE ? 'chưa đủ' : 'chỉ đủ tối thiểu'} ${MIN_FEE.toLocaleString('vi-VN')} điểm/lượt). Vui lòng nạp thêm điểm tại quầy.`);
           }
           return {
             transactionId: transaction.id, sessionId, fee, exitedAt: transaction.createdAt, balanceAfter, passValidUntil: null,
@@ -1124,13 +1282,54 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         checkNewPassword(user, body.newPassword);
         user.password = body.newPassword;
         user.mustChangePassword = false;
+        user.passwordChangedAt = toVietnamIso(new Date());
         audit(user.id, 'DOI_MAT_KHAU', user.id, 'Tự đổi mật khẩu');
+        notify(user.id, 'BAO_MAT', 'Mật khẩu tài khoản vừa được thay đổi',
+          'Bạn đã đổi mật khẩu thành công. Các phiên đăng nhập khác tự động hết hiệu lực.');
       }),
 
-    requestPasswordReset: (rawEmail) =>
+    mySecurityActivity: () =>
       call(() => {
-        const email = rawEmail.trim().toLowerCase();
-        const user = state.users.find((candidate) => candidate.email === email && candidate.status === 'HOAT_DONG');
+        const user = currentUser();
+        const email = user.email ?? null;
+        const at = email ? email.indexOf('@') : -1;
+        const maskedEmail = email && at > 0 ? `${email.charAt(0)}***${email.slice(at)}` : null;
+        const nameLookup = (id: number) => state.users.find((u) => u.id === id)?.fullName ?? '';
+        const recentActivities = [...(state.auditLogs ?? [])]
+          .filter((entry) => entry.targetUserId === user.id || entry.actorId === user.id)
+          .sort((a, b) => b.id - a.id)
+          .slice(0, 15)
+          .map((entry) => ({
+            id: entry.id,
+            action: entry.action,
+            actorName: nameLookup(entry.actorId),
+            detail: entry.detail,
+            createdAt: entry.createdAt,
+          }));
+        return {
+          hasEmail: Boolean(email),
+          maskedEmail,
+          mustChangePassword: Boolean(user.mustChangePassword),
+          passwordChangedAt: user.passwordChangedAt ?? null,
+          sessionMaxHours: 12,
+          changePasswordBasis:
+            'Đổi mật khẩu xác thực bằng mật khẩu hiện tại, tự động thu hồi mọi phiên trên thiết bị khác và gửi thông báo bảo mật.',
+          forgotPasswordBasis:
+            'Quên mật khẩu qua mã OTP 6 số gửi tới email đã đăng ký (tìm bằng Email, Tên đăng nhập hoặc MSSV; hiệu lực 10 phút) hoặc nhận mật khẩu tạm từ Quản lý.',
+          recentActivities,
+        };
+      }),
+
+    requestPasswordReset: (rawIdentifier) =>
+      call(() => {
+        const trimmed = rawIdentifier.trim();
+        if (!trimmed) fail('VALIDATION_ERROR');
+        const user = trimmed.includes('@')
+          ? state.users.find((c) => c.email === trimmed.toLowerCase() && c.status === 'HOAT_DONG')
+          : state.users.find((c) =>
+              (c.username === trimmed.toLowerCase() || c.studentCode === trimmed.toUpperCase())
+              && c.status === 'HOAT_DONG'
+              && Boolean(c.email));
         if (user) {
           state.resetCodes = [
             ...(state.resetCodes ?? []).filter((code) => code.userId !== user.id),
@@ -1138,12 +1337,18 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           ];
           audit(user.id, 'YEU_CAU_KHOI_PHUC_MAT_KHAU', user.id, 'Gửi mã khôi phục (chế độ mock: mã luôn là 123456)');
         }
-        return { message: 'Nếu email đã được đăng ký, mã xác nhận đã được gửi tới email đó. Mã có hiệu lực 10 phút.' };
+        return { message: 'Nếu tài khoản hợp lệ và đã đăng ký email khôi phục, mã xác nhận đã được gửi. Mã có hiệu lực 10 phút.' };
       }),
 
     confirmPasswordReset: (body) =>
       call(() => {
-        const user = state.users.find((candidate) => candidate.email === body.email.trim().toLowerCase());
+        const trimmed = (body.identifier || body.email || '').trim();
+        if (!trimmed) fail('VALIDATION_ERROR');
+        const user = trimmed.includes('@')
+          ? state.users.find((c) => c.email === trimmed.toLowerCase() && c.status === 'HOAT_DONG')
+          : state.users.find((c) =>
+              (c.username === trimmed.toLowerCase() || c.studentCode === trimmed.toUpperCase())
+              && c.status === 'HOAT_DONG');
         if (body.newPassword.length < 8 || body.newPassword.length > 72) fail('PASSWORD_POLICY');
         const code = user ? (state.resetCodes ?? []).find((candidate) => candidate.userId === user.id) : undefined;
         if (!user || !code) return fail('RESET_CODE_INVALID');
@@ -1157,17 +1362,10 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         code.used = true;
         user.password = body.newPassword;
         user.mustChangePassword = false;
+        user.passwordChangedAt = toVietnamIso(new Date());
         audit(user.id, 'KHOI_PHUC_MAT_KHAU', user.id, 'Đặt lại mật khẩu bằng mã gửi qua email');
-      }),
-
-    changeVehicleType: (vehicleId, vehicleTypeCode) =>
-      call(() => {
-        const vehicle = ownedIdleVehicle(requireRole('SINH_VIEN'), vehicleId);
-        if (!VEHICLE_TYPES.some((type) => type.code === vehicleTypeCode)) {
-          invalid([{ field: 'vehicleTypeCode', code: 'NOT_FOUND', message: 'Loại xe không tồn tại' }]);
-        }
-        vehicle.vehicleTypeCode = vehicleTypeCode;
-        return toVehicle(vehicle);
+        notify(user.id, 'BAO_MAT', 'Mật khẩu đã được khôi phục',
+          'Mật khẩu tài khoản vừa được đặt lại qua mã xác nhận email.');
       }),
 
     deactivateVehicle: (vehicleId) =>
@@ -1596,7 +1794,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           },
           vehicles: vehicles.map((vehicle) => ({
             id: vehicle.id, plateNumber: vehicle.plateNumber,
-            vehicleTypeName: vehicle.vehicleTypeCode === 'XE_MAY' ? 'Xe máy' : vehicle.vehicleTypeCode === 'XE_DAP' ? 'Xe đạp' : 'Xe đạp điện',
+            vehicleTypeName: vehicle.vehicleTypeCode === 'XE_MAY' ? 'Xe máy' : vehicle.vehicleTypeCode === 'XE_DAP' ? 'Xe đạp' : 'Xe máy điện',
             status: vehicle.status ?? 'DANG_DUNG', registeredAt: vehicle.registeredAt,
             parkedNow: openSessionOf(vehicle.id) !== undefined,
           })),
@@ -1677,20 +1875,31 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
     myPasses: () =>
       call(() => {
         const student = requireRole('SINH_VIEN');
-        const currentMonth = toVietnamIso(new Date()).slice(0, 7);
+        const todayIso = toVietnamIso(new Date());
+        const currentMonth = todayIso.slice(0, 7);
         const nextMonth = nextMonthOf(currentMonth);
         const mine = (state.passes ?? []).filter((p) => p.studentId === student.id);
         const find = (vehicleId: number, month: string) => {
           const pass = mine.find((p) => p.vehicleId === vehicleId && p.month === month);
           return pass ? toPassView(pass) : null;
         };
+        const prices = passPrices();
         return {
-          currentMonth, nextMonth,
-          options: state.vehicles.filter((v) => v.userId === student.id && isActive(v)).map((v) => ({
-            vehicleId: v.id, plateNumber: v.plateNumber,
-            vehicleTypeName: v.vehicleTypeCode === 'XE_MAY' ? 'Xe máy' : v.vehicleTypeCode === 'XE_DAP' ? 'Xe đạp' : 'Xe đạp điện',
-            price: PASS_PRICES[v.vehicleTypeCode] ?? null, current: find(v.id, currentMonth), next: find(v.id, nextMonth),
-          })),
+          currentMonth,
+          nextMonth,
+          options: state.vehicles.filter((v) => v.userId === student.id && isActive(v)).map((v) => {
+            const coverage = activeCoverage(v.id, todayIso);
+            return {
+              vehicleId: v.id,
+              plateNumber: v.plateNumber,
+              vehicleTypeName: v.vehicleTypeCode === 'XE_MAY' ? 'Xe máy' : v.vehicleTypeCode === 'XE_DAP' ? 'Xe đạp' : 'Xe máy điện',
+              price: prices[v.vehicleTypeCode] ?? null,
+              current: find(v.id, currentMonth),
+              next: find(v.id, nextMonth),
+              activeValidUntil: coverage.activeValidUntil,
+              remainingDays: coverage.remainingDays,
+            };
+          }),
           passes: [...mine].sort((a, b) => b.month.localeCompare(a.month)).map(toPassView),
         };
       }),
@@ -1698,23 +1907,83 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
     buyPass: (body, key) =>
       call(() => {
         const student = requireRole('SINH_VIEN');
+        const monthsCount = body.monthsCount ?? 1;
+        if (!Number.isInteger(monthsCount) || monthsCount < 1 || monthsCount > 12) fail('VALIDATION_ERROR');
         const currentMonth = toVietnamIso(new Date()).slice(0, 7);
         if (body.month !== currentMonth && body.month !== nextMonthOf(currentMonth)) fail('PASS_MONTH_INVALID');
         const vehicle = state.vehicles.find((v) => v.id === body.vehicleId && v.userId === student.id);
         if (!vehicle) return fail('VEHICLE_NOT_FOUND');
         if (!isActive(vehicle)) fail('VEHICLE_INACTIVE');
-        const price = PASS_PRICES[vehicle.vehicleTypeCode];
-        if (!price) return fail('PASS_NOT_AVAILABLE');
-        return idempotent(key, `MUA_VE|${student.id}|${body.vehicleId}|${body.month}`, () => {
-          if ((state.passes ?? []).some((p) => p.vehicleId === vehicle.id && p.month === body.month)) fail('PASS_ALREADY_EXISTS');
-          if (balanceOf(student.id) < price) fail('INSUFFICIENT_POINTS');
-          const transaction = record('MUA_VE', [[student.id, -price], [OWNER_ID, price]], new Date(), { performedBy: student.id });
-          const pass: MockPass = { id: nextId(), studentId: student.id, vehicleId: vehicle.id, month: body.month, price, transactionId: transaction.id };
-          state.passes = [...(state.passes ?? []), pass];
-          notify(student.id, 'VE_THANG', `Đã mua vé tháng ${body.month.split('-').reverse().join('/')}`,
-            `Xe ${displayPlate(vehicle.plateNumber)} gửi miễn phí đến hết ngày ${lastDayOf(body.month).split('-').reverse().join('/')}.`);
-          return { pass: toPassView(pass), balanceAfter: balanceOf(student.id) };
+        const monthlyPrice = passPrices()[vehicle.vehicleTypeCode];
+        if (!monthlyPrice) return fail('PASS_NOT_AVAILABLE');
+        const fingerprint = monthsCount === 1
+          ? `MUA_VE|${student.id}|${body.vehicleId}|${body.month}`
+          : `MUA_VE|${student.id}|${body.vehicleId}|${body.month}|${monthsCount}`;
+        return idempotent(key, fingerprint, () => {
+          const months = monthsFrom(body.month, monthsCount);
+          if (months.some((m) => (state.passes ?? []).some((p) => p.vehicleId === vehicle.id && p.month === m))) {
+            fail('PASS_ALREADY_EXISTS');
+          }
+          const totalPrice = monthlyPrice * monthsCount;
+          if (balanceOf(student.id) < totalPrice) fail('INSUFFICIENT_POINTS');
+          const transaction = record('MUA_VE', [[student.id, -totalPrice], [OWNER_ID, totalPrice]], new Date(), {
+            performedBy: student.id,
+          });
+          const created: MockPass[] = months.map((month) => ({
+            id: nextId(),
+            studentId: student.id,
+            vehicleId: vehicle.id,
+            month,
+            price: monthlyPrice,
+            transactionId: transaction.id,
+          }));
+          state.passes = [...(state.passes ?? []), ...created];
+          const validUntil = lastDayOf(months[months.length - 1] ?? body.month);
+          notify(
+            student.id,
+            'VE_THANG',
+            monthsCount === 1
+              ? `Đã mua vé tháng ${body.month.split('-').reverse().join('/')}`
+              : `Đã mua vé ${monthsCount} tháng (${body.month.split('-').reverse().join('/')}–${(months[months.length - 1] ?? body.month).split('-').reverse().join('/')})`,
+            `Xe ${displayPlate(vehicle.plateNumber)} gửi miễn phí đến hết ngày ${validUntil.split('-').reverse().join('/')}.`,
+          );
+          return {
+            pass: toPassView(created[0]!),
+            balanceAfter: balanceOf(student.id),
+            monthsCount,
+            totalPrice,
+            validUntil,
+          };
         });
+      }),
+
+    managerPassCatalog: () =>
+      call(() => {
+        requireRole('QUAN_LY');
+        const prices = passPrices();
+        return {
+          prices: VEHICLE_TYPES.map((vt) => ({
+            vehicleTypeCode: vt.code,
+            vehicleTypeName: vt.name,
+            monthlyPoints: prices[vt.code] ?? 0,
+          })),
+        };
+      }),
+
+    updatePassPrice: (vehicleTypeCode, monthlyPoints) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        if (!VEHICLE_TYPES.some((vt) => vt.code === vehicleTypeCode)) fail('VALIDATION_ERROR');
+        if (!Number.isSafeInteger(monthlyPoints) || monthlyPoints < 1000 || monthlyPoints > 10_000_000) fail('VALIDATION_ERROR');
+        passPrices()[vehicleTypeCode] = monthlyPoints;
+        const prices = passPrices();
+        return {
+          prices: VEHICLE_TYPES.map((vt) => ({
+            vehicleTypeCode: vt.code,
+            vehicleTypeName: vt.name,
+            monthlyPoints: prices[vt.code] ?? 0,
+          })),
+        };
       }),
 
     notifications: () => call(() => inboxOf(currentUser().id)),
@@ -1736,6 +2005,37 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
 
     // ===== Đợt 4b =====
 
+    mySessions: () =>
+      call(() => {
+        const student = requireRole('SINH_VIEN');
+        const myVehicles = new Map(state.vehicles.filter((v) => v.userId === student.id).map((v) => [v.id, v]));
+        const now = Date.now();
+        const recent = [...state.sessions]
+          .filter((s) => myVehicles.has(s.vehicleId))
+          .sort((a, b) => b.enteredAt.localeCompare(a.enteredAt))
+          .slice(0, 30)
+          .map((s) => {
+            const vehicle = myVehicles.get(s.vehicleId)!;
+            const info = sessionInfo(s.id);
+            const end = s.exitedAt ? Date.parse(s.exitedAt) : now;
+            return {
+              id: s.id,
+              plateNumber: vehicle.plateNumber,
+              plateDisplay: displayPlate(vehicle.plateNumber),
+              vehicleTypeCode: vehicle.vehicleTypeCode,
+              enteredAt: s.enteredAt,
+              exitedAt: s.exitedAt,
+              fee: info?.fee ?? null,
+              paymentTransactionId: info?.paymentId ?? null,
+              paidByPass: s.exitedAt !== null && info?.fee === null && info?.paymentId === null,
+              minutesParked: Math.max(0, Math.floor((end - Date.parse(s.enteredAt)) / 60_000)),
+              entryGuardName: s.entryGuardId ? nameOf(s.entryGuardId) : null,
+              exitGuardName: s.exitGuardId ? nameOf(s.exitGuardId) : null,
+            };
+          });
+        return { parked: recent.filter((s) => s.exitedAt === null), recent };
+      }),
+
     myComplaints: () =>
       call(() => {
         const student = requireRole('SINH_VIEN');
@@ -1749,15 +2049,27 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         if (body.sessionId !== undefined && sessionInfo(body.sessionId)?.studentId !== student.id) fail('PARKING_SESSION_NOT_FOUND');
         const mine = (state.complaints ?? []).filter((c) => c.studentId === student.id);
         if (mine.filter((c) => COMPLAINT_MOVES[c.status].length > 0).length >= 5) fail('TOO_MANY_OPEN_COMPLAINTS');
+        const cameraRequested = body.type === 'TRICH_XUAT_CAMERA' || Boolean(body.cameraRequested);
         const complaint: MockComplaint = {
           id: nextId(), studentId: student.id, type: body.type, sessionId: body.sessionId ?? null, description,
           status: 'MOI', createdAt: toVietnamIso(new Date()), photo: body.photoBase64 ?? null, cancelledAt: null,
           handledBy: null, handledAt: null, resolution: null, refundTransactionId: null, proposedPoints: null,
           proposedBy: null, proposedAt: null, decidedBy: null, decidedAt: null, decisionNote: null,
           compensationTransactionId: null,
+          cameraRequested,
+          cameraStatus: cameraRequested ? 'CHO_TRICH_XUAT' : 'KHONG_YEU_CAU',
+          incidentArea: body.incidentArea?.trim() || null,
+          incidentTimeRange: body.incidentTimeRange?.trim() || null,
+          cameraNote: null,
+          cameraReviewerId: null,
+          cameraReviewedAt: null,
+          cameraPhoto: null,
         };
         state.complaints = [...(state.complaints ?? []), complaint];
-        notify('QUAN_LY', 'KHIEU_NAI', `Khiếu nại mới #${complaint.id}`, 'Sinh viên vừa gửi khiếu nại, vào mục Xử lý để tiếp nhận.');
+        notify('QUAN_LY', 'KHIEU_NAI', `Khiếu nại mới #${complaint.id}`,
+          cameraRequested
+            ? 'Sinh viên vừa gửi khiếu nại kèm yêu cầu trích xuất camera.'
+            : 'Sinh viên vừa gửi khiếu nại, vào mục Xử lý để tiếp nhận.');
         return toComplaint(complaint);
       }),
 
@@ -1783,6 +2095,8 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
       }),
 
     complaintPhotoUrl: (id) => (state.complaints ?? []).find((c) => c.id === id)?.photo ?? '',
+
+    complaintCameraPhotoUrl: (id) => (state.complaints ?? []).find((c) => c.id === id)?.cameraPhoto ?? '',
 
     managerComplaints: (status) =>
       call(() => {
@@ -1840,6 +2154,26 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         const text = requireText(note);
         moveComplaint(complaint, 'CHO_DUYET_BOI_THUONG');
         Object.assign(complaint, { resolution: text, proposedPoints: points, proposedBy: manager.id, proposedAt: toVietnamIso(new Date()) });
+        return toComplaint(complaint);
+      }),
+
+    updateComplaintCamera: (id, body) =>
+      call(() => {
+        const manager = requireRole('QUAN_LY');
+        const complaint = complaintOf(id);
+        if (!body.cameraStatus || body.cameraStatus === 'KHONG_YEU_CAU') fail('VALIDATION_ERROR');
+        complaint.cameraRequested = true;
+        complaint.cameraStatus = body.cameraStatus;
+        complaint.cameraNote = body.cameraNote?.trim() || null;
+        complaint.cameraReviewerId = manager.id;
+        complaint.cameraReviewedAt = toVietnamIso(new Date());
+        if (body.photoBase64) complaint.cameraPhoto = body.photoBase64;
+        notify(
+          complaint.studentId,
+          'CAMERA',
+          `Cập nhật trích xuất camera khiếu nại #${complaint.id}`,
+          `Trạng thái: ${body.cameraStatus}${complaint.cameraNote ? ` — ${complaint.cameraNote}` : ''}`,
+        );
         return toComplaint(complaint);
       }),
 
@@ -1998,6 +2332,232 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           })),
           totalEntries, averageEntriesPerDay: round(totalEntries / days), peakHours,
           parkedNow: state.sessions.filter((session) => session.exitedAt === null).length,
+        };
+      }),
+
+    getDepositInfo: (rawAmount) =>
+      call(() => {
+        const student = requireRole('SINH_VIEN');
+        const amount = Math.min(50_000_000, Math.max(1_000, Math.round(rawAmount || 50_000)));
+        const studentCode = student.studentCode ?? `USER${student.id}`;
+        const transferContent = `NAP ${studentCode}`;
+        return {
+          studentCode,
+          fullName: student.fullName,
+          bankId: mockBankConfig.bankId,
+          accountNo: mockBankConfig.accountNo,
+          accountName: mockBankConfig.accountName,
+          transferContent,
+          amount,
+          qrCodeUrl: buildVietQrImageUrl({
+            bankId: mockBankConfig.bankId,
+            accountNo: mockBankConfig.accountNo,
+            accountName: mockBankConfig.accountName,
+            template: mockBankConfig.template,
+            amount,
+            message: transferContent,
+          }),
+        };
+      }),
+
+    parkingPolicy: () =>
+      call(() => {
+        currentUser();
+        return { ...mockPolicy };
+      }),
+
+    updateParkingPolicy: (body) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(body.checkoutCurfewTime)) {
+          invalid([{ field: 'checkoutCurfewTime', code: 'PATTERN', message: 'Giờ khóa có dạng HH:mm (VD: 22:00)' }]);
+        }
+        if (body.overnightFeePoints < 1000 || body.overnightFeePoints > 1_000_000) {
+          invalid([{ field: 'overnightFeePoints', code: 'RANGE', message: 'Phí qua đêm từ 1.000 đến 1.000.000 điểm' }]);
+        }
+        mockPolicy = {
+          checkoutCurfewTime: body.checkoutCurfewTime,
+          overnightFeePoints: Math.round(body.overnightFeePoints),
+          curfewEnabled: body.curfewEnabled,
+        };
+        return { ...mockPolicy };
+      }),
+
+    bankConfig: () =>
+      call(() => {
+        requireRole('QUAN_LY');
+        return mockBankConfig;
+      }),
+
+    updateBankConfig: (body) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        mockBankConfig = {
+          bankId: body.bankId.trim().toUpperCase(),
+          accountNo: body.accountNo.replace(/[\s.-]/g, '').toUpperCase(),
+          accountName: normalizeBankAccountName(body.accountName),
+          template: body.template,
+          source: 'DATABASE',
+          updatedAt: toVietnamIso(new Date()),
+          envDefault: { ...ENV_DEFAULT_BANK },
+        };
+        return mockBankConfig;
+      }),
+
+    resetBankConfig: () =>
+      call(() => {
+        requireRole('QUAN_LY');
+        mockBankConfig = {
+          ...ENV_DEFAULT_BANK,
+          source: 'ENV_DEFAULT',
+          updatedAt: null,
+          envDefault: { ...ENV_DEFAULT_BANK },
+        };
+        return mockBankConfig;
+      }),
+
+    payVietQr: (sessionId, key) =>
+      call(() => {
+        const guard = requireRole('BAO_VE');
+        return idempotent(key, `VIETQR_OUT|${guard.id}|${sessionId}`, () => {
+          const session = state.sessions.find((candidate) => candidate.id === sessionId);
+          if (!session) return fail('NO_OPEN_SESSION');
+          if (session.exitedAt !== null) fail('SESSION_ALREADY_PAID');
+          const vehicle = state.vehicles.find((candidate) => candidate.id === session.vehicleId);
+          if (!vehicle) return fail('NO_OPEN_SESSION');
+          const now = new Date();
+          const { exitedAt, fee, checkoutLocked } = quoteSession(session, now);
+          if (checkoutLocked) fail('CHECKOUT_CURFEW');
+          if (fee === 0) fail('INVALID_AMOUNT');
+          session.exitedAt = exitedAt;
+          session.exitGuardId = guard.id;
+          // Bảo toàn điểm R12: nạp DOI_DIEM vào ví SV rồi thanh toán THANH_TOAN sang ví Chủ bãi
+          record('DOI_DIEM', [[vehicle.userId, fee]], now, { performedBy: guard.id });
+          const tx = record('THANH_TOAN', [[vehicle.userId, -fee], [OWNER_ID, fee]], now, {
+            performedBy: guard.id,
+            sessionId: session.id,
+          });
+          return {
+            transactionId: tx.id,
+            sessionId: session.id,
+            plateNumber: vehicle.plateNumber,
+            fee,
+            exitedAt: session.exitedAt,
+            balanceAfter: balanceOf(vehicle.userId),
+          };
+        });
+      }),
+
+    checkOutCash: (sessionId, key) =>
+      call(() => {
+        const guard = requireRole('BAO_VE');
+        return idempotent(key, `CASH_OUT|${guard.id}|${sessionId}`, () => {
+          const session = state.sessions.find((candidate) => candidate.id === sessionId);
+          if (!session) return fail('NO_OPEN_SESSION');
+          if (session.exitedAt !== null) fail('SESSION_ALREADY_PAID');
+          const vehicle = state.vehicles.find((candidate) => candidate.id === session.vehicleId);
+          const owner = vehicle ? state.users.find((u) => u.id === vehicle.userId) : undefined;
+          if (!vehicle || !owner) return fail('NO_OPEN_SESSION');
+          const now = new Date();
+          const { exitedAt, fee: amount, overnight, checkoutLocked } = quoteSession(session, now);
+          if (checkoutLocked) fail('CHECKOUT_CURFEW');
+          if (amount === 0) fail('INVALID_AMOUNT');
+          session.exitedAt = exitedAt;
+          session.exitGuardId = guard.id;
+          const activeShift = (state.shifts ?? []).find((s) => s.guardId === guard.id && s.endedAt === null);
+          const collectedAt = session.exitedAt;
+          const item: MockGateCash = {
+            collectionId: nextId(),
+            sessionId: session.id,
+            plateNumber: vehicle.plateNumber,
+            vehicleTypeCode: vehicle.vehicleTypeCode,
+            studentCode: owner.studentCode ?? '',
+            fullName: owner.fullName,
+            guardId: guard.id,
+            guardName: guard.fullName,
+            shiftId: activeShift?.id ?? null,
+            amount,
+            overnight,
+            collectedAt,
+          };
+          mockGateCash.unshift(item);
+          return {
+            collectionId: item.collectionId,
+            sessionId: item.sessionId,
+            plateNumber: item.plateNumber,
+            studentCode: item.studentCode,
+            fullName: item.fullName,
+            amount: item.amount,
+            overnight: item.overnight,
+            collectedAt: item.collectedAt,
+            shiftId: item.shiftId,
+          };
+        });
+      }),
+
+    guardCashSheet: () =>
+      call(() => {
+        const guard = requireRole('BAO_VE');
+        const activeShift = (state.shifts ?? []).find((s) => s.guardId === guard.id && s.endedAt === null);
+        const from = activeShift?.startedAt ?? toVietnamIso(new Date(Date.now() - 12 * 3600_000));
+        const openingCash = activeShift?.openingCash ?? 0;
+        const entries: GuardCashSheetItem[] = mockGateCash
+          .filter((e) => e.guardId === guard.id && (activeShift ? e.shiftId === activeShift.id || e.collectedAt >= from : e.collectedAt >= from))
+          .map((e) => ({
+            collectionId: e.collectionId,
+            sessionId: e.sessionId,
+            plateNumber: e.plateNumber,
+            plateDisplay: displayPlate(e.plateNumber),
+            vehicleTypeCode: e.vehicleTypeCode,
+            studentCode: e.studentCode,
+            fullName: e.fullName,
+            amount: e.amount,
+            overnight: e.overnight,
+            collectedAt: e.collectedAt,
+          }));
+        const totalCollected = entries.reduce((sum, e) => sum + e.amount, 0);
+        return {
+          from,
+          inShift: activeShift !== undefined,
+          shiftId: activeShift?.id ?? null,
+          openingCash,
+          totalCollected,
+          expectedClosingCash: openingCash + totalCollected,
+          entries,
+        };
+      }),
+
+    managerGateCash: (date) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        const targetDate = date ?? toVietnamIso(new Date()).slice(0, 10);
+        const rows = mockGateCash.filter((e) => e.collectedAt.slice(0, 10) === targetDate);
+        const byGuardMap = new Map<number, ManagerGateCashGuardTotal>();
+        rows.forEach((e) => {
+          const prev = byGuardMap.get(e.guardId) ?? { guardId: e.guardId, guardName: e.guardName, count: 0, totalAmount: 0 };
+          prev.count += 1;
+          prev.totalAmount += e.amount;
+          byGuardMap.set(e.guardId, prev);
+        });
+        const entries: ManagerGateCashItem[] = rows.map((e) => ({
+          collectionId: e.collectionId,
+          sessionId: e.sessionId,
+          plateNumber: e.plateNumber,
+          plateDisplay: displayPlate(e.plateNumber),
+          studentCode: e.studentCode,
+          fullName: e.fullName,
+          guardName: e.guardName,
+          shiftId: e.shiftId,
+          amount: e.amount,
+          overnight: e.overnight,
+          collectedAt: e.collectedAt,
+        }));
+        return {
+          date: targetDate,
+          totalAmount: entries.reduce((sum, e) => sum + e.amount, 0),
+          totalCount: entries.length,
+          byGuard: [...byGuardMap.values()],
+          entries,
         };
       }),
   };

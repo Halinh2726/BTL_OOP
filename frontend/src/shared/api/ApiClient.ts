@@ -1,7 +1,20 @@
 import type {
+  BankConfig,
   BuyPassResult,
+  CashCheckOutResult,
+  DepositInfo,
+  GuardCashSheet,
+  ManagerGateCashReport,
+  ManagerPassCatalogResponse,
   NotificationInbox,
+  ParkingPolicyConfig,
   PassOverview,
+  SecurityActivityResponse,
+  StudentSessionsResponse,
+  UpdateBankConfigRequest,
+  UpdateComplaintCameraRequest,
+  UpdateParkingPolicyRequest,
+  VietQrCheckOutResult,
   CompensationDecision,
   ComplaintSession,
   ComplaintStatus,
@@ -115,12 +128,12 @@ export interface ApiClient {
   myProfile(): Promise<Profile>;
   updateMyProfile(body: UpdateProfileRequest): Promise<Profile>;
   changePassword(body: ChangePasswordRequest): Promise<void>;
-  /** Quên mật khẩu bước 1 — luôn "thành công", không cho biết email có tồn tại không. */
-  requestPasswordReset(email: string): Promise<{ message: string }>;
+  mySecurityActivity(): Promise<SecurityActivityResponse>;
+  /** Quên mật khẩu bước 1 — luôn "thành công", không cho biết tài khoản có tồn tại không. */
+  requestPasswordReset(identifier: string): Promise<{ message: string }>;
   confirmPasswordReset(body: ConfirmPasswordResetRequest): Promise<void>;
 
   // Đợt 1 — xe của tôi
-  changeVehicleType(vehicleId: number, vehicleTypeCode: string): Promise<Vehicle>;
   deactivateVehicle(vehicleId: number): Promise<Vehicle>;
 
   // Đợt 1 — quản lý tài khoản
@@ -177,7 +190,8 @@ export interface ApiClient {
   /** Quản lý và chủ bãi xe: lượt xe theo giờ, trung bình `days` ngày (7, 30, 90). */
   trafficStats(days: number): Promise<TrafficReport>;
 
-  // Đợt 4b — sinh viên: khiếu nại
+  // Đợt 4b — sinh viên: khiếu nại & lịch sử gửi xe
+  mySessions(): Promise<StudentSessionsResponse>;
   myComplaints(): Promise<ComplaintView[]>;
   submitComplaint(body: SubmitComplaintRequest): Promise<ComplaintView>;
   cancelComplaint(id: number): Promise<ComplaintView>;
@@ -185,6 +199,7 @@ export interface ApiClient {
   complaintSessions(): Promise<ComplaintSession[]>;
   /** Địa chỉ ảnh khiếu nại: `manager` = quản lý xem, ngược lại là sinh viên xem ảnh của mình. */
   complaintPhotoUrl(id: number, manager?: boolean): string;
+  complaintCameraPhotoUrl(id: number, role?: 'me' | 'manager' | 'owner'): string;
 
   // Đợt 4b — quản lý: xử lý khiếu nại và sự cố
   managerComplaints(status?: ComplaintStatus): Promise<ComplaintView[]>;
@@ -193,6 +208,7 @@ export interface ApiClient {
   resolveComplaint(id: number, note: string, refundPoints: number): Promise<ComplaintView>;
   rejectComplaint(id: number, note: string): Promise<ComplaintView>;
   proposeCompensation(id: number, points: number, note: string): Promise<ComplaintView>;
+  updateComplaintCamera(id: number, body: UpdateComplaintCameraRequest): Promise<ComplaintView>;
   managerIncidents(status?: IncidentStatus): Promise<ManagedIncident[]>;
   startIncident(id: number): Promise<ManagedIncident>;
   resolveIncident(id: number, note: string): Promise<ManagedIncident>;
@@ -210,11 +226,25 @@ export interface ApiClient {
   removeShift(id: number): Promise<void>;
   mySchedule(): Promise<PlannedShift[]>;
 
-  // Đợt 5 — vé tháng (sinh viên) và thông báo (mọi vai trò)
+  // Đợt 5 — vé tháng (sinh viên), bảng giá vé tháng (quản lý) và thông báo (mọi vai trò)
   myPasses(): Promise<PassOverview>;
-  /** month: "yyyy-MM" (tháng này hoặc tháng sau). */
-  buyPass(body: { vehicleId: number; month: string }, idempotencyKey: string): Promise<Idempotent<BuyPassResult>>;
+  /** month: "yyyy-MM" (tháng này hoặc tháng sau); monthsCount mặc định 1 (1–12 tháng). */
+  buyPass(body: { vehicleId: number; month: string; monthsCount?: number }, idempotencyKey: string): Promise<Idempotent<BuyPassResult>>;
+  managerPassCatalog(): Promise<ManagerPassCatalogResponse>;
+  updatePassPrice(vehicleTypeCode: string, monthlyPoints: number): Promise<ManagerPassCatalogResponse>;
   notifications(): Promise<NotificationInbox>;
   markNotificationRead(id: number): Promise<NotificationInbox>;
   markAllNotificationsRead(): Promise<NotificationInbox>;
+
+  // VietQR, giờ khóa / phí qua đêm & thu tiền mặt tại chốt
+  getDepositInfo(amount: number): Promise<DepositInfo>;
+  parkingPolicy(): Promise<ParkingPolicyConfig>;
+  updateParkingPolicy(body: UpdateParkingPolicyRequest): Promise<ParkingPolicyConfig>;
+  bankConfig(): Promise<BankConfig>;
+  updateBankConfig(body: UpdateBankConfigRequest): Promise<BankConfig>;
+  resetBankConfig(): Promise<BankConfig>;
+  payVietQr(sessionId: number, idempotencyKey: string): Promise<Idempotent<VietQrCheckOutResult>>;
+  checkOutCash(sessionId: number, idempotencyKey: string): Promise<Idempotent<CashCheckOutResult>>;
+  guardCashSheet(): Promise<GuardCashSheet>;
+  managerGateCash(date?: string): Promise<ManagerGateCashReport>;
 }

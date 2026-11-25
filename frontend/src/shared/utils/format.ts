@@ -1,6 +1,7 @@
 import type {
   AttendanceStatus,
   AuditAction,
+  CameraReviewStatus,
   ComplaintStatus,
   ComplaintType,
   GuardStatus,
@@ -102,7 +103,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
 };
 
 export const TRANSACTION_LABELS: Record<TransactionType, string> = {
-  DOI_DIEM: 'Đổi điểm',
+  DOI_DIEM: 'Nạp điểm',
   THANH_TOAN: 'Thanh toán phí gửi xe',
   RUT_DIEM: 'Rút điểm',
   DIEU_CHINH: 'Điều chỉnh',
@@ -139,7 +140,29 @@ export const COMPLAINT_TYPE_LABELS: Record<ComplaintType, string> = {
   THU_PHI_SAI: 'Thu phí sai',
   XE_HU_HONG: 'Xe bị hư hỏng trong bãi',
   MAT_DO: 'Mất đồ trong bãi',
+  TRICH_XUAT_CAMERA: 'Trích xuất camera xem lịch sử',
+  DICH_VU_KHAC: 'Dịch vụ khác',
   KHAC: 'Khác',
+};
+
+export const CAMERA_STATUS_LABELS: Record<CameraReviewStatus, string> = {
+  KHONG_YEU_CAU: 'Không yêu cầu trích xuất',
+  CHO_TRICH_XUAT: 'Chờ trích xuất camera',
+  DANG_TRICH_XUAT: 'Đang trích xuất camera',
+  DA_TRICH_XUAT: 'Đã trích xuất camera',
+  KHONG_CO_DU_LIEU: 'Không có dữ liệu camera',
+};
+
+export const NOTIFICATION_KIND_META: Record<string, { label: string; tone: 'blue' | 'green' | 'amber' | 'red' | 'slate' }> = {
+  XE_VAO: { label: 'Xe vào bãi', tone: 'blue' },
+  XE_RA: { label: 'Xe ra & trừ điểm', tone: 'green' },
+  SO_DU_THAP: { label: 'Sắp hết điểm', tone: 'amber' },
+  VE_THANG: { label: 'Vé tháng', tone: 'blue' },
+  KHIEU_NAI: { label: 'Khiếu nại', tone: 'slate' },
+  CAMERA: { label: 'Trích xuất camera', tone: 'blue' },
+  BAO_MAT: { label: 'Bảo mật tài khoản', tone: 'red' },
+  SU_CO: { label: 'Sự cố bãi xe', tone: 'amber' },
+  PHAN_CA: { label: 'Phân ca trực', tone: 'slate' },
 };
 
 export const COMPLAINT_STATUS_LABELS: Record<ComplaintStatus, string> = {
@@ -176,8 +199,10 @@ export const GUARD_STATUS_LABELS: Record<GuardStatus, string> = {
 export const REASON_LABELS: Record<string, string> = {
   PLATE_NOT_FOUND: 'Biển số chưa được đăng ký',
   SESSION_ALREADY_OPEN: 'Xe đang có lượt gửi chưa kết thúc',
+  STUDENT_ALREADY_PARKED: 'Sinh viên đã có xe đang gửi. Hãy lấy xe đó ra trước',
   NO_OPEN_SESSION: 'Xe không có lượt gửi đang mở',
   INSUFFICIENT_POINTS: 'Không đủ điểm',
+  CHECKOUT_CURFEW: 'Đã quá giờ khóa lấy xe trong ngày (từ 22:00)',
 };
 
 /** Bỏ khoảng trắng, dấu chấm, gạch ngang và viết hoa — cùng quy tắc chuẩn hóa biển số với backend. */
@@ -186,16 +211,26 @@ export function normalizePlate(raw: string): string {
 }
 
 /** Đợt 1 — biển số theo quy định SAU chuẩn hóa (khớp PlateNumber.STANDARD_PATTERN của backend). */
-export const STANDARD_PLATE = /^([0-9]{2}[A-Z]{1,2}[0-9]{4,6}|XD[0-9]{5})$/;
+export const MOTORCYCLE_PLATE = /^[0-9]{2}[ABCDEFGHKLMNPSTUVXYZ](?:[ABCDEFGHKLMNPSTUVXYZ][0-9]|[ABCDEFGHKLMNPSTUVXYZ])[0-9]{5}$/;
+export const ELECTRIC_MOTORCYCLE_PLATE = /^[0-9]{2}MĐ[0-9]{5}$/;
+export const STANDARD_PLATE = /^(?:[0-9]{2}[ABCDEFGHKLMNPSTUVXYZ](?:[ABCDEFGHKLMNPSTUVXYZ][0-9]|[ABCDEFGHKLMNPSTUVXYZ])[0-9]{5}|[0-9]{2}MĐ[0-9]{5}|XD[0-9]{5})$/;
+
+export function isPlateValidForVehicleType(plate: string, vehicleTypeCode: string): boolean {
+  if (vehicleTypeCode === 'XE_MAY') return MOTORCYCLE_PLATE.test(plate);
+  if (vehicleTypeCode === 'XE_MAY_DIEN') return ELECTRIC_MOTORCYCLE_PLATE.test(plate);
+  return false;
+}
 
 /**
  * Dạng hiển thị có dấu, cùng quy tắc PlateNumber.display() của backend:
- * "29A1514" → "29A-1514", "29A12345" → "29A-123.45", "29A112345" → "29A1-123.45", "XD00001" → "XD-00001".
+ * "29A1514" → "29A-1514", "36S412345" → "36S4-12345", "29MĐ12345" → "29MĐ-123.45", "XD00001" → "XD-00001".
  */
 export function formatPlate(normalized: string): string {
   const bicycle = /^XD([0-9]{5})$/.exec(normalized);
   if (bicycle) return `XD-${bicycle[1]}`;
-  const parts = /^([0-9]{2}[A-Z]{1,2})([0-9]{4,6})$/.exec(normalized);
+  const electric = /^([0-9]{2}MĐ)([0-9]{5})$/.exec(normalized);
+  if (electric) return `${electric[1]}-${electric[2]?.slice(0, 3)}.${electric[2]?.slice(3)}`;
+  const parts = /^([0-9]{2}[A-ZĐ][A-Z0-9Đ]?)([0-9]{4,6})$/.exec(normalized);
   if (!parts) return normalized;
   let series = parts[1] ?? '';
   let digits = parts[2] ?? '';

@@ -1,11 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { api, errorMessage, isApiError } from '../../shared/api';
+import { queryKeys } from '../../shared/api/queryKeys';
 import { Alert } from '../../shared/components/Alert';
 import { Button } from '../../shared/components/Button';
-import { TextField } from '../../shared/components/Field';
+import { PasswordField } from '../../shared/components/Field';
 import { useFieldErrors } from '../../shared/hooks/useFieldErrors';
 
 /** Quy tắc mật khẩu mới — cùng PasswordPolicy của backend (8–72 ký tự). */
@@ -48,6 +49,7 @@ export function ChangePasswordForm({
   submitLabel = 'Đổi mật khẩu',
   onChanged,
 }: ChangePasswordFormProps) {
+  const queryClient = useQueryClient();
   const form = useForm<Form>({
     resolver: zodResolver(schema),
     defaultValues: { currentPassword: '', newPassword: '', confirmPassword: '' },
@@ -59,6 +61,8 @@ export function ChangePasswordForm({
       api.changePassword({ currentPassword: values.currentPassword, newPassword: values.newPassword }),
     onSuccess: () => {
       form.reset();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.mySecurityActivity });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
       onChanged();
     },
     onError: (error) => {
@@ -78,24 +82,25 @@ export function ChangePasswordForm({
   return (
     <form className="space-y-4" noValidate onSubmit={form.handleSubmit((values) => change.mutate(values))}>
       {change.isError && !handled && <Alert tone="error">{errorMessage(change.error)}</Alert>}
-      <TextField
+      <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+        <strong>Căn cứ xác thực:</strong> Hệ thống đối chiếu mật khẩu hiện tại (BCrypt), thu hồi toàn bộ phiên ở thiết bị khác và gửi thông báo bảo mật sau khi đổi thành công.
+      </div>
+      <PasswordField
         label={currentLabel}
-        type="password"
         autoComplete="current-password"
         error={errors.currentPassword?.message}
         {...form.register('currentPassword')}
       />
-      <TextField
+      <PasswordField
         label="Mật khẩu mới"
-        type="password"
         autoComplete="new-password"
+        showStrength
         hint="8–72 ký tự, khác mật khẩu hiện tại"
         error={errors.newPassword?.message}
         {...form.register('newPassword')}
       />
-      <TextField
+      <PasswordField
         label="Nhập lại mật khẩu mới"
-        type="password"
         autoComplete="new-password"
         error={errors.confirmPassword?.message}
         {...form.register('confirmPassword')}

@@ -61,6 +61,28 @@ describe('mockApiClient (dữ liệu giả lập phải theo đúng hợp đồn
     expect(history.items[0]?.change).toBe(fee);
   });
 
+  it('chặn xe thứ hai cùng chủ cho đến khi xe đầu ra', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date('2026-11-25T10:00:00+07:00'));
+      await api.login({ username: 'sv01', password: 'demo1234' });
+      const second = await api.registerVehicle({ plateNumber: '29BA198765', vehicleTypeCode: 'XE_MAY' });
+      await api.logout();
+      await api.login({ username: 'baove01', password: 'demo1234' });
+      const firstPlate = '29A12345';
+      const first = await api.checkIn(firstPlate);
+      expect(await api.previewCheckIn(second.plateNumber)).toMatchObject({
+        allowed: false, reason: 'STUDENT_ALREADY_PARKED',
+      });
+      expect(await codeOf(api.checkIn(second.plateNumber))).toBe('STUDENT_ALREADY_PARKED');
+      await api.checkOut(first.sessionId, 'first-vehicle-out');
+      expect(await api.previewCheckIn(second.plateNumber)).toMatchObject({ allowed: true });
+      await expect(api.checkIn(second.plateNumber)).resolves.toMatchObject({ plateNumber: second.plateNumber });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('giờ ra trước giờ vào không đóng lượt gửi hoặc làm thay đổi số dư', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     try {
@@ -97,6 +119,9 @@ describe('mockApiClient (dữ liệu giả lập phải theo đúng hợp đồn
   });
 
   it('không đủ điểm thì không cho xe vào', async () => {
+    const initial = seedState();
+    initial.sessions = initial.sessions.filter((session) => session.exitedAt !== null);
+    api = createMockApiClient({ latencyMs: 0, initialState: initial });
     await api.login({ username: 'baove01', password: 'demo1234' });
     expect(await api.previewCheckIn('30B67890')).toMatchObject({ allowed: false, reason: 'INSUFFICIENT_POINTS' });
     expect(await codeOf(api.checkIn('30B67890'))).toBe('INSUFFICIENT_POINTS');

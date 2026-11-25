@@ -23,8 +23,8 @@ public final class MonthlyPass {
     private final long transactionId;
     private final Instant purchasedAt;
 
-    private MonthlyPass(Long id, long studentId, long vehicleId, YearMonth month, long pricePoints, long transactionId,
-                        Instant purchasedAt) {
+    private MonthlyPass(Long id, long studentId, long vehicleId, YearMonth month, long pricePoints,
+                        long transactionId, Instant purchasedAt) {
         this.id = id;
         this.studentId = studentId;
         this.vehicleId = vehicleId;

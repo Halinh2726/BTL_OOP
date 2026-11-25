@@ -30,13 +30,15 @@ Việc thu phí gửi xe bằng tiền mặt có thể gây bất tiện trong k
 
 **Biểu phí gửi xe theo thời lượng** (1 đồng = 1 điểm)
 
-| Thời gian gửi trong mỗi chu kỳ 24 giờ | Phí |
+| Thời lượng gửi trong ngày | Phí |
 | --- | ---: |
 | Đến 2 giờ | 3.000 điểm |
 | Trên 2 giờ đến 6 giờ | 5.000 điểm |
 | Trên 6 giờ đến 24 giờ | 7.000 điểm |
 
-Thời lượng tính từ lúc bảo vệ xác nhận xe vào đến lúc xác nhận xe ra. Mỗi 24 giờ tròn tính 7.000 điểm, phần thời gian còn dư áp dụng lại các bậc trong bảng. Ví dụ, 24 giờ 30 phút tính 10.000 điểm. Xe có vé tháng còn hiệu lực tại thời điểm ra được miễn phí. Bảng phí được cấu hình trong `duration_fee_rules`.
+Thời lượng tính từ lúc bảo vệ xác nhận xe vào đến lúc xác nhận xe ra. Lượt lấy xe từ ngày hôm sau áp dụng giá qua đêm theo cấu hình thay cho giá trong ngày. Xe có vé tháng còn hiệu lực tại thời điểm ra được miễn phí. Bảng phí trong ngày được cấu hình trong `duration_fee_rules`.
+
+Sinh viên có thể đăng ký nhiều xe và chỉ có một xe đang gửi tại một thời điểm. Bảo vệ cần cho xe đang gửi ra trước khi xác nhận xe khác của cùng sinh viên vào.
 
 ## 2. Mục tiêu của dự án
 
@@ -67,11 +69,11 @@ flowchart TB
     FE["Frontend: React + TypeScript + Vite"]
 
     subgraph BE["Backend: Java 21 + Spring Boot 4"]
-        API["REST Controller + Spring Security"]
+        API["Presentation / MVC Controller"]
         UC["Application / Use Cases"]
         DOMAIN["Domain / Quy tắc nghiệp vụ"]
         PORT["Outbound Ports / Interfaces"]
-        ADAPTER["Persistence Adapters"]
+        ADAPTER["Infrastructure / Persistence, Security, Integration"]
         API --> UC
         UC --> DOMAIN
         UC --> PORT
@@ -102,29 +104,42 @@ flowchart TB
 
 Mã nguồn backend được đặt tại `backend/src/main/java/com/ptit/parking/`.
 
-| Module | Trách nhiệm |
+| Module | Trách nhiệm và ranh giới |
 |---|---|
-| `auth` | Đăng nhập, quản lý phiên, người dùng và vai trò. |
-| `student` | Đăng ký sinh viên, đăng ký phương tiện. |
-| `catalog` | Quản lý danh mục loại xe, bảng phí và tỷ lệ quy đổi. |
-| `parking` | Quản lý lượt gửi, xác nhận xe vào/ra và tính phí. |
-| `payment` | Quản lý ví điểm, giao dịch và cơ chế tránh xử lý trùng. |
-| `manager` | Đổi điểm, rút điểm và quản lý tài khoản bảo vệ. |
-| `shared` | Các thành phần dùng chung: bảo mật, lỗi, giới hạn tần suất, transaction. |
+| `account` | Quản lý hồ sơ và bảo mật của chính người dùng: cập nhật thông tin cá nhân, đổi/quên mật khẩu bằng OTP, cấp mật khẩu tạm và lưu nhật ký thao tác tài khoản. |
+| `auth` | Xác thực và danh tính: mô hình người dùng/role, đăng nhập, đăng xuất, phiên đăng nhập và API lấy thông tin người dùng hiện tại. Không xử lý hồ sơ hay khôi phục mật khẩu. |
+| `catalog` | Cung cấp dữ liệu danh mục dùng chung cho nghiệp vụ: loại xe, bảng phí gửi xe và tỷ lệ quy đổi tiền–điểm. Chủ yếu là dữ liệu cấu hình chỉ đọc. |
+| `gate` | Nghiệp vụ vận hành của bảo vệ ngoài thao tác xe vào/ra: nhận/bàn giao ca, chấm công, lịch phân ca, xe đang trong bãi và báo/xử lý sự cố. |
+| `manager` | Các lệnh quản trị: đổi tiền mặt sang điểm, xử lý rút điểm, tạo/khóa/mở khóa tài khoản bảo vệ và cấu hình thông tin ngân hàng. |
+| `notification` | Lắng nghe sự kiện nghiệp vụ sau khi transaction thành công, tạo thông báo cho người nhận, cung cấp hộp thư và chức năng đánh dấu đã đọc. |
+| `owner` | Nghiệp vụ của chủ bãi/chủ tài khoản: xem doanh thu, ví nhận phí, lịch sử nhận/rút điểm, tạo yêu cầu rút và xử lý trạng thái yêu cầu rút. |
+| `parking` | Sở hữu lượt gửi xe (`ParkingSession`): xem trước/xác nhận xe vào, xem trước/xác nhận xe ra, tính phí, kiểm tra chính sách gửi xe và phối hợp thanh toán. |
+| `pass` | Quản lý gói và vé tháng: mua vé bằng điểm, kiểm tra thời hạn/phạm vi vé; cung cấp chính sách miễn phí cho lượt gửi xe có vé hợp lệ. |
+| `payment` | Sở hữu ví điểm và sổ giao dịch: cộng/trừ/chuyển điểm, thanh toán phí, nạp điểm, webhook ngân hàng, điều chỉnh giao dịch và chống xử lý trùng bằng idempotency. |
+| `report` | Truy vấn báo cáo và giám sát: sổ giao dịch toàn hệ thống, hồ sơ sinh viên, doanh thu, thống kê lượt xe, tiền mặt tại cổng, xuất CSV và đối soát cuối ngày. |
+| `shared` | Shared kernel và hạ tầng dùng chung: lỗi nghiệp vụ, transaction runner, event publisher, định dạng lỗi HTTP, bảo mật phiên/CSRF, rate limit, clock và múi giờ. Không chứa nghiệp vụ riêng của module khác. |
+| `student` | Sở hữu hồ sơ sinh viên và phương tiện: đăng ký tài khoản sinh viên, đăng ký/quản lý xe, tra cứu xe và lịch sử gửi xe của chính sinh viên. |
+| `support` | Quy trình hỗ trợ: khiếu nại thu phí, báo hư hỏng/mất đồ, tiếp nhận và kết luận sự cố, hoàn phí, đề xuất và phê duyệt bồi thường. |
 
 Trong từng module, mã nguồn được phân chia theo hướng:
 
 ```text
 <module>/
-├── domain/                    # Entity, value object và quy tắc nghiệp vụ
+├── domain/                    # Entity, value object và quy tắc nghiệp vụ thuần Java
 ├── application/
 │   ├── usecase/               # Điều phối nghiệp vụ
-│   └── port/out/              # Interface truy cập dịch vụ / dữ liệu ngoài
-├── adapter/
-│   ├── in/web/                # REST controller, request/response DTO
-│   └── out/persistence/       # Triển khai lưu trữ bằng JDBC / JPA
-└── config/                    # Cấu hình và lắp ráp thành phần Spring
+│   └── port/out/              # Hợp đồng truy cập dịch vụ / dữ liệu ngoài
+├── presentation/
+│   ├── web/                   # MVC controller và request/response view model
+│   └── startup/               # Điểm vào chạy khi khởi động (nếu có)
+├── infrastructure/
+│   ├── persistence/           # JDBC / JPA và repository adapter
+│   ├── security/              # Triển khai bảo mật (nếu có)
+│   └── notification/          # Email / thông báo ngoài (nếu có)
+└── configuration/            # Composition root, lắp ráp bean Spring
 ```
+
+MVC chỉ nằm ở vòng `presentation`: React/JSON response là View, các lớp request/response là presentation Model và Spring REST controller là Controller. Luồng nghiệp vụ vẫn tuân theo Dependency Rule của Clean Architecture. Xem [quy ước Clean Architecture + MVC](docs/architecture/clean-mvc.md).
 
 ## 4. Cấu trúc thư mục
 
@@ -137,13 +152,20 @@ BTL_OOP/
 │   └── src/
 │       ├── main/
 │       │   ├── java/com/ptit/parking/     # Các module nghiệp vụ
+│       │   │   ├── account/
 │       │   │   ├── auth/
-│       │   │   ├── student/
 │       │   │   ├── catalog/
-│       │   │   ├── parking/
-│       │   │   ├── payment/
+│       │   │   ├── gate/
 │       │   │   ├── manager/
-│       │   │   └── shared/
+│       │   │   ├── notification/
+│       │   │   ├── owner/
+│       │   │   ├── parking/
+│       │   │   ├── pass/
+│       │   │   ├── payment/
+│       │   │   ├── report/
+│       │   │   ├── shared/
+│       │   │   ├── student/
+│       │   │   └── support/
 │       │   └── resources/db/migration/    # Flyway SQL migrations
 │       └── test/                          # Unit và integration tests
 ├── frontend/                              # React + TypeScript + Vite
@@ -154,12 +176,12 @@ BTL_OOP/
 │   ├── public/                           # Tài nguyên tĩnh
 │   └── README.md                         # Tài liệu riêng cho frontend
 ├── docs/
-│   ├── database/ERD.md                   # Thiết kế cơ sở dữ liệu
-│   └── postman/
-│       └── parking-payment.postman_collection.json
-├── .env.example                          # Mẫu biến môi trường
+│   ├── architecture/clean-mvc.md         # Quy tắc kiến trúc và dependency
+│   └── database/ERD.md                   # Thiết kế cơ sở dữ liệu
 └── README.md                             # Tài liệu tổng quan dự án
 ```
+
+`backend/src/main/resources/db/migration/` chứa các migration Flyway đánh số từ `V001` trở đi. Khi backend khởi động, Flyway chỉ chạy những phiên bản chưa có trong `flyway_schema_history`, nhờ đó mọi môi trường có cùng cấu trúc cơ sở dữ liệu. Không sửa hoặc xóa migration đã được áp dụng; khi đổi schema, tạo migration có số phiên bản mới.
 
 Ngoài các thư mục trên, thư mục gốc có cấu hình **Docker Compose** để khởi chạy MySQL phục vụ phát triển và demo.
 
@@ -177,14 +199,13 @@ Ngoài các thư mục trên, thư mục gốc có cấu hình **Docker Compose*
 | **Môi trường chạy CSDL** | Docker Compose | Khởi chạy MySQL nhất quán giữa các máy. |
 | **Build backend** | Maven Wrapper | Chạy và kiểm thử backend mà không cần cài Maven riêng. |
 | **Kiểm thử** | JUnit 5, Mockito, AssertJ, Testcontainers, Vitest | Kiểm thử đơn vị, tích hợp và frontend. |
-| **Kiểm thử API** | Postman, Newman | Chạy kịch bản kiểm thử luồng nghiệp vụ. |
 
 ## 6. Hướng dẫn cài đặt và chạy
 
 ### 6.1. Yêu cầu môi trường
 
 - **JDK 21** trở lên.
-- **Node.js 20** trở lên và npm (để chạy frontend).
+- **Node.js 24 LTS** trở lên và npm (để chạy frontend ngoài Docker).
 - **Docker** và **Docker Compose** (Docker Desktop trên Windows hoặc Docker Engine trên Linux).
 - **Git** (để sao chép mã nguồn).
 
@@ -197,13 +218,16 @@ git clone https://github.com/Halinh2726/BTL_OOP.git
 cd BTL_OOP
 ```
 
-### 6.3. Khởi chạy MySQL
+### 6.3. Khởi chạy toàn bộ hệ thống bằng Docker
 
 Tại **thư mục gốc** của dự án:
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
+
+Docker Compose khởi chạy MySQL, backend Spring Boot và frontend Nginx. Truy cập giao diện tại
+**http://localhost:5173**; Nginx tự chuyển các request `/api` sang backend.
 
 Thiết lập mặc định của môi trường demo:
 
@@ -216,9 +240,24 @@ Thiết lập mặc định của môi trường demo:
 | Backend port | `8080` |
 | Frontend port | `5173` |
 
-Nếu cần thay đổi cấu hình, sao chép `.env.example` thành `.env`, chỉnh các thông số Docker Compose và thiết lập các biến môi trường tương ứng cho backend.
+Nếu cần thay đổi cấu hình mặc định, sao chép `.env.example` thành `.env` rồi chỉnh giá trị.
+File `.env` đã được Git bỏ qua và không được commit. Nếu MySQL đã chạy, Compose
+giữ nguyên volume dữ liệu và chỉ tạo thêm hai container ứng dụng.
 
-### 6.4. Chạy backend
+Kiểm tra trạng thái và log:
+
+```bash
+docker compose ps
+docker compose logs -f backend frontend
+```
+
+Dừng hệ thống nhưng giữ nguyên dữ liệu:
+
+```bash
+docker compose down
+```
+
+### 6.4. Chạy backend khi phát triển cục bộ
 
 Mở terminal ở thư mục gốc dự án, sau đó:
 
@@ -248,7 +287,7 @@ Kết quả mong đợi:
 {"status":"UP","database":"UP"}
 ```
 
-### 6.5. Chạy frontend
+### 6.5. Chạy frontend khi phát triển cục bộ
 
 Mở **terminal khác** tại thư mục gốc `BTL_OOP/` (giữ backend đang chạy):
 
@@ -298,14 +337,6 @@ npm test
 npm run typecheck
 npm run build
 ```
-
-**Chạy kịch bản API bằng Newman** (từ thư mục gốc, cần Node.js):
-
-```bash
-npx newman run docs/postman/parking-payment.postman_collection.json
-```
-
-> Collection Postman ghi dữ liệu vào CSDL thật, vì vậy chỉ chạy trên môi trường phát triển hoặc demo.
 
 ### 6.8. Một số lưu ý khi vận hành
 

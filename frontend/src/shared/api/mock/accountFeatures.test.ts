@@ -16,14 +16,15 @@ async function codeOf(promise: Promise<unknown>): Promise<string> {
 describe('Đợt 1 — biển số theo quy định', () => {
   it('hiển thị có dấu, cùng quy tắc với backend', () => {
     expect(formatPlate('29A1514')).toBe('29A-1514');
-    expect(formatPlate('29A12345')).toBe('29A-123.45');
+    expect(formatPlate('29A12345')).toBe('29A1-2345');
     expect(formatPlate('29A112345')).toBe('29A1-123.45');
     expect(formatPlate('XD00001')).toBe('XD-00001');
     expect(formatPlate('ABC12345')).toBe('ABC12345');
   });
 
   it('kiểm tra định dạng khi đăng ký mới', () => {
-    expect(STANDARD_PLATE.test('29A12345')).toBe(true);
+    expect(STANDARD_PLATE.test('29A12345')).toBe(false);
+    expect(STANDARD_PLATE.test('29AA112345')).toBe(true);
     expect(STANDARD_PLATE.test('XD00042')).toBe(true);
     expect(STANDARD_PLATE.test('29A123')).toBe(false);
     expect(STANDARD_PLATE.test('ABC12345')).toBe(false);
@@ -70,12 +71,12 @@ describe('Đợt 1 — tài khoản và xe trên dữ liệu giả lập', () =>
     const bike = await api.registerVehicle({ plateNumber: '', vehicleTypeCode: 'XE_DAP' });
     expect(bike.plateDisplay).toMatch(/^XD-\d{5}$/);
     expect(await codeOf(api.registerVehicle({ plateNumber: '', vehicleTypeCode: 'XE_MAY' }))).toBe('PLATE_REQUIRED');
-    const car = await api.registerVehicle({ plateNumber: '30K-123.45', vehicleTypeCode: 'XE_MAY' });
-    expect(await codeOf(api.registerVehicle({ plateNumber: '30K99999', vehicleTypeCode: 'XE_MAY' }))).toBe('VEHICLE_LIMIT_REACHED');
+    const car = await api.registerVehicle({ plateNumber: '30KA1-123.45', vehicleTypeCode: 'XE_MAY' });
+    expect(await codeOf(api.registerVehicle({ plateNumber: '30KA199999', vehicleTypeCode: 'XE_MAY' }))).toBe('VEHICLE_LIMIT_REACHED');
 
     await api.logout();
     await api.login({ username: 'baove01', password: 'demo1234' });
-    await api.checkIn('30K12345');
+    await api.checkIn('30KA112345');
     await api.logout();
     await api.login({ username: 'sv01', password: 'demo1234' });
     expect(await codeOf(api.deactivateVehicle(car.id))).toBe('VEHICLE_PARKED');

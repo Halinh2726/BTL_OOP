@@ -1,8 +1,8 @@
 import { api } from '../../shared/api';
 import { Badge } from '../../shared/components/Badge';
-import type { ComplaintStatus, ComplaintView } from '../../shared/types/api';
+import type { CameraReviewStatus, ComplaintStatus, ComplaintView } from '../../shared/types/api';
 import {
-  COMPLAINT_STATUS_LABELS, COMPLAINT_TYPE_LABELS, formatDateTime, formatPlate, formatPoints,
+  CAMERA_STATUS_LABELS, COMPLAINT_STATUS_LABELS, COMPLAINT_TYPE_LABELS, formatDateTime, formatPlate, formatPoints,
 } from '../../shared/utils/format';
 
 const TONE: Record<ComplaintStatus, 'blue' | 'amber' | 'green' | 'red' | 'gray'> = {
@@ -14,6 +14,14 @@ const TONE: Record<ComplaintStatus, 'blue' | 'amber' | 'green' | 'red' | 'gray'>
   TU_CHOI: 'red',
   KHONG_BOI_THUONG: 'red',
   DA_HUY: 'gray',
+};
+
+const CAMERA_TONE: Record<CameraReviewStatus, 'blue' | 'amber' | 'green' | 'red' | 'gray'> = {
+  KHONG_YEU_CAU: 'gray',
+  CHO_TRICH_XUAT: 'amber',
+  DANG_TRICH_XUAT: 'blue',
+  DA_TRICH_XUAT: 'green',
+  KHONG_CO_DU_LIEU: 'red',
 };
 
 export function ComplaintStatusBadge({ status }: { status: ComplaintStatus }) {
@@ -50,6 +58,42 @@ export function ComplaintBody({ complaint, viewer }: { complaint: ComplaintView;
             className="mt-1 max-h-32 rounded-lg ring-1 ring-slate-200"
           />
         </a>
+      )}
+      {(c.cameraRequested || c.cameraStatus !== 'KHONG_YEU_CAU') && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-slate-700">Camera:</span>
+            <Badge tone={CAMERA_TONE[c.cameraStatus]}>{CAMERA_STATUS_LABELS[c.cameraStatus]}</Badge>
+          </div>
+          {(c.incidentArea || c.incidentTimeRange) && (
+            <p className="text-xs text-slate-600">
+              {c.incidentArea && <>Khu vực: <strong>{c.incidentArea}</strong></>}
+              {c.incidentArea && c.incidentTimeRange && ' · '}
+              {c.incidentTimeRange && <>Khung giờ: <strong>{c.incidentTimeRange}</strong></>}
+            </p>
+          )}
+          {c.cameraNote && (
+            <p className="text-xs text-slate-700">
+              Ghi chú trích xuất: {c.cameraNote}
+              {c.cameraReviewerName && <span className="text-slate-500"> — {c.cameraReviewerName}</span>}
+              {c.cameraReviewedAt && <span className="text-slate-500"> ({formatDateTime(c.cameraReviewedAt)})</span>}
+            </p>
+          )}
+          {c.hasCameraPhoto && (
+            <a
+              href={api.complaintCameraPhotoUrl(c.id, viewer === 'student' ? 'me' : viewer)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-block"
+            >
+              <img
+                src={api.complaintCameraPhotoUrl(c.id, viewer === 'student' ? 'me' : viewer)}
+                alt={`Ảnh trích xuất camera khiếu nại #${c.id}`}
+                className="mt-1 max-h-36 rounded-lg ring-1 ring-slate-200"
+              />
+            </a>
+          )}
+        </div>
       )}
       {c.proposedPoints !== null && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-amber-900">

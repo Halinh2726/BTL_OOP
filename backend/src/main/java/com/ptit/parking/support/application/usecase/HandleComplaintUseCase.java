@@ -1,5 +1,6 @@
 package com.ptit.parking.support.application.usecase;
 
+import com.ptit.parking.support.application.event.CameraReviewUpdated;
 import com.ptit.parking.support.application.event.ComplaintChanged;
 import com.ptit.parking.shared.application.port.out.EventPublisher;
 import com.ptit.parking.gate.domain.IncidentPhoto;
@@ -10,6 +11,7 @@ import com.ptit.parking.support.application.PointPayout;
 import com.ptit.parking.support.application.port.out.ComplaintDirectory;
 import com.ptit.parking.support.application.port.out.ComplaintDirectory.SessionInfo;
 import com.ptit.parking.support.application.port.out.ComplaintRepository;
+import com.ptit.parking.support.domain.CameraReviewStatus;
 import com.ptit.parking.support.domain.Complaint;
 import com.ptit.parking.support.domain.ComplaintStatus;
 import java.time.Clock;
@@ -90,9 +92,35 @@ public class HandleComplaintUseCase {
         });
     }
 
+    public ComplaintDetails updateCameraReview(long managerId, long complaintId, CameraReviewStatus cameraStatus,
+                                               String note, String photoContentType, String photoBase64) {
+        IncidentPhoto photo = photoBase64 == null || photoBase64.isBlank()
+                ? null : IncidentPhoto.fromBase64(photoContentType, photoBase64);
+        Complaint updated = transactions.inTransaction(() -> {
+            Complaint c = complaints.lockById(complaintId)
+                    .orElseThrow(() -> new DomainException(ErrorCode.COMPLAINT_NOT_FOUND));
+            Instant now = clock.instant();
+            c.recordCameraReview(managerId, cameraStatus, note, photo != null, now);
+            if (photo != null) {
+                complaints.saveCameraPhoto(c.id(), photo, now);
+            }
+            complaints.update(c);
+            events.publish(new CameraReviewUpdated(c.id(), c.studentId(), c.cameraStatus(), c.cameraNote(),
+                    c.hasCameraPhoto()));
+            return c;
+        });
+        return ComplaintDetails.of(updated, directory);
+    }
+
     public IncidentPhoto photo(long complaintId) {
         complaints.findById(complaintId).orElseThrow(() -> new DomainException(ErrorCode.COMPLAINT_NOT_FOUND));
         return complaints.findPhoto(complaintId).orElseThrow(() -> new DomainException(ErrorCode.COMPLAINT_NOT_FOUND));
+    }
+
+    public IncidentPhoto cameraPhoto(long complaintId) {
+        complaints.findById(complaintId).orElseThrow(() -> new DomainException(ErrorCode.COMPLAINT_NOT_FOUND));
+        return complaints.findCameraPhoto(complaintId)
+                .orElseThrow(() -> new DomainException(ErrorCode.COMPLAINT_NOT_FOUND));
     }
 
     private ComplaintDetails change(long complaintId, java.util.function.Consumer<Complaint> action) {

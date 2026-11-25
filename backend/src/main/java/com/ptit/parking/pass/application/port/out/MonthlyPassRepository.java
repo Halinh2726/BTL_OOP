@@ -15,4 +15,12 @@ public interface MonthlyPassRepository {
 
     /** Các vé của sinh viên, tháng mới nhất trước. */
     List<MonthlyPass> findByStudent(long studentId);
+
+    default List<MonthlyPass> findByTransactionId(long transactionId) {
+        return List.of();
+    }
+
+    default List<MonthlyPass> findForVehicleInMonths(long vehicleId, List<YearMonth> months) {
+        return months.stream().map(m -> findFor(vehicleId, m)).flatMap(Optional::stream).toList();
+    }
 }

@@ -1,8 +1,11 @@
-# Cấu hình chung. Mọi giá trị nhạy cảm lấy từ biến môi trường (xem .env.example),
+# Cấu hình chung. Mọi giá trị nhạy cảm lấy từ biến môi trường hoặc file .env cục bộ,
 # giá trị sau dấu ':' chỉ là mặc định cho máy dev.
 spring:
   application:
     name: parking-backend
+  config:
+    # Tự động nạp file .env ở thư mục gốc dự án (nếu có); biến môi trường hệ thống vẫn ưu tiên cao hơn.
+    import: optional:file:../.env[.properties],optional:file:.env[.properties]
   autoconfigure:
     exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
   datasource:
@@ -11,7 +14,7 @@ spring:
     username: ${DB_USERNAME:parking}
     password: ${DB_PASSWORD:parking}
     hikari:
-      connection-timeout: 3000     # ms; CSDL sập thì báo lỗi nhanh (health trả 503) thay vì treo 30s
+      connection-timeout: ${DB_CONNECTION_TIMEOUT_MS:3000} # Docker dùng 10s để đủ thời gian cho lần khởi động lạnh
             # Chờ khóa dòng (ví đang bị giao dịch khác khóa) tối đa 5 giây thay vì 50 giây mặc định của InnoDB
       connection-init-sql: SET SESSION innodb_lock_wait_timeout = 5
   jpa: 
@@ -45,3 +48,12 @@ server:
 # Cấu hình nghiệp vụ của ứng dụng
 parking:
   zone-id: Asia/Ho_Chi_Minh        # R03: giờ tính phí là giờ Việt Nam theo đồng hồ máy chủ
+  mail:
+    from: ${PARKING_MAIL_FROM:no-reply@parking.ptit.edu.vn}
+  vietqr:
+    bank-id: ${VIETQR_BANK_ID:MB}
+    account-no: ${VIETQR_ACCOUNT_NO:0987654321}
+    account-name: ${VIETQR_ACCOUNT_NAME:BAI XE HOC VIEN PTIT}
+    template: ${VIETQR_TEMPLATE:compact2}
+  webhook:
+    api-key: ${WEBHOOK_API_KEY:sepay_secret_key_123456}

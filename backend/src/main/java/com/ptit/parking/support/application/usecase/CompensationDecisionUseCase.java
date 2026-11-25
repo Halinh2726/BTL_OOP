@@ -1,5 +1,6 @@
 package com.ptit.parking.support.application.usecase;
 
+import com.ptit.parking.gate.domain.IncidentPhoto;
 import com.ptit.parking.support.application.event.ComplaintChanged;
 import com.ptit.parking.shared.application.port.out.EventPublisher;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
@@ -83,6 +84,12 @@ public class CompensationDecisionUseCase {
             return c;
         });
         return ComplaintDetails.of(decided, directory);
+    }
+
+    public IncidentPhoto cameraPhoto(long complaintId) {
+        complaints.findById(complaintId).orElseThrow(() -> new DomainException(ErrorCode.COMPLAINT_NOT_FOUND));
+        return complaints.findCameraPhoto(complaintId)
+                .orElseThrow(() -> new DomainException(ErrorCode.COMPLAINT_NOT_FOUND));
     }
 
     private Complaint lock(long complaintId) {

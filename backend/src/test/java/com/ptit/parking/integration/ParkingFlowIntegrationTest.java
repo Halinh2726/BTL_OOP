@@ -20,6 +20,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -199,6 +200,48 @@ class ParkingFlowIntegrationTest {
     }
 
     @Test
+    void haiXeCungSinhVienXacNhanVaoDongThoi_chiMotXeVao_vaXeConLaiVaoSauKhiXeDauRa() throws Exception {
+        Student sv = registerStudent();
+        String secondPlate = sv.plate().replaceFirst("29T", "29S");
+        MockHttpSession student = login(sv.username(), PASSWORD);
+        registerVehicle(student, sv.plate());
+        registerVehicle(student, secondPlate);
+        MockHttpSession manager = login("quanly01", "Quanly@123");
+        deposit(manager, sv.code(), 10_000).andExpect(status().isCreated());
+        MockHttpSession guardA = login(createGuard(manager), PASSWORD);
+        MockHttpSession guardB = login(createGuard(manager), PASSWORD);
+
+        CountDownLatch start = new CountDownLatch(1);
+        try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
+            Future<MvcResult> first = pool.submit(() -> {
+                start.await();
+                return checkIn(guardA, sv.plate()).andReturn();
+            });
+            Future<MvcResult> second = pool.submit(() -> {
+                start.await();
+                return checkIn(guardB, secondPlate).andReturn();
+            });
+            start.countDown();
+            var a = first.get(15, TimeUnit.SECONDS).getResponse();
+            var b = second.get(15, TimeUnit.SECONDS).getResponse();
+            assertThat(List.of(a.getStatus(), b.getStatus())).containsExactlyInAnyOrder(201, 409);
+
+            boolean firstEntered = a.getStatus() == 201;
+            String parkedPlate = firstEntered ? sv.plate() : secondPlate;
+            String waitingPlate = firstEntered ? secondPlate : sv.plate();
+            assertThat(JsonPath.<String>read((firstEntered ? b : a).getContentAsString(), "$.code"))
+                    .isEqualTo("STUDENT_ALREADY_PARKED");
+            mvc.perform(get(API + "/guard/check-in/preview").param("plate", waitingPlate).session(guardA))
+                    .andExpect(jsonPath("$.allowed").value(false))
+                    .andExpect(jsonPath("$.reason").value("STUDENT_ALREADY_PARKED"));
+
+            checkOut(guardA, previewCheckOutSession(guardA, parkedPlate), UUID.randomUUID().toString())
+                    .andExpect(status().isCreated());
+            checkIn(guardA, waitingPlate).andExpect(status().isCreated());
+        }
+    }
+
+    @Test
     void haiBaoVeCungXacNhanXeRa_chiTruDiemDungMotLan() throws Exception {
         Student sv = registerStudent();
         registerVehicle(login(sv.username(), PASSWORD), sv.plate());
@@ -293,7 +336,7 @@ class ParkingFlowIntegrationTest {
     /** Mỗi lần gọi một sinh viên MỚI (MSSV, tên đăng nhập, biển số không trùng) để các test không đụng nhau. */
     private Student registerStudent() throws Exception {
         int n = 1000 + SEQ.incrementAndGet();
-        Student sv = new Student("IT" + n, "svit" + n, "29T" + n + "5");
+        Student sv = new Student("IT" + n, "svit" + n, "29TA1" + n + "5");
         mvc.perform(post(API + "/students/register").contentType(MediaType.APPLICATION_JSON)
                         .content(json("studentCode", sv.code().toLowerCase(), "fullName", "Sinh Viên Tích Hợp",
                                 "username", sv.username(), "password", PASSWORD)))
