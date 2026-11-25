@@ -54,21 +54,33 @@ export function SocialAccountsCard() {
           </div>
         )}
         <ul className="divide-y divide-slate-100">
-          {status.data?.providers.map((provider) => (
-            <li key={provider} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-              <span className="font-medium text-slate-900">{SOCIAL_PROVIDER_LABEL[provider]}</span>
-              {status.data?.linked.includes(provider) ? (
+          {status.data?.providers.includes('google') && (
+            <li className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+              <span className="font-medium text-slate-900">{SOCIAL_PROVIDER_LABEL.google}</span>
+              {status.data.linked.includes('google') ? (
+                <span className="text-emerald-700">Đã liên kết</span>
+              ) : (
+                <a href={socialStartUrl('google')} className="font-semibold text-blue-700 hover:underline">Liên kết</a>
+              )}
+            </li>
+          )}
+          {(status.data?.providers.includes('microsoft') || status.data?.providers.includes('microsoft-ptit')) && (
+            <li className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+              <span className="font-medium text-slate-900">{SOCIAL_PROVIDER_LABEL.microsoft}</span>
+              {status.data.linked.includes('microsoft') ? (
                 <span className="text-emerald-700">Đã liên kết</span>
               ) : (
                 <span className="flex flex-wrap gap-x-3 gap-y-1 font-semibold text-blue-700">
-                  <a href={socialStartUrl(provider)} className="hover:underline">Liên kết</a>
-                  {provider === 'microsoft' && (
+                  {status.data.providers.includes('microsoft') && (
+                    <a href={socialStartUrl('microsoft')} className="hover:underline">Liên kết</a>
+                  )}
+                  {status.data.providers.includes('microsoft-ptit') && (
                     <a href={socialStartUrl('microsoft-ptit')} className="hover:underline">Liên kết email PTIT</a>
                   )}
                 </span>
               )}
             </li>
-          ))}
+          )}
         </ul>
       </div>
     </Card>

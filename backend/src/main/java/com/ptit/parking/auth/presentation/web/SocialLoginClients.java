@@ -6,6 +6,7 @@ import com.ptit.parking.auth.infrastructure.persistence.SocialLoginSettingsStore
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +28,7 @@ public class SocialLoginClients implements ClientRegistrationRepository {
     static final String MICROSOFT_PTIT = "microsoft-ptit";
 
     record ProviderView(String provider, String clientId, boolean hasSecret, boolean enabled, boolean active,
-                        boolean managed, String redirectUri) {}
+                        boolean ptitEnabled, boolean ptitActive, boolean managed, String redirectUri) {}
 
     private final SocialLoginSettingsStore store;
     private final Map<Provider, Settings> defaults;
@@ -41,8 +42,8 @@ public class SocialLoginClients implements ClientRegistrationRepository {
                        @Value("${parking.social.microsoft.client-secret}") String microsoftSecret) {
         this.store = store;
         this.origin = publicOrigin(origin);
-        this.defaults = Map.of(Provider.GOOGLE, environment(googleId, googleSecret),
-                Provider.MICROSOFT, environment(microsoftId, microsoftSecret));
+        this.defaults = Map.of(Provider.GOOGLE, environment(Provider.GOOGLE, googleId, googleSecret),
+                Provider.MICROSOFT, environment(Provider.MICROSOFT, microsoftId, microsoftSecret));
     }
 
     @Override
@@ -54,27 +55,39 @@ public class SocialLoginClients implements ClientRegistrationRepository {
     }
 
     public List<String> providers() {
-        return Arrays.stream(Provider.values()).filter(provider -> effective(provider).active())
-                .map(Provider::id).toList();
+        List<String> active = new ArrayList<>();
+        if (effective(Provider.GOOGLE).active()) {
+            active.add(Provider.GOOGLE.id());
+        }
+        Settings microsoft = effective(Provider.MICROSOFT);
+        if (microsoft.active()) {
+            active.add(Provider.MICROSOFT.id());
+        }
+        if (microsoft.ptitActive()) {
+            active.add(MICROSOFT_PTIT);
+        }
+        return List.copyOf(active);
     }
 
     boolean isActive(String id) {
-        return Provider.find(id).map(this::effective).map(Settings::active).orElse(false);
+        return Provider.find(id).map(this::effective).map(Settings::anyActive).orElse(false);
     }
 
     List<ProviderView> views() {
         return Arrays.stream(Provider.values()).map(this::view).toList();
     }
 
-    synchronized ProviderView update(Provider provider, boolean enabled, String clientId, String rawSecret) {
+    synchronized ProviderView update(Provider provider, boolean enabled, Boolean ptitEnabled,
+                                     String clientId, String rawSecret) {
         Settings original = effective(provider);
         String id = clientId.strip();
         String secret = rawSecret == null ? "" : rawSecret.strip();
         if (secret.isEmpty() && id.equals(original.clientId())) {
             secret = original.clientSecret();
         }
-        Settings settings = new Settings(enabled, id, secret);
-        if (enabled && !settings.active()) {
+        boolean ptit = provider == Provider.MICROSOFT && Boolean.TRUE.equals(ptitEnabled);
+        Settings settings = new Settings(enabled, ptit, id, secret);
+        if ((enabled || ptit) && !settings.hasCredentials()) {
             throw new DomainException(ErrorCode.VALIDATION_ERROR, "Vui lòng nhập Client ID và Client Secret để bật đăng nhập.");
         }
         store.save(provider, settings);
@@ -93,7 +106,7 @@ public class SocialLoginClients implements ClientRegistrationRepository {
 
     private ProviderView toView(Provider provider, Settings settings, boolean managed) {
         return new ProviderView(provider.id(), settings.clientId(), settings.hasSecret(), settings.enabled(),
-                settings.active(), managed, redirectUri(provider));
+                settings.active(), settings.ptitEnabled(), settings.ptitActive(), managed, redirectUri(provider));
     }
 
     private Settings effective(Provider provider) {
@@ -102,7 +115,8 @@ public class SocialLoginClients implements ClientRegistrationRepository {
 
     private ClientRegistration registration(Provider provider, String registrationId) {
         Settings settings = effective(provider);
-        if (!settings.active()) {
+        boolean active = MICROSOFT_PTIT.equals(registrationId) ? settings.ptitActive() : settings.active();
+        if (!active) {
             return null;
         }
         var builder = switch (provider) {
@@ -136,8 +150,9 @@ public class SocialLoginClients implements ClientRegistrationRepository {
                 .clientName("Microsoft");
     }
 
-    private static Settings environment(String clientId, String clientSecret) {
-        return new Settings(!clientId.isBlank() && !clientSecret.isBlank(), clientId.strip(), clientSecret.strip());
+    private static Settings environment(Provider provider, String clientId, String clientSecret) {
+        boolean configured = !clientId.isBlank() && !clientSecret.isBlank();
+        return new Settings(configured, provider == Provider.MICROSOFT && configured, clientId.strip(), clientSecret.strip());
     }
 
     private static URI publicOrigin(String raw) {

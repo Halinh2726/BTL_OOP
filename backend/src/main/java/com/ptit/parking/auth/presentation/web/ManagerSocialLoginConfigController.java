@@ -20,12 +20,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping(SocialLoginClients.MANAGER_CONFIG)
 class ManagerSocialLoginConfigController {
 
-    record UpdateRequest(@NotNull Boolean enabled, @NotNull @Size(max = 256) String clientId,
+    record UpdateRequest(@NotNull Boolean enabled, Boolean ptitEnabled, @NotNull @Size(max = 256) String clientId,
                          @Size(max = 1024) String clientSecret) {
 
         @Override
         public String toString() {
-            return "UpdateRequest[enabled=" + enabled + "]";
+            return "UpdateRequest[enabled=" + enabled + ", ptitEnabled=" + ptitEnabled + "]";
         }
     }
 
@@ -42,7 +42,7 @@ class ManagerSocialLoginConfigController {
 
     @PutMapping("/{id}")
     ProviderView update(@PathVariable String id, @Valid @RequestBody UpdateRequest body) {
-        return clients.update(provider(id), body.enabled(), body.clientId(), body.clientSecret());
+        return clients.update(provider(id), body.enabled(), body.ptitEnabled(), body.clientId(), body.clientSecret());
     }
 
     @DeleteMapping("/{id}")

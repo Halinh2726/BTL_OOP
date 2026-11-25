@@ -39,19 +39,31 @@ public class SocialLoginSettingsStore {
         }
     }
 
-    public record Settings(boolean enabled, String clientId, String clientSecret) {
+    public record Settings(boolean enabled, boolean ptitEnabled, String clientId, String clientSecret) {
 
         public boolean hasSecret() {
             return !clientSecret.isBlank();
         }
 
+        public boolean hasCredentials() {
+            return !clientId.isBlank() && hasSecret();
+        }
+
         public boolean active() {
-            return enabled && !clientId.isBlank() && hasSecret();
+            return enabled && hasCredentials();
+        }
+
+        public boolean ptitActive() {
+            return ptitEnabled && hasCredentials();
+        }
+
+        public boolean anyActive() {
+            return active() || ptitActive();
         }
 
         @Override
         public String toString() {
-            return "Settings[enabled=" + enabled + ", hasSecret=" + hasSecret() + "]";
+            return "Settings[enabled=" + enabled + ", ptitEnabled=" + ptitEnabled + ", hasSecret=" + hasSecret() + "]";
         }
     }
 
@@ -67,7 +79,12 @@ public class SocialLoginSettingsStore {
         try (var input = Files.newInputStream(path(provider))) {
             Properties saved = new Properties();
             saved.load(input);
-            return Optional.of(new Settings(Boolean.parseBoolean(saved.getProperty("enabled")),
+            boolean enabled = Boolean.parseBoolean(saved.getProperty("enabled"));
+            boolean ptitEnabled = provider == Provider.MICROSOFT
+                    && (saved.containsKey("ptitEnabled")
+                    ? Boolean.parseBoolean(saved.getProperty("ptitEnabled"))
+                    : enabled);
+            return Optional.of(new Settings(enabled, ptitEnabled,
                     saved.getProperty("clientId", ""), saved.getProperty("clientSecret", "")));
         } catch (NoSuchFileException e) {
             return Optional.empty();
@@ -88,6 +105,7 @@ public class SocialLoginSettingsStore {
             try {
                 Properties saved = new Properties();
                 saved.setProperty("enabled", Boolean.toString(settings.enabled()));
+                saved.setProperty("ptitEnabled", Boolean.toString(provider == Provider.MICROSOFT && settings.ptitEnabled()));
                 saved.setProperty("clientId", settings.clientId());
                 saved.setProperty("clientSecret", settings.clientSecret());
                 try (var output = Files.newOutputStream(temporary)) {

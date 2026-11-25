@@ -30,8 +30,8 @@ type Output = z.output<typeof schema>;
 const FIELDS = ['type', 'plateNumber', 'description'] as const;
 
 interface ReportIncidentDialogProps {
-  /** Mở từ danh sách xe trong bãi: điền sẵn loại "xe gửi quá lâu" và biển số. */
-  preset?: { type: IncidentType; plateNumber: string };
+  /** Mở từ danh sách xe trong bãi hoặc đối chiếu vé khách: điền sẵn loại, biển số và mô tả (nếu có). */
+  preset?: { type: IncidentType; plateNumber: string; description?: string };
   onClose: () => void;
   onReported: (incident: IncidentItem) => void;
 }
@@ -43,7 +43,11 @@ export function ReportIncidentDialog({ preset, onClose, onReported }: ReportInci
   const [photoError, setPhotoError] = useState<string | null>(null);
   const form = useForm<Input, unknown, Output>({
     resolver: zodResolver(schema),
-    defaultValues: { type: preset?.type ?? 'XE_HU_HONG', plateNumber: preset?.plateNumber ?? '', description: '' },
+    defaultValues: {
+      type: preset?.type ?? 'XE_HU_HONG',
+      plateNumber: preset?.plateNumber ?? '',
+      description: preset?.description ?? '',
+    },
   });
   const applyFieldErrors = useFieldErrors(form.setError, FIELDS);
 

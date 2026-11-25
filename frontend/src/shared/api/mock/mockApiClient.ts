@@ -281,7 +281,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
 
   function defaultSocialConfig(provider: SocialProvider): SocialProviderConfig {
     return {
-      provider, enabled: false, active: false, managed: false, clientId: '', hasSecret: false,
+      provider, enabled: false, active: false, ptitEnabled: false, ptitActive: false, managed: false, clientId: '', hasSecret: false,
       redirectUri: `http://localhost:5173/api/v1/auth/social/callback/${provider}`,
     };
   }
@@ -2754,8 +2754,18 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         const previous = socialConfig[provider];
         const clientId = body.clientId.trim();
         const hasSecret = Boolean(body.clientSecret?.trim()) || (clientId === previous.clientId && previous.hasSecret);
-        if (body.enabled && (!clientId || !hasSecret)) fail('VALIDATION_ERROR');
-        const updated = { ...previous, clientId, hasSecret, enabled: body.enabled, active: body.enabled, managed: true };
+        const ptitEnabled = provider === 'microsoft' && Boolean(body.ptitEnabled);
+        if ((body.enabled || ptitEnabled) && (!clientId || !hasSecret)) fail('VALIDATION_ERROR');
+        const updated = {
+          ...previous,
+          clientId,
+          hasSecret,
+          enabled: body.enabled,
+          active: body.enabled && Boolean(clientId) && hasSecret,
+          ptitEnabled,
+          ptitActive: ptitEnabled && Boolean(clientId) && hasSecret,
+          managed: true,
+        };
         socialConfig[provider] = updated;
         return updated;
       }),

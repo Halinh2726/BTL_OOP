@@ -7,24 +7,27 @@ import { SocialProviderLogo } from './SocialProviderLogo';
 const PROVIDERS: SocialProvider[] = ['google', 'microsoft'];
 
 export function SocialSignInOptions() {
-  const { data, isError } = useSocialAuthStatus();
-  const unconfigured = data && PROVIDERS.filter((provider) => !data.providers.includes(provider));
+  const { data } = useSocialAuthStatus();
+  const providers = data?.providers ?? [];
+  const activeProviders = PROVIDERS.filter((provider) => providers.includes(provider));
+  const ptitActive = providers.includes('microsoft-ptit');
+
+  if (activeProviders.length === 0 && !ptitActive) return null;
 
   return (
     <div className="mt-5 space-y-2 border-t border-slate-200 pt-4">
-      {PROVIDERS.map((provider) => (
+      {activeProviders.map((provider) => (
         <Button
           key={provider}
           variant="secondary"
-          className="w-full disabled:!opacity-100 disabled:text-slate-500 disabled:hover:bg-white"
-          disabled={!data?.providers.includes(provider)}
+          className="w-full"
           onClick={() => window.location.assign(socialStartUrl(provider))}
         >
           <SocialProviderLogo provider={provider} />
           Tiếp tục với {SOCIAL_PROVIDER_LABEL[provider]}
         </Button>
       ))}
-      {data?.providers.includes('microsoft') && (
+      {ptitActive && (
         <Button
           variant="secondary"
           className="w-full"
@@ -33,13 +36,6 @@ export function SocialSignInOptions() {
           <span aria-hidden="true"><Logo className="h-5 w-5" /></span>
           Đăng nhập bằng email PTIT
         </Button>
-      )}
-      {unconfigured?.length ? (
-        <p className="text-center text-sm text-slate-600">
-          Chưa cấu hình đăng nhập qua {unconfigured.map((provider) => SOCIAL_PROVIDER_LABEL[provider]).join(' và ')}.
-        </p>
-      ) : isError && (
-        <p className="text-center text-sm text-slate-600">Chưa kiểm tra được tình trạng đăng nhập qua Google và Microsoft.</p>
       )}
     </div>
   );

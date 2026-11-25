@@ -99,6 +99,42 @@ class ManagerSocialLoginConfigControllerTest {
     }
 
     @Test
+    void managerCanToggleMicrosoftPersonalAndPtitSeparately() throws Exception {
+        String microsoft = CONFIG + "/microsoft";
+        mvc.perform(put(microsoft).with(user("manager").roles("QUAN_LY")).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"enabled":false,"ptitEnabled":true,"clientId":"ms-id","clientSecret":"ms-secret"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(false))
+                .andExpect(jsonPath("$.ptitActive").value(true));
+        mvc.perform(get(SocialLoginClients.BASE + "/status"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.providers.length()").value(1))
+                .andExpect(jsonPath("$.providers[0]").value("microsoft-ptit"));
+        mvc.perform(get(SocialLoginClients.START + "/microsoft-ptit"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", containsString("ptit.edu.vn")));
+
+        mvc.perform(put(microsoft).with(user("manager").roles("QUAN_LY")).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"enabled":true,"ptitEnabled":false,"clientId":"ms-id"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(true))
+                .andExpect(jsonPath("$.ptitActive").value(false));
+        mvc.perform(get(SocialLoginClients.BASE + "/status"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.providers.length()").value(1))
+                .andExpect(jsonPath("$.providers[0]").value("microsoft"));
+
+        mvc.perform(delete(microsoft).with(user("manager").roles("QUAN_LY")).with(csrf()))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void configurationRequiresTheManagerRoleAndCsrf() throws Exception {
         mvc.perform(get(CONFIG)).andExpect(status().isUnauthorized());
         mvc.perform(get(CONFIG).with(user("student").roles("SINH_VIEN"))).andExpect(status().isForbidden());

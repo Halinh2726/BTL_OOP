@@ -39,9 +39,11 @@ export function SocialLoginConfigTab() {
 
 function ProviderConfigCard({ config }: { config: SocialProviderConfig }) {
   const queryClient = useQueryClient();
+  const isMicrosoft = config.provider === 'microsoft';
   const [clientId, setClientId] = useState(config.clientId);
   const [clientSecret, setClientSecret] = useState('');
   const [enabled, setEnabled] = useState(config.enabled || (!config.managed && !config.hasSecret));
+  const [ptitEnabled, setPtitEnabled] = useState(isMicrosoft && (config.ptitEnabled || (!config.managed && !config.hasSecret)));
   const [copyMessage, setCopyMessage] = useState('');
   const [pendingAction, setPendingAction] = useState<'save' | 'reset' | null>(null);
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
@@ -56,6 +58,7 @@ function ProviderConfigCard({ config }: { config: SocialProviderConfig }) {
         : await api.resetSocialLoginConfig(config.provider);
       setClientId(saved.clientId);
       setEnabled(saved.enabled);
+      setPtitEnabled(saved.ptitEnabled);
       queryClient.setQueryData<SocialProviderConfig[]>(queryKeys.socialLoginConfig,
         (current) => current?.map((item) => item.provider === saved.provider ? saved : item));
       void queryClient.invalidateQueries({ queryKey: queryKeys.socialAuth });
@@ -68,16 +71,23 @@ function ProviderConfigCard({ config }: { config: SocialProviderConfig }) {
   }
 
   const busy = pendingAction !== null;
+  const anyEnabled = enabled || (isMicrosoft && ptitEnabled);
+  const anyActive = config.active || (isMicrosoft && config.ptitActive);
   const canReuseSecret = config.hasSecret && clientId.trim() === config.clientId;
 
   return (
     <Card
       title={<span className="flex items-center gap-2"><SocialProviderLogo provider={config.provider} />{SOCIAL_PROVIDER_LABEL[config.provider]}</span>}
-      actions={<Badge tone={config.active ? 'green' : 'gray'}>{config.active ? 'Đã bật' : 'Chưa bật'}</Badge>}
+      actions={<Badge tone={anyActive ? 'green' : 'gray'}>{anyActive ? 'Đã bật' : 'Chưa bật'}</Badge>}
     >
       <form className="space-y-4" onSubmit={(event) => {
         event.preventDefault();
-        void update('save', { enabled, clientId, ...(clientSecret ? { clientSecret } : {}) });
+        void update('save', {
+          enabled,
+          ...(isMicrosoft ? { ptitEnabled } : {}),
+          clientId,
+          ...(clientSecret ? { clientSecret } : {}),
+        });
         setClientSecret('');
       }}>
         {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
@@ -85,7 +95,7 @@ function ProviderConfigCard({ config }: { config: SocialProviderConfig }) {
           <a className="text-sm font-semibold text-blue-700 hover:underline" href={consoleLink.href} target="_blank" rel="noreferrer">
             {consoleLink.label}
           </a>
-          {config.provider === 'microsoft' && (
+          {isMicrosoft && (
             <p className="mt-1 text-sm text-slate-600">Chọn hỗ trợ tài khoản tổ chức và cá nhân, thêm quyền Microsoft Graph User.Read.</p>
           )}
         </div>
@@ -103,16 +113,24 @@ function ProviderConfigCard({ config }: { config: SocialProviderConfig }) {
           }}>Sao chép</Button>
         </div>
         {copyMessage && <p role="status" className="text-sm text-slate-600">{copyMessage}</p>}
-        <TextField label="Client ID" value={clientId} required={enabled} maxLength={256} disabled={busy}
+        <TextField label="Client ID" value={clientId} required={anyEnabled} maxLength={256} disabled={busy}
           onChange={(event) => setClientId(event.target.value)} />
         <TextField label="Client Secret" type="password" autoComplete="new-password" value={clientSecret}
-          required={enabled && !canReuseSecret} maxLength={1024} disabled={busy}
+          required={anyEnabled && !canReuseSecret} maxLength={1024} disabled={busy}
           hint={canReuseSecret ? 'Để trống để giữ Client Secret hiện tại.' : 'Dán giá trị Client Secret từ ứng dụng OAuth.'}
           onChange={(event) => setClientSecret(event.target.value)} />
-        <label className="flex items-center gap-2 text-sm font-medium text-slate-800">
-          <input type="checkbox" checked={enabled} disabled={busy} onChange={(event) => setEnabled(event.target.checked)} />
-          Bật đăng nhập
-        </label>
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-800">
+            <input type="checkbox" checked={enabled} disabled={busy} onChange={(event) => setEnabled(event.target.checked)} />
+            {isMicrosoft ? 'Bật đăng nhập Microsoft (Outlook/Hotmail)' : 'Bật đăng nhập'}
+          </label>
+          {isMicrosoft && (
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-800">
+              <input type="checkbox" checked={ptitEnabled} disabled={busy} onChange={(event) => setPtitEnabled(event.target.checked)} />
+              Bật đăng nhập bằng email PTIT (@ptit.edu.vn)
+            </label>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2">
           <Button type="submit" loading={pendingAction === 'save'} disabled={busy}>Lưu cấu hình</Button>
           {config.managed && (

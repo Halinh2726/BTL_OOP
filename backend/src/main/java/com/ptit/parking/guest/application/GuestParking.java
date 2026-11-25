@@ -2,7 +2,6 @@ package com.ptit.parking.guest.application;
 
 import com.ptit.parking.catalog.application.port.out.ExchangeRateRepository;
 import com.ptit.parking.catalog.application.port.out.FeeRuleRepository;
-import com.ptit.parking.catalog.domain.CustomerType;
 import com.ptit.parking.catalog.domain.FeeRule;
 import com.ptit.parking.gate.application.usecase.ReportIncidentUseCase;
 import com.ptit.parking.gate.domain.IncidentType;
@@ -321,9 +320,9 @@ public class GuestParking {
     }
 
     private List<FeeRule> rules(String vehicleType) {
-        List<FeeRule> rules = tariffs.rulesForVehicleType(CustomerType.KHACH, vehicleType);
+        List<FeeRule> rules = tariffs.rulesForVehicleType(vehicleType);
         if (rules.isEmpty()) {
-            throw new DomainException(ErrorCode.VALIDATION_ERROR, "Loại xe chưa có bảng giá khách.");
+            throw new DomainException(ErrorCode.VALIDATION_ERROR, "Loại xe chưa có bảng giá.");
         }
         return rules;
     }
