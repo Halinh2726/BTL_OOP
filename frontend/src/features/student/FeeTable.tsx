@@ -5,23 +5,8 @@ import { queryKeys } from '../../shared/api/queryKeys';
 import { Card } from '../../shared/components/Card';
 import { QueryError } from '../../shared/components/QueryError';
 import { LoadingBlock } from '../../shared/components/Spinner';
-import type { FeeRule } from '../../shared/types/api';
+import { FIXED_TIME_SLOTS, toFixedTimeSlotRules } from '../../shared/utils/feeSlots';
 import { formatNumber } from '../../shared/utils/format';
-
-function durationLabel(minutes: number): string {
-  if (minutes % 60 === 0) return `${minutes / 60} giờ`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return hours > 0 ? `${hours}g ${mins}p` : `${mins} phút`;
-}
-
-function describe(rules: FeeRule[], index: number): string {
-  const rule = rules[index];
-  if (!rule) return '';
-  const end = durationLabel(rule.upToMinutes);
-  const previous = rules[index - 1];
-  return previous ? `Trên ${durationLabel(previous.upToMinutes)} đến ${end}` : `Đến ${end}`;
-}
 
 export function FeeTable() {
   const schedules = useQuery({
@@ -34,6 +19,9 @@ export function FeeTable() {
 
   const activeSchedule =
     schedules.data?.find((s) => s.vehicleTypeCode === selectedType) ?? schedules.data?.[0];
+  const fixedRules = activeSchedule ? toFixedTimeSlotRules(activeSchedule.rules) : [];
+  const eveningFee = fixedRules[1]?.feePoints ?? 5000;
+  const overnightFee = fixedRules[2]?.feePoints ?? 15000;
 
   return (
     <Card title="Bảng phí gửi xe theo loại xe">
@@ -63,29 +51,30 @@ export function FeeTable() {
             })}
           </div>
           <dl className="divide-y divide-slate-100">
-            {activeSchedule.rules.map((rule, index) => (
-              <div key={rule.upToMinutes} className="flex items-center justify-between py-2.5">
-                <dt className="text-slate-600">{describe(activeSchedule.rules, index)}</dt>
-                <dd className="text-lg font-bold text-slate-900">{formatNumber(rule.feePoints)} điểm</dd>
-              </div>
-            ))}
-            {policy.data && (
-              <div className="flex items-center justify-between py-2.5">
-                <dt className="font-medium text-amber-800">Gửi qua đêm (lấy xe từ ngày hôm sau)</dt>
-                <dd className="text-lg font-bold text-amber-700">{formatNumber(policy.data.overnightFeePoints)} điểm</dd>
-              </div>
-            )}
+            {FIXED_TIME_SLOTS.map((slot, index) => {
+              const feePoints = fixedRules[index]?.feePoints ?? slot.defaultPoints;
+              return (
+                <div key={slot.upToMinutes} className="flex items-center justify-between py-2.5">
+                  <dt className={slot.highlight ? 'font-medium text-amber-800' : 'text-slate-600'}>{slot.label}</dt>
+                  <dd className={`text-lg font-bold ${slot.highlight ? 'text-amber-700' : 'text-slate-900'}`}>
+                    {formatNumber(feePoints)} {slot.unitSuffix}
+                  </dd>
+                </div>
+              );
+            })}
           </dl>
           <div className="mt-3 space-y-1 text-sm text-slate-500">
             <p>
-              Lượt gửi trong ngày tính theo thời lượng của từng loại xe. Lượt gửi qua đêm áp dụng giá riêng trong bảng. Xe
-              có vé tháng còn hiệu lực được miễn phí.
+              Lượt gửi trong ngày tính theo khung giờ lúc lấy xe. Nếu để qua đêm sang ngày hôm sau, phí được cộng dồn theo
+              từng đêm + khung giờ lúc lấy xe (VD: gửi Thứ 2, lấy lúc 19:00 Thứ 4 ={' '}
+              {formatNumber(overnightFee)} + {formatNumber(overnightFee)} + {formatNumber(eveningFee)} ={' '}
+              {formatNumber(overnightFee * 2 + eveningFee)} điểm). Xe có vé tháng còn hiệu lực được miễn phí.
             </p>
             {policy.data?.curfewEnabled && (
               <p className="font-medium text-amber-800">
                 Lưu ý: Bãi xe khóa lấy xe trong ngày từ {policy.data.checkoutCurfewTime}. Xe chưa lấy trước{' '}
-                {policy.data.checkoutCurfewTime} sẽ lấy vào ngày hôm sau và áp dụng phí qua đêm (
-                {formatNumber(policy.data.overnightFeePoints)} điểm).
+                {policy.data.checkoutCurfewTime} sẽ lấy vào ngày hôm sau và cộng dồn phí qua đêm (
+                {formatNumber(overnightFee)} điểm/đêm).
               </p>
             )}
           </div>

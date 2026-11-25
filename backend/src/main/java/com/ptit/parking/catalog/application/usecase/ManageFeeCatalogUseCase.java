@@ -56,7 +56,7 @@ public class ManageFeeCatalogUseCase {
 
         List<FeeRule> validated;
         try {
-            validated = FeeRule.validateSchedule(rawRules);
+            validated = FeeRule.validateTimeSlotSchedule(rawRules);
         } catch (IllegalArgumentException ex) {
             throw new DomainException(ErrorCode.VALIDATION_ERROR, ex.getMessage());
         }

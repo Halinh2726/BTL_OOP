@@ -48,7 +48,7 @@ public final class OvernightAwareFeePolicy implements FeePolicy {
     @Override
     public FeeQuote quoteSession(long vehicleId, Instant enteredAt, ZonedDateTime exitTime) {
         FeeQuote regular = inner.quoteSession(vehicleId, enteredAt, exitTime);
-        if (regular.isFree()) {
+        if (regular.isFree() || regular.overnight()) {
             return regular;
         }
         ParkingPolicyConfig cfg = configSupplier.get();

@@ -17,8 +17,9 @@ import com.ptit.parking.guest.domain.GuestSession;
 import com.ptit.parking.parking.application.port.out.OpenShiftLookup;
 import com.ptit.parking.parking.application.port.out.ParkingPolicyRepository;
 import com.ptit.parking.parking.application.port.out.VietQrGenerator;
-import com.ptit.parking.parking.domain.DurationFeePolicy;
+import com.ptit.parking.parking.domain.FeeQuote;
 import com.ptit.parking.parking.domain.ParkingPolicyConfig;
+import com.ptit.parking.parking.domain.TimeSlotFeePolicy;
 import com.ptit.parking.parking.domain.VietQrOrder;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import com.ptit.parking.shared.domain.DomainException;
@@ -310,12 +311,12 @@ public class GuestParking {
     private Quote quote(GuestSession session, Instant now, long lostFee) {
         ZonedDateTime localNow = now.atZone(clock.getZone());
         ParkingPolicyConfig policy = policies.current();
-        boolean overnight = policy.isOvernight(session.enteredAt(), localNow, clock.getZone());
         Duration duration = elapsed(session, now);
-        long points = overnight ? policy.overnightFeePoints()
-                : new DurationFeePolicy(rules(session.vehicleTypeCode())).feeFor(duration);
+        FeeQuote feeQuote = new TimeSlotFeePolicy(rules(session.vehicleTypeCode()), clock.getZone())
+                .quoteSession(0L, session.enteredAt(), localNow);
+        long points = feeQuote.points();
         long amount = Math.addExact(Math.multiplyExact(points, rates.currentExchangeRate().cashPerPoint()), lostFee);
-        return new Quote(points, amount, lostFee, duration.toMinutes(), overnight,
+        return new Quote(points, amount, lostFee, duration.toMinutes(), feeQuote.overnight(),
                 policy.isCurfewActive(localNow, clock.getZone()), policy.curfewEnabled() ? policy.checkoutCurfewTime() : null);
     }
 

@@ -111,8 +111,8 @@ class GuestParkingIntegrationTest {
         MockHttpSession manager = login("quanly01", "Quanly@123");
         MockHttpSession owner = login("chutk01", "Chutk@123");
         json(put(API + "/manager/fee-rules/XE_DAP"), manager, """
-                {"rules":[{"upToMinutes":120,"feePoints":2100},{"upToMinutes":360,"feePoints":3000},
-                          {"upToMinutes":1440,"feePoints":5000}]}
+                {"rules":[{"upToMinutes":1080,"feePoints":2100},{"upToMinutes":1320,"feePoints":3000},
+                          {"upToMinutes":1440,"feePoints":15000}]}
                 """).andExpect(status().isOk());
         mvc.perform(get(API + "/manager/fee-rules").session(manager))
                 .andExpect(status().isOk())
@@ -196,7 +196,7 @@ class GuestParkingIntegrationTest {
         pay(guard, "vietqr", UUID.randomUUID(), bankPayment).andExpect(status().isCreated())
                 .andExpect(jsonPath("$.method").value("VIETQR")).andExpect(jsonPath("$.amount").value(3000));
 
-        String lost = "{\"sessionId\":%d,\"documentLast4\":\"1234\",\"expectedAmount\":23000}".formatted(bicycleId);
+        String lost = "{\"sessionId\":%d,\"documentLast4\":\"1234\",\"expectedAmount\":22100}".formatted(bicycleId);
         pay(guard, "lost-ticket", UUID.randomUUID(), lost).andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.code").value("GUEST_LOST_TICKET_REQUIRES_MANAGER"));
         mvc.perform(post(API + "/manager/guest-sessions/" + bicycleId + "/approve-lost-ticket")
@@ -207,12 +207,12 @@ class GuestParkingIntegrationTest {
                 .andExpect(jsonPath("$[0].type").value("MAT_VE"));
 
         mvc.perform(get(API + "/guard/cash-sheet").session(guard)).andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalCollected").value(26000))
-                .andExpect(jsonPath("$.expectedClosingCash").value(126000))
+                .andExpect(jsonPath("$.totalCollected").value(25100))
+                .andExpect(jsonPath("$.expectedClosingCash").value(125100))
                 .andExpect(jsonPath("$.entries[0].plateDisplay").value("Không biển"));
         mvc.perform(get(API + "/owner/guest-revenue").session(owner).param("from", DAY).param("to", DAY))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.payments").value(3))
-                .andExpect(jsonPath("$.cash").value(26000)).andExpect(jsonPath("$.vietqr").value(3000));
+                .andExpect(jsonPath("$.cash").value(25100)).andExpect(jsonPath("$.vietqr").value(3000));
         mvc.perform(get(API + "/manager/guest-sessions/export").session(manager).param("from", DAY).param("to", DAY))
                 .andExpect(status().isOk()).andExpect(header().exists("Content-Disposition"));
         assertThat(jdbc.sql("SELECT COUNT(*) FROM point_transactions").query(Long.class).single()).isZero();
@@ -238,7 +238,7 @@ class GuestParkingIntegrationTest {
                 .andExpect(jsonPath("$.code").value("CHECKOUT_CURFEW"));
         clock.moveTo("2026-11-21T01:00:00Z");
         mvc.perform(get(API + "/public/guest-tickets/" + overnightToken)).andExpect(status().isOk())
-                .andExpect(jsonPath("$.overnight").value(true)).andExpect(jsonPath("$.amount").value(15000));
+                .andExpect(jsonPath("$.overnight").value(true)).andExpect(jsonPath("$.amount").value(17100));
     }
 
     private ResultActions pay(MockHttpSession guard, String method, UUID key, String body) throws Exception {

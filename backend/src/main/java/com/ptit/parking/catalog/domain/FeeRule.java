@@ -5,7 +5,10 @@ import java.util.List;
 /** Mức phí của một bậc thời lượng. Cận trên được tính vào bậc hiện tại. */
 public record FeeRule(int upToMinutes, int feePoints) implements Comparable<FeeRule> {
 
+    public static final int DAY_SLOT_MINUTES = 18 * 60;
+    public static final int EVENING_SLOT_MINUTES = 22 * 60;
     public static final int MINUTES_PER_DAY = 24 * 60;
+    public static final int OVERNIGHT_SLOT_MINUTES = MINUTES_PER_DAY;
 
     public FeeRule {
         if (upToMinutes < 1 || upToMinutes > MINUTES_PER_DAY) {
@@ -31,6 +34,19 @@ public record FeeRule(int upToMinutes, int feePoints) implements Comparable<FeeR
             if (current.upToMinutes() == previous.upToMinutes() || current.feePoints() < previous.feePoints()) {
                 throw new IllegalArgumentException("Mốc thời lượng phải khác nhau và phí không được giảm theo bậc");
             }
+        }
+        return sorted;
+    }
+
+    /** Kiểm tra bảng giá gồm đúng 3 khung giờ cố định: trước 18:00 (1080), 18:00–22:00 (1320) và qua đêm sau 22:00 (1440). */
+    public static List<FeeRule> validateTimeSlotSchedule(List<FeeRule> rules) {
+        List<FeeRule> sorted = validateSchedule(rules);
+        if (sorted.size() != 3
+                || sorted.get(0).upToMinutes() != DAY_SLOT_MINUTES
+                || sorted.get(1).upToMinutes() != EVENING_SLOT_MINUTES
+                || sorted.get(2).upToMinutes() != OVERNIGHT_SLOT_MINUTES) {
+            throw new IllegalArgumentException(
+                    "Bảng giá phải gồm đúng 3 khung cố định: trước 18:00 (1080), 18:00–22:00 (1320) và qua đêm sau 22:00 (1440)");
         }
         return sorted;
     }
