@@ -137,7 +137,7 @@ const PERMISSIONS: Record<Role, string[]> = {
 const VEHICLE_TYPES: VehicleType[] = [
   { code: 'XE_MAY', name: 'Xe máy' },
   { code: 'XE_DAP', name: 'Xe đạp' },
-  { code: 'XE_DAP_DIEN', name: 'Xe đạp điện' },
+  { code: 'XE_DAP_DIEN', name: 'Xe máy điện' },
 ];
 const FEE_RULES: FeeRule[] = [
   { startTime: '00:00', feePoints: 3000 },
@@ -1759,7 +1759,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           },
           vehicles: vehicles.map((vehicle) => ({
             id: vehicle.id, plateNumber: vehicle.plateNumber,
-            vehicleTypeName: vehicle.vehicleTypeCode === 'XE_MAY' ? 'Xe máy' : vehicle.vehicleTypeCode === 'XE_DAP' ? 'Xe đạp' : 'Xe đạp điện',
+            vehicleTypeName: vehicle.vehicleTypeCode === 'XE_MAY' ? 'Xe máy' : vehicle.vehicleTypeCode === 'XE_DAP' ? 'Xe đạp' : 'Xe máy điện',
             status: vehicle.status ?? 'DANG_DUNG', registeredAt: vehicle.registeredAt,
             parkedNow: openSessionOf(vehicle.id) !== undefined,
           })),
@@ -1857,7 +1857,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
             return {
               vehicleId: v.id,
               plateNumber: v.plateNumber,
-              vehicleTypeName: v.vehicleTypeCode === 'XE_MAY' ? 'Xe máy' : v.vehicleTypeCode === 'XE_DAP' ? 'Xe đạp' : 'Xe đạp điện',
+              vehicleTypeName: v.vehicleTypeCode === 'XE_MAY' ? 'Xe máy' : v.vehicleTypeCode === 'XE_DAP' ? 'Xe đạp' : 'Xe máy điện',
               price: prices[v.vehicleTypeCode] ?? null,
               current: find(v.id, currentMonth),
               next: find(v.id, nextMonth),

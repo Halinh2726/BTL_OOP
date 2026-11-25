@@ -12,7 +12,7 @@ import java.util.Objects;
  * đã chuẩn hóa và hợp lệ. Không đổi chủ, không đổi biển (đổi biển = đăng ký xe mới).
  * <p>Đợt 1 — vòng đời xe. Chỉ đổi được qua hai hành vi, cả hai đều từ chối khi xe đã ngừng sử dụng:
  * <ul>
- *   <li>{@link #changeType} — sửa loại xe (chọn nhầm xe máy / xe đạp điện...).</li>
+ *   <li>{@link #changeType} — sửa loại xe (chọn nhầm xe máy / xe máy điện...).</li>
  *   <li>{@link #deactivate} — "xóa xe": chuyển NGUNG_SU_DUNG, KHÔNG xóa dòng vì lượt gửi cũ còn tham chiếu.</li>
  * </ul>
  * "Xe đang trong bãi thì không sửa/ngừng" cần dữ liệu lượt gửi nên do use case kiểm tra trước khi gọi.
