@@ -36,10 +36,10 @@ class VehicleOwnerJdbcAdapter implements VehicleOwnerDirectory {
                 .optional();
     }
 
-    /** "FOR UPDATE OF v": chỉ khóa dòng vehicles (Đặc tả API mục 8), không khóa dòng sinh viên/người dùng. */
+    /** Khóa xe và chủ xe để tuần tự hóa việc xác nhận vào bãi cho hai xe cùng chủ. */
     @Override
     public Optional<VehicleOwner> lockByPlate(PlateNumber plate) {
-        return jdbc.sql(SELECT_OWNER + "WHERE v.active_plate = :plate FOR UPDATE OF v")
+        return jdbc.sql(SELECT_OWNER + "WHERE v.active_plate = :plate FOR UPDATE OF v, s")
                 .param("plate", plate.value())
                 .query(VehicleOwnerJdbcAdapter::map)
                 .optional();

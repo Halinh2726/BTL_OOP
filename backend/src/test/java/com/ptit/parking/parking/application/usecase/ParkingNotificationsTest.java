@@ -12,7 +12,7 @@ import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory.Vehic
 import com.ptit.parking.parking.domain.FeePolicy;
 import com.ptit.parking.parking.domain.FeeQuote;
 import com.ptit.parking.parking.domain.ParkingSession;
-import com.ptit.parking.parking.domain.TimeSlotFeePolicy;
+import com.ptit.parking.parking.domain.DurationFeePolicy;
 import com.ptit.parking.payment.application.IdempotencyGuard;
 import com.ptit.parking.payment.application.port.out.InMemoryPointTransactionRepository;
 import com.ptit.parking.payment.application.port.out.InMemoryWalletRepository;
@@ -22,9 +22,9 @@ import com.ptit.parking.shared.application.event.NotifiableEvent;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import com.ptit.parking.student.domain.PlateNumber;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -52,8 +52,8 @@ class ParkingNotificationsTest {
             return work.get();
         }
     };
-    private final FeePolicy standardFee = new TimeSlotFeePolicy(
-            List.of(new FeeRule(LocalTime.MIDNIGHT, 3_000), new FeeRule(LocalTime.of(18, 0), 5_000)), VN);
+    private final FeePolicy standardFee = new DurationFeePolicy(
+            List.of(new FeeRule(120, 3_000), new FeeRule(360, 5_000), new FeeRule(1440, 7_000)));
 
     @Test
     void xeVaoBai_phatThongBaoXeVao() {
@@ -72,7 +72,7 @@ class ParkingNotificationsTest {
         NotifiableEvent.Notice notice = ((VehicleCheckedIn) published.get(0)).notices().get(0);
         assertThat(notice.to()).isEqualTo(new NotifiableEvent.User(STUDENT));
         assertThat(notice.kind()).isEqualTo("XE_VAO");
-        assertThat(notice.title()).contains("29A-123.45");
+        assertThat(notice.title()).contains("29A1-2345");
     }
 
     @Test
@@ -88,13 +88,13 @@ class ParkingNotificationsTest {
 
         FeePolicy passFee = new FeePolicy() {
             @Override
-            public long feeAt(ZonedDateTime exitTime) { return standardFee.feeAt(exitTime); }
+            public long feeFor(Duration parkedFor) { return standardFee.feeFor(parkedFor); }
 
             @Override
             public long minimumFee() { return standardFee.minimumFee(); }
 
             @Override
-            public FeeQuote quote(long vehicleId, ZonedDateTime exitTime) {
+            public FeeQuote quote(long vehicleId, Instant enteredAt, ZonedDateTime exitTime) {
                 return FeeQuote.coveredByPass(LocalDate.of(2026, 10, 31));
             }
 

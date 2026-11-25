@@ -79,7 +79,7 @@ public class CheckOutUseCase {
         if (quote != null && quote.isFree()) {
             return freeExit(command, now, quote);
         }
-        return paidExit(command);
+        return paidExit(command, now);
     }
 
     private Result freeExit(Command command, Instant now, FeeQuote quote) {
@@ -106,7 +106,7 @@ public class CheckOutUseCase {
         });
     }
 
-    private Result paidExit(Command command) {
+    private Result paidExit(Command command, Instant now) {
         String requestHash = RequestFingerprint.of(TransactionType.THANH_TOAN, command.guardId(), command.sessionId());
 
         Execution<ParkingPayment> execution = idempotency.execute(command.idempotencyKey(), requestHash,
@@ -116,7 +116,6 @@ public class CheckOutUseCase {
                     if (!session.isOpen()) {
                         throw new DomainException(ErrorCode.SESSION_ALREADY_PAID);
                     }
-                    Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
                     ZonedDateTime nowZoned = now.atZone(clock.getZone());
                     if (feePolicy.isCheckoutLocked(nowZoned)) {
                         throw new DomainException(ErrorCode.CHECKOUT_CURFEW);

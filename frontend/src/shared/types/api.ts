@@ -46,7 +46,7 @@ export interface VehicleType {
 }
 
 export interface FeeRule {
-  startTime: string;
+  upToMinutes: number;
   feePoints: number;
 }
 
@@ -215,7 +215,7 @@ export interface TransactionQuery {
   before?: number;
 }
 
-export type CheckInReason = 'PLATE_NOT_FOUND' | 'SESSION_ALREADY_OPEN' | 'INSUFFICIENT_POINTS';
+export type CheckInReason = 'PLATE_NOT_FOUND' | 'SESSION_ALREADY_OPEN' | 'STUDENT_ALREADY_PARKED' | 'INSUFFICIENT_POINTS';
 
 /** GET /guard/check-in/preview — thông tin chủ xe null khi biển số chưa đăng ký. */
 export interface CheckInPreview {

@@ -10,7 +10,7 @@ import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory.Vehic
 import com.ptit.parking.parking.application.usecase.CheckOutUseCase.Command;
 import com.ptit.parking.parking.application.usecase.CheckOutUseCase.Result;
 import com.ptit.parking.parking.domain.ParkingSession;
-import com.ptit.parking.parking.domain.TimeSlotFeePolicy;
+import com.ptit.parking.parking.domain.DurationFeePolicy;
 import com.ptit.parking.payment.application.IdempotencyGuard;
 import com.ptit.parking.payment.application.port.out.InMemoryPointTransactionRepository;
 import com.ptit.parking.payment.application.port.out.InMemoryWalletRepository;
@@ -21,7 +21,6 @@ import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.student.domain.PlateNumber;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
@@ -78,14 +77,14 @@ class CheckOutConcurrencyTest {
 
     private final CheckOutUseCase checkOut = new CheckOutUseCase(sessions, vehicles,
             new PayParkingFeeUseCase(wallets, () -> receiverWallet), new IdempotencyGuard(ledger, transactions),
-            new TimeSlotFeePolicy(List.of(new FeeRule(LocalTime.MIDNIGHT, 3000), new FeeRule(LocalTime.of(18, 0), 5000)), VN),
+            new DurationFeePolicy(List.of(new FeeRule(120, 3000), new FeeRule(360, 5000), new FeeRule(1440, 7000))),
             wallets, transactions, EventPublisher.NONE, Clock.fixed(AT_18_30, VN));
 
     private final long sessionId;
 
     CheckOutConcurrencyTest() {
         vehicles.add(OWNER);
-        sessionId = sessions.markOpen(OWNER.vehicleId(), AT_18_30.minusSeconds(3600)).id();
+        sessionId = sessions.markOpen(OWNER.vehicleId(), AT_18_30.minusSeconds(3 * 3600)).id();
     }
 
     @Test

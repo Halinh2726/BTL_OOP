@@ -1,5 +1,6 @@
 package com.ptit.parking.parking.domain;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -30,8 +31,8 @@ public final class OvernightAwareFeePolicy implements FeePolicy {
     }
 
     @Override
-    public long feeAt(ZonedDateTime exitTime) {
-        return inner.feeAt(exitTime);
+    public long feeFor(Duration parkedFor) {
+        return inner.feeFor(parkedFor);
     }
 
     @Override
@@ -40,18 +41,18 @@ public final class OvernightAwareFeePolicy implements FeePolicy {
     }
 
     @Override
-    public FeeQuote quote(long vehicleId, ZonedDateTime exitTime) {
-        return inner.quote(vehicleId, exitTime);
+    public FeeQuote quote(long vehicleId, Instant enteredAt, ZonedDateTime exitTime) {
+        return inner.quote(vehicleId, enteredAt, exitTime);
     }
 
     @Override
     public FeeQuote quoteSession(long vehicleId, Instant enteredAt, ZonedDateTime exitTime) {
-        FeeQuote regular = inner.quote(vehicleId, exitTime);
+        FeeQuote regular = inner.quoteSession(vehicleId, enteredAt, exitTime);
         if (regular.isFree()) {
             return regular;
         }
         ParkingPolicyConfig cfg = configSupplier.get();
-        if (enteredAt != null && cfg.isOvernight(enteredAt, exitTime, zone)) {
+        if (cfg.isOvernight(enteredAt, exitTime, zone)) {
             return FeeQuote.overnightCharge(cfg.overnightFeePoints());
         }
         return regular;

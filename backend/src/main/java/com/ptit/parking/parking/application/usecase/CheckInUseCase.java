@@ -18,7 +18,7 @@ import com.ptit.parking.student.domain.PlateNumber;
 
 /**
  * BV01 (Đặc tả API #13) — bảo vệ xác nhận cho xe vào. Một transaction:
- * khóa dòng xe → chưa có lượt đang mở (R05) → ví đủ mức phí thấp nhất (R04, CHỈ kiểm tra, KHÔNG trừ)
+ * khóa xe và sinh viên → sinh viên chưa có lượt đang mở → ví đủ mức phí thấp nhất (R04, CHỈ kiểm tra, KHÔNG trừ)
  * → tạo lượt DANG_GUI, bảo vệ cho vào là người đang đăng nhập.
  * <p>Kiểm tra LẠI từ đầu, không tin kết quả preview: giữa lúc tra cứu và lúc bấm xác nhận dữ liệu có thể đã đổi.
  */
@@ -57,11 +57,14 @@ public class CheckInUseCase {
                 .orElseThrow(() -> new DomainException(ErrorCode.VALIDATION_ERROR));
 
         return transactions.inTransaction(() -> {
-            // Khóa dòng xe: hai bảo vệ bấm xác nhận cùng một xe thì người sau chờ, rồi thấy lượt người trước vừa tạo
+            // Khóa chung theo sinh viên ngay cả khi hai bảo vệ xác nhận hai xe khác nhau.
             VehicleOwner vehicle = vehicles.lockByPlate(plate)
                     .orElseThrow(() -> new DomainException(ErrorCode.PLATE_NOT_FOUND));
             if (sessions.hasOpenSession(vehicle.vehicleId())) {
                 throw new DomainException(ErrorCode.SESSION_ALREADY_OPEN);                 // R05
+            }
+            if (sessions.hasOpenSessionForStudent(vehicle.studentUserId())) {
+                throw new DomainException(ErrorCode.STUDENT_ALREADY_PARKED);
             }
             Wallet wallet = wallets.findByUserId(vehicle.studentUserId()).orElseThrow();
             // R04; Đợt 5: xe có vé tháng thì mức tối thiểu là 0

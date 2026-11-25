@@ -38,6 +38,7 @@ public enum ErrorCode {
     STUDENT_CODE_EXISTS(409, "MSSV đã tồn tại"),
     USERNAME_EXISTS(409, "Tên đăng nhập đã tồn tại"),
     PLATE_EXISTS(409, "Biển số đã được đăng ký"),
+    STUDENT_ALREADY_PARKED(409, "Sinh viên đã có xe đang gửi. Hãy lấy xe đó ra trước khi cho xe khác vào."),
     SESSION_ALREADY_OPEN(409, "Xe đang có lượt gửi chưa kết thúc. Không cho xe vào."),
     SESSION_ALREADY_PAID(409, "Lượt gửi này đã được thanh toán. Không trừ điểm lần hai."),
     CONCURRENT_UPDATE(409, "Hệ thống đang bận. Vui lòng thử lại."),

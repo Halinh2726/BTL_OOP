@@ -199,6 +199,7 @@ export const GUARD_STATUS_LABELS: Record<GuardStatus, string> = {
 export const REASON_LABELS: Record<string, string> = {
   PLATE_NOT_FOUND: 'Biển số chưa được đăng ký',
   SESSION_ALREADY_OPEN: 'Xe đang có lượt gửi chưa kết thúc',
+  STUDENT_ALREADY_PARKED: 'Sinh viên đã có xe đang gửi. Hãy lấy xe đó ra trước',
   NO_OPEN_SESSION: 'Xe không có lượt gửi đang mở',
   INSUFFICIENT_POINTS: 'Không đủ điểm',
   CHECKOUT_CURFEW: 'Đã quá giờ khóa lấy xe trong ngày (từ 22:00)',

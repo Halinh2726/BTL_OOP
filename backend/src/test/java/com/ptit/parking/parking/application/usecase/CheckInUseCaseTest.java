@@ -2,7 +2,6 @@ package com.ptit.parking.parking.application.usecase;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,7 +20,7 @@ import com.ptit.parking.parking.application.port.out.VehicleOwnerDirectory.Vehic
 import com.ptit.parking.parking.application.usecase.CheckInUseCase.Command;
 import com.ptit.parking.parking.application.usecase.CheckInUseCase.Result;
 import com.ptit.parking.parking.domain.ParkingSession;
-import com.ptit.parking.parking.domain.TimeSlotFeePolicy;
+import com.ptit.parking.parking.domain.DurationFeePolicy;
 import com.ptit.parking.payment.application.port.out.InMemoryWalletRepository;
 import com.ptit.parking.payment.domain.Wallet;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
@@ -59,8 +58,8 @@ class CheckInUseCaseTest {
         }
     };
     private final InMemoryWalletRepository wallets = new InMemoryWalletRepository();
-    private final TimeSlotFeePolicy feePolicy = new TimeSlotFeePolicy(List.of(
-            new FeeRule(LocalTime.MIDNIGHT, 3000), new FeeRule(LocalTime.of(18, 0), 5000)), VN);
+    private final DurationFeePolicy feePolicy = new DurationFeePolicy(List.of(
+            new FeeRule(120, 3000), new FeeRule(360, 5000), new FeeRule(1440, 7000)));
     private final TransactionRunner transactions = new TransactionRunner() {
         @Override
         public <T> T inTransaction(Supplier<T> work) {
@@ -78,6 +77,7 @@ class CheckInUseCaseTest {
 
     CheckInUseCaseTest() {
         vehicles.add(OWNER);
+        sessions.assignVehicle(VEHICLE, STUDENT);
     }
 
     @Test
@@ -123,6 +123,24 @@ class CheckInUseCaseTest {
 
         assertError(() -> checkIn.checkIn(new Command(GUARD, "29A12345")), ErrorCode.SESSION_ALREADY_OPEN);
         assertThat(sessions.all()).hasSize(1);
+    }
+
+    @Test
+    void xeThuHaiCungSinhVien_chiVaoDuocSauKhiXeDauRa() {
+        VehicleOwner second = new VehicleOwner(101L, new PlateNumber("29BA198765"), "XE_MAY",
+                STUDENT, OWNER.studentCode(), OWNER.fullName());
+        vehicles.add(second);
+        sessions.assignVehicle(second.vehicleId(), STUDENT);
+        wallets.insert(new Wallet(null, STUDENT, 10_000));
+
+        ParkingSession first = checkIn.checkIn(new Command(GUARD, OWNER.plate().value())).session();
+        Command secondEntry = new Command(GUARD, second.plate().value());
+        assertError(() -> checkIn.checkIn(secondEntry), ErrorCode.STUDENT_ALREADY_PARKED);
+        assertThat(sessions.all()).hasSize(1);
+
+        first.close(GUARD, NOW);
+        sessions.saveExit(first);
+        assertThat(checkIn.checkIn(secondEntry).session().vehicleId()).isEqualTo(second.vehicleId());
     }
 
     @Test

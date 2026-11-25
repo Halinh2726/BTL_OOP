@@ -67,12 +67,14 @@ public class PreviewCheckInUseCase {
         // Đợt 5: xe có vé tháng thì không cần điểm tối thiểu
         ZonedDateTime now = ZonedDateTime.now(clock);
         long required = feePolicy.minimumFeeFor(owner.vehicleId(), now);
-        LocalDate passUntil = feePolicy.quote(owner.vehicleId(), now).passValidUntil();
+        LocalDate passUntil = feePolicy.quote(owner.vehicleId(), now.toInstant(), now).passValidUntil();
 
         // Cùng thứ tự kiểm tra với lúc xác nhận (API #13): lượt đang mở trước, rồi tới số điểm
         ErrorCode reason = null;
         if (sessions.hasOpenSession(owner.vehicleId())) {
             reason = ErrorCode.SESSION_ALREADY_OPEN;                         // R05
+        } else if (sessions.hasOpenSessionForStudent(owner.studentUserId())) {
+            reason = ErrorCode.STUDENT_ALREADY_PARKED;
         } else if (!wallet.hasAtLeast(required)) {
             reason = ErrorCode.INSUFFICIENT_POINTS;                          // R04: chỉ kiểm tra, không trừ
         }

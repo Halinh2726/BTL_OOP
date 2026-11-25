@@ -3,6 +3,7 @@ package com.ptit.parking.parking.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.ptit.parking.catalog.domain.FeeRule;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -15,9 +16,8 @@ class OvernightAwareFeePolicyTest {
 
     private static final ZoneId VN = ZoneId.of("Asia/Ho_Chi_Minh");
 
-    private final TimeSlotFeePolicy base = new TimeSlotFeePolicy(List.of(
-            new FeeRule(LocalTime.MIDNIGHT, 3_000),
-            new FeeRule(LocalTime.of(18, 0), 5_000)), VN);
+    private final DurationFeePolicy base = new DurationFeePolicy(List.of(
+            new FeeRule(120, 3_000), new FeeRule(360, 5_000), new FeeRule(1440, 7_000)));
 
     @Test
     void khoaLayXeTu20h_vaChoPhepTruoc20h() {
@@ -44,7 +44,7 @@ class OvernightAwareFeePolicyTest {
     void guiTrongNgay_tinhTheoBangPhiThuong() {
         OvernightAwareFeePolicy policy = new OvernightAwareFeePolicy(base, () -> ParkingPolicyConfig.DEFAULT, VN);
 
-        Instant entered = ZonedDateTime.of(2026, 11, 22, 8, 0, 0, 0, VN).toInstant();
+        Instant entered = ZonedDateTime.of(2026, 11, 22, 15, 30, 0, 0, VN).toInstant();
         ZonedDateTime exitBefore18 = ZonedDateTime.of(2026, 11, 22, 17, 30, 0, 0, VN);
         ZonedDateTime exitAfter18 = ZonedDateTime.of(2026, 11, 22, 18, 30, 0, 0, VN);
 
@@ -74,11 +74,11 @@ class OvernightAwareFeePolicyTest {
     void xeCoVeThang_vanMienPhiDuQuaDem() {
         FeePolicy passFree = new FeePolicy() {
             @Override
-            public long feeAt(ZonedDateTime exitTime) { return 5_000; }
+            public long feeFor(Duration parkedFor) { return 5_000; }
             @Override
             public long minimumFee() { return 3_000; }
             @Override
-            public FeeQuote quote(long vehicleId, ZonedDateTime exitTime) {
+            public FeeQuote quote(long vehicleId, Instant enteredAt, ZonedDateTime exitTime) {
                 return FeeQuote.coveredByPass(LocalDate.of(2026, 11, 30));
             }
         };

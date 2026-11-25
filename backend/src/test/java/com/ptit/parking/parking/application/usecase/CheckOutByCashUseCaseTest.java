@@ -14,13 +14,14 @@ import com.ptit.parking.parking.domain.GateCashCollection;
 import com.ptit.parking.parking.domain.OvernightAwareFeePolicy;
 import com.ptit.parking.parking.domain.ParkingPolicyConfig;
 import com.ptit.parking.parking.domain.ParkingSession;
-import com.ptit.parking.parking.domain.TimeSlotFeePolicy;
+import com.ptit.parking.parking.domain.DurationFeePolicy;
 import com.ptit.parking.payment.domain.ExchangeRate;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
 import com.ptit.parking.student.domain.PlateNumber;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -51,9 +52,8 @@ class CheckOutByCashUseCaseTest {
         @Override
         public <T> T inTransaction(Supplier<T> work) { return work.get(); }
     };
-    private final TimeSlotFeePolicy basePolicy = new TimeSlotFeePolicy(List.of(
-            new FeeRule(LocalTime.MIDNIGHT, 3_000),
-            new FeeRule(LocalTime.of(18, 0), 5_000)), VN);
+    private final DurationFeePolicy basePolicy = new DurationFeePolicy(List.of(
+            new FeeRule(120, 3_000), new FeeRule(360, 5_000), new FeeRule(1440, 7_000)));
     private ParkingPolicyConfig policyConfig = ParkingPolicyConfig.DEFAULT;
     private final OvernightAwareFeePolicy feePolicy = new OvernightAwareFeePolicy(basePolicy, () -> policyConfig, VN);
 
@@ -77,7 +77,7 @@ class CheckOutByCashUseCaseTest {
         var result = at(exit).checkOutByCash(new Command(GUARD, key, open.id()));
 
         assertThat(result.replayed()).isFalse();
-        assertThat(result.collection().amount()).isEqualTo(5_000);
+        assertThat(result.collection().amount()).isEqualTo(7_000);
         assertThat(result.collection().overnight()).isFalse();
         assertThat(result.collection().shiftId()).isEqualTo(SHIFT);
         assertThat(sessions.findById(open.id()).orElseThrow().isOpen()).isFalse();
@@ -112,12 +112,12 @@ class CheckOutByCashUseCaseTest {
     }
 
     @Test
-    void qua20h_chanThuTienMatVaGiuLuotDangGui() {
+    void qua22h_chanThuTienMatVaGiuLuotDangGui() {
         Instant entered = ZonedDateTime.of(2026, 11, 22, 8, 0, 0, 0, VN).toInstant();
-        Instant at2015 = ZonedDateTime.of(2026, 11, 22, 20, 15, 0, 0, VN).toInstant();
+        Instant at2215 = ZonedDateTime.of(2026, 11, 22, 22, 15, 0, 0, VN).toInstant();
         ParkingSession open = sessions.markOpen(VEHICLE, entered);
 
-        assertThatThrownBy(() -> at(at2015).checkOutByCash(new Command(GUARD, UUID.randomUUID(), open.id())))
+        assertThatThrownBy(() -> at(at2215).checkOutByCash(new Command(GUARD, UUID.randomUUID(), open.id())))
                 .isInstanceOf(DomainException.class)
                 .extracting(e -> ((DomainException) e).errorCode())
                 .isEqualTo(ErrorCode.CHECKOUT_CURFEW);
@@ -131,9 +131,9 @@ class CheckOutByCashUseCaseTest {
         Instant exit = ZonedDateTime.of(2026, 11, 22, 17, 0, 0, 0, VN).toInstant();
         ParkingSession open = sessions.markOpen(VEHICLE, entered);
         var freePolicy = new com.ptit.parking.parking.domain.FeePolicy() {
-            @Override public long feeAt(ZonedDateTime exitTime) { return 3_000; }
+            @Override public long feeFor(Duration parkedFor) { return 3_000; }
             @Override public long minimumFee() { return 3_000; }
-            @Override public FeeQuote quote(long vehicleId, ZonedDateTime exitTime) {
+            @Override public FeeQuote quote(long vehicleId, Instant enteredAt, ZonedDateTime exitTime) {
                 return FeeQuote.coveredByPass(LocalDate.of(2026, 11, 30));
             }
         };

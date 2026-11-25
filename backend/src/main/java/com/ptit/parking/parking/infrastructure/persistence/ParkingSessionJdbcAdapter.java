@@ -44,6 +44,20 @@ class ParkingSessionJdbcAdapter implements ParkingSessionRepository {
     }
 
     @Override
+    public boolean hasOpenSessionForStudent(long studentUserId) {
+        return jdbc.sql("""
+                SELECT EXISTS (
+                    SELECT 1 FROM vehicles v
+                    JOIN parking_sessions ps ON ps.open_vehicle_id = v.id
+                    WHERE v.student_id = :studentUserId
+                )
+                """)
+                .param("studentUserId", studentUserId)
+                .query(Boolean.class)
+                .single();
+    }
+
+    @Override
     public Optional<ParkingSession> findOpenByVehicle(long vehicleId) {
         return jdbc.sql(SELECT + "WHERE open_vehicle_id = :vehicleId")
                 .param("vehicleId", vehicleId)

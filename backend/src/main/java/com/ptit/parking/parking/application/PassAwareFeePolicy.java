@@ -3,19 +3,15 @@ package com.ptit.parking.parking.application;
 import com.ptit.parking.parking.application.port.out.PassCoverage;
 import com.ptit.parking.parking.domain.FeePolicy;
 import com.ptit.parking.parking.domain.FeeQuote;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Objects;
 import java.util.Optional;
 
-/**
- * Đợt 5 — vé tháng theo mẫu <b>Decorator</b>: BỌC một {@link FeePolicy} có sẵn. Xe có vé tháng còn hiệu lực
- * (theo ngày giờ Việt Nam) thì miễn phí; không có thì hỏi tiếp chính sách bên trong. Bên trong là gì cũng được
- * (bảng giá theo giờ, hay chính sách khác sau này) — lớp này không phụ thuộc vào cách tính cụ thể.
- * <p>Xe vào hay xe ra đều chỉ thấy interface {@link FeePolicy}: thêm vé tháng KHÔNG sửa logic xe vào / xe ra, chỉ
- * đổi chỗ nối dây trong ParkingUseCaseConfig.
- */
+/** Vé tháng miễn phí gửi xe theo ngày Việt Nam và dùng bảng giá cho các xe trả theo lượt. */
 public final class PassAwareFeePolicy implements FeePolicy {
 
     private final FeePolicy inner;
@@ -29,8 +25,8 @@ public final class PassAwareFeePolicy implements FeePolicy {
     }
 
     @Override
-    public long feeAt(ZonedDateTime exitTime) {
-        return inner.feeAt(exitTime);
+    public long feeFor(Duration parkedFor) {
+        return inner.feeFor(parkedFor);
     }
 
     @Override
@@ -39,9 +35,9 @@ public final class PassAwareFeePolicy implements FeePolicy {
     }
 
     @Override
-    public FeeQuote quote(long vehicleId, ZonedDateTime exitTime) {
+    public FeeQuote quote(long vehicleId, Instant enteredAt, ZonedDateTime exitTime) {
         return coverage(vehicleId, exitTime).map(FeeQuote::coveredByPass)
-                .orElseGet(() -> inner.quote(vehicleId, exitTime));
+                .orElseGet(() -> inner.quote(vehicleId, enteredAt, exitTime));
     }
 
     /** Có vé tháng thì không cần điểm để vào (R04 chỉ áp dụng cho xe trả theo lượt). */

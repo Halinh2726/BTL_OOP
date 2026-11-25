@@ -3,7 +3,6 @@ package com.ptit.parking.catalog.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.time.LocalTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -11,18 +10,18 @@ class FeeRuleTest {
 
     @Test
     void phiPhaiLonHon0() {
-        assertThatThrownBy(() -> new FeeRule(LocalTime.of(18, 0), 0))
+        assertThatThrownBy(() -> new FeeRule(360, 0))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new FeeRule(LocalTime.of(18, 0), -5000))
+        assertThatThrownBy(() -> new FeeRule(360, -5000))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void thuTuTuNhien_theoGioBatDau() {
-        FeeRule toi = new FeeRule(LocalTime.of(18, 0), 5000);
-        FeeRule ngay = new FeeRule(LocalTime.MIDNIGHT, 3000);
+        FeeRule sauGio = new FeeRule(360, 5000);
+        FeeRule haiGio = new FeeRule(120, 3000);
 
-        assertThat(List.of(toi, ngay).stream().sorted().toList()).containsExactly(ngay, toi);
+        assertThat(List.of(sauGio, haiGio).stream().sorted().toList()).containsExactly(haiGio, sauGio);
     }
 
     @Test

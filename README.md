@@ -28,7 +28,17 @@ Việc thu phí gửi xe bằng tiền mặt có thể gây bất tiện trong k
 | **Quản lý** | Đổi tiền mặt sang điểm, xử lý rút điểm, tạo và khóa/mở khóa tài khoản bảo vệ. |
 | **Chủ tài khoản** | Theo dõi số điểm nhận từ phí gửi xe, xem lịch sử giao dịch và yêu cầu rút điểm. |
 
-**Quy tắc demo hiện tại:** 1 đồng = 1 điểm; phí gửi xe là **3.000 điểm** nếu xe ra trước 18:00 và **5.000 điểm** nếu xe ra từ 18:00 (giờ Việt Nam). Các mức phí và tỷ lệ quy đổi được quản lý trong dữ liệu cấu hình của hệ thống.
+**Biểu phí gửi xe theo thời lượng** (1 đồng = 1 điểm)
+
+| Thời lượng gửi trong ngày | Phí |
+| --- | ---: |
+| Đến 2 giờ | 3.000 điểm |
+| Trên 2 giờ đến 6 giờ | 5.000 điểm |
+| Trên 6 giờ đến 24 giờ | 7.000 điểm |
+
+Thời lượng tính từ lúc bảo vệ xác nhận xe vào đến lúc xác nhận xe ra. Lượt lấy xe từ ngày hôm sau áp dụng giá qua đêm theo cấu hình thay cho giá trong ngày. Xe có vé tháng còn hiệu lực tại thời điểm ra được miễn phí. Bảng phí trong ngày được cấu hình trong `duration_fee_rules`.
+
+Sinh viên có thể đăng ký nhiều xe và chỉ có một xe đang gửi tại một thời điểm. Bảo vệ cần cho xe đang gửi ra trước khi xác nhận xe khác của cùng sinh viên vào.
 
 ## 2. Mục tiêu của dự án
 
@@ -45,7 +55,7 @@ Việc thu phí gửi xe bằng tiền mặt có thể gây bất tiện trong k
 | **Đóng gói (Encapsulation)** | `Wallet` quản lý số dư và thay đổi số dư thông qua các phương thức nghiệp vụ như `credit()` và `debit()`. |
 | **Kế thừa (Inheritance)** | Lớp trừu tượng `User` được chuyên biệt hóa thành `Student`, `Guard`, `Manager`, `Owner`. |
 | **Đa hình (Polymorphism)** | Các loại giao dịch `CashDeposit`, `ParkingPayment`, `CashWithdrawal` được biểu diễn thông qua kiểu cơ sở `PointTransaction`. |
-| **Trừu tượng hóa (Abstraction)** | `FeePolicy` quy định giao diện tính phí, còn `TimeSlotFeePolicy` triển khai cách tính phí theo khung giờ; các `port` che giấu chi tiết lưu trữ. |
+| **Trừu tượng hóa (Abstraction)** | `FeePolicy` quy định giao diện tính phí, còn `DurationFeePolicy` triển khai cách tính phí theo thời lượng gửi; các `port` che giấu chi tiết lưu trữ. |
 
 ## 3. Kiến trúc hệ thống
 

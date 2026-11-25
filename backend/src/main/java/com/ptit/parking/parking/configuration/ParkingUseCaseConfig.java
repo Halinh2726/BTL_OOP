@@ -20,7 +20,7 @@ import com.ptit.parking.parking.application.usecase.PreviewCheckOutUseCase;
 import com.ptit.parking.parking.application.usecase.SuggestPlatesUseCase;
 import com.ptit.parking.parking.domain.FeePolicy;
 import com.ptit.parking.parking.domain.OvernightAwareFeePolicy;
-import com.ptit.parking.parking.domain.TimeSlotFeePolicy;
+import com.ptit.parking.parking.domain.DurationFeePolicy;
 import com.ptit.parking.payment.application.IdempotencyGuard;
 import com.ptit.parking.payment.application.port.out.PointTransactionRepository;
 import com.ptit.parking.payment.application.port.out.ReceivingWalletProvider;
@@ -35,7 +35,7 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * Composition Root của module parking. Nối chuỗi Decorator cho {@link FeePolicy}:
- * {@code OvernightAwareFeePolicy(PassAwareFeePolicy(TimeSlotFeePolicy))}.
+ * {@code OvernightAwareFeePolicy(PassAwareFeePolicy(DurationFeePolicy))}.
  */
 @Configuration
 public class ParkingUseCaseConfig {
@@ -44,7 +44,7 @@ public class ParkingUseCaseConfig {
     FeePolicy feePolicy(FeeRuleRepository feeRules, PassCoverage passes,
                         ParkingPolicyRepository policyRepository, Clock clock) {
         FeePolicy regular = new PassAwareFeePolicy(
-                new TimeSlotFeePolicy(feeRules.allFeeRules(), clock.getZone()), passes, clock.getZone());
+                new DurationFeePolicy(feeRules.allFeeRules()), passes, clock.getZone());
         return new OvernightAwareFeePolicy(regular, policyRepository::current, clock.getZone());
     }
 

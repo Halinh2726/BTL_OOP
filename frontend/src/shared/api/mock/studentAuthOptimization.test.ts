@@ -84,12 +84,11 @@ describe('Tối ưu sinh viên & xác thực (mock)', () => {
     expect((await api.notifications()).items[0]?.kind).toBe('XE_VAO');
 
     await as('quanly01');
-    await api.deposit({ studentCode: 'B21DCCN002', cashAmount: 6_000 }, 'dep-sv02'); // sv02 có 2.000 -> 8.000
+    await api.deposit({ studentCode: 'B21DCCN002', cashAmount: 17_000 }, 'dep-sv02'); // sv02 có 2.000 -> 19.000
     await as('baove01');
     const sv02Session = (await api.previewCheckOut('29T67021')).sessionId ?? 0;
     const res = await api.checkOut(sv02Session, 'out-sv02-early');
-    // nếu ban ngày 3.000 -> còn 5.000 (< 6.000), nếu ban đêm 5.000 -> còn 3.000 (< 6.000)
-    expect(res.data.balanceAfter).toBeLessThan(6_000);
+    expect(res.data.balanceAfter).toBe(4_000); // 19.000 - 15.000 phí qua đêm
 
     await as('sv02');
     const inbox = await api.notifications();

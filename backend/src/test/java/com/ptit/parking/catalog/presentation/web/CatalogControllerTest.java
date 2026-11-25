@@ -1,6 +1,5 @@
 package com.ptit.parking.catalog.presentation.web;
 
-import java.time.LocalTime;
 import java.util.List;
 
 import static org.hamcrest.Matchers.aMapWithSize;
@@ -51,13 +50,13 @@ class CatalogControllerTest {
     @Test
     void bangGia_gioDangHHmm() throws Exception {
         when(catalog.feeRules()).thenReturn(List.of(
-                new FeeRule(LocalTime.MIDNIGHT, 3000), new FeeRule(LocalTime.of(18, 0), 5000)));
+                new FeeRule(120, 3000), new FeeRule(360, 5000)));
 
         mvc.perform(get("/api/v1/fee-rules").with(authentication(guard())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].startTime").value("00:00"))
+                .andExpect(jsonPath("$[0].upToMinutes").value(120))
                 .andExpect(jsonPath("$[0].feePoints").value(3000))
-                .andExpect(jsonPath("$[1].startTime").value("18:00"))
+                .andExpect(jsonPath("$[1].upToMinutes").value(360))
                 .andExpect(jsonPath("$[1].feePoints").value(5000));
     }
 

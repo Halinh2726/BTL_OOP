@@ -9,6 +9,9 @@ public interface ParkingSessionRepository {
     /** R05: xe này đang có lượt gửi CHƯA ra (DANG_GUI) hay không. */
     boolean hasOpenSession(long vehicleId);
 
+    /** Kiểm tra còn lượt đang gửi của bất kỳ xe nào thuộc sinh viên. */
+    boolean hasOpenSessionForStudent(long studentUserId);
+
     
     /** Lượt DANG_GUI của xe (nếu có). Chỉ đọc, không khóa — dùng cho tra cứu khi xe ra. */
     Optional<ParkingSession> findOpenByVehicle(long vehicleId);

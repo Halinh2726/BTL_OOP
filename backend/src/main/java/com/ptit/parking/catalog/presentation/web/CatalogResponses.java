@@ -1,14 +1,11 @@
 package com.ptit.parking.catalog.presentation.web;
 
-import java.time.format.DateTimeFormatter;
-
 import com.ptit.parking.catalog.domain.FeeRule;
 import com.ptit.parking.catalog.domain.VehicleType;
 import com.ptit.parking.payment.domain.ExchangeRate;
 
 /**
- * Response của API danh mục #9, #10, #11 — đúng các trường của Đặc tả API.
- * Tách khỏi lớp domain: sửa domain không làm vỡ "hợp đồng" JSON mà giao diện đang dùng.
+ * Dữ liệu JSON của các API danh mục #9, #10, #11.
  */
 final class CatalogResponses {
 
@@ -22,12 +19,10 @@ final class CatalogResponses {
         }
     }
 
-    record FeeRuleResponse(String startTime, int feePoints) {
-
-        private static final DateTimeFormatter HH_MM = DateTimeFormatter.ofPattern("HH:mm");
+    record FeeRuleResponse(int upToMinutes, int feePoints) {
 
         static FeeRuleResponse from(FeeRule rule) {
-            return new FeeRuleResponse(rule.startTime().format(HH_MM), rule.feePoints());
+            return new FeeRuleResponse(rule.upToMinutes(), rule.feePoints());
         }
     }
 

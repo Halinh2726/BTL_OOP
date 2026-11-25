@@ -44,7 +44,6 @@ import {
   OWNER_ID,
   seedState,
   toVietnamIso,
-  vietnamClock,
   type MockAuditEntry,
   type MockIncident,
   type MockReconciliation,
@@ -63,6 +62,7 @@ import {
 /** Cùng mã lỗi, HTTP status và lời nhắn với ErrorCode của backend. */
 const ERRORS = {
   VALIDATION_ERROR: [400, 'Dữ liệu không hợp lệ.'],
+  INTERNAL_ERROR: [500, 'Có lỗi xảy ra. Vui lòng thử lại.'],
   IDEMPOTENCY_KEY_REQUIRED: [400, 'Thiếu khóa chống xử lý trùng.'],
   UNAUTHENTICATED: [401, 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'],
   INVALID_CREDENTIALS: [401, 'Sai tên đăng nhập hoặc mật khẩu'],
@@ -118,6 +118,7 @@ const ERRORS = {
   STUDENT_CODE_EXISTS: [409, 'MSSV đã tồn tại'],
   USERNAME_EXISTS: [409, 'Tên đăng nhập đã tồn tại'],
   PLATE_EXISTS: [409, 'Biển số đã được đăng ký'],
+  STUDENT_ALREADY_PARKED: [409, 'Sinh viên đã có xe đang gửi. Hãy lấy xe đó ra trước khi cho xe khác vào.'],
   SESSION_ALREADY_OPEN: [409, 'Xe đang có lượt gửi chưa kết thúc. Không cho xe vào.'],
   SESSION_ALREADY_PAID: [409, 'Lượt gửi này đã được thanh toán. Không trừ điểm lần hai.'],
   INSUFFICIENT_POINTS: [422, 'Không đủ điểm.'],
@@ -142,8 +143,9 @@ const VEHICLE_TYPES: VehicleType[] = [
   { code: 'XE_MAY_DIEN', name: 'Xe máy điện' },
 ];
 const FEE_RULES: FeeRule[] = [
-  { startTime: '00:00', feePoints: 3000 },
-  { startTime: '18:00', feePoints: 5000 },
+  { upToMinutes: 120, feePoints: 3000 },
+  { upToMinutes: 360, feePoints: 5000 },
+  { upToMinutes: 1440, feePoints: 7000 },
 ];
 const CASH_PER_POINT = 1;
 const MAX_AMOUNT = 10_000_000;
@@ -178,9 +180,22 @@ function normalizePlate(raw: string): string {
   return raw.replace(/[\s.-]/g, '').toUpperCase();
 }
 
-function feeAt(time: Date): number {
-  const clock = vietnamClock(time);
-  return FEE_RULES.filter((rule) => rule.startTime <= clock).reduce((_, rule) => rule.feePoints, FEE_RULES[0]?.feePoints ?? 0);
+function parkingDurationMs(enteredAt: string, exitedAt: string): number {
+  const elapsed = Date.parse(exitedAt) - Date.parse(enteredAt);
+  if (!Number.isFinite(elapsed) || elapsed < 0) fail('INTERNAL_ERROR');
+  return elapsed;
+}
+
+function feeForStay(elapsed: number): number {
+  const minuteMs = 60_000;
+  const dayRule = FEE_RULES.at(-1)!;
+  const dayMs = dayRule.upToMinutes * minuteMs;
+  const fullDays = Math.floor(elapsed / dayMs);
+  const remainder = elapsed % dayMs;
+  const fullDayPoints = fullDays * dayRule.feePoints;
+  if (fullDays > 0 && remainder === 0) return fullDayPoints;
+  const rule = FEE_RULES.find((tier) => remainder <= tier.upToMinutes * minuteMs) ?? dayRule;
+  return fullDayPoints + rule.feePoints;
 }
 
 const MIN_FEE = Math.min(...FEE_RULES.map((rule) => rule.feePoints));
@@ -826,6 +841,20 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
     return vehicle && owner ? { vehicle, owner } : null;
   }
 
+  function studentHasParkedVehicle(studentId: number): boolean {
+    return state.vehicles.some((vehicle) => vehicle.userId === studentId && openSessionOf(vehicle.id));
+  }
+
+  function quoteSession(session: { enteredAt: string; vehicleId: number }, now: Date) {
+    const exitedAt = toVietnamIso(now);
+    const elapsed = parkingDurationMs(session.enteredAt, exitedAt);
+    const passValidUntil = passUntil(session.vehicleId, now);
+    const overnight = !passValidUntil && exitedAt.slice(0, 10) > session.enteredAt.slice(0, 10);
+    const fee = passValidUntil ? 0 : overnight ? mockPolicy.overnightFeePoints : feeForStay(elapsed);
+    const checkoutLocked = mockPolicy.curfewEnabled && exitedAt.slice(11, 16) >= mockPolicy.checkoutCurfewTime;
+    return { exitedAt, passValidUntil, overnight, fee, checkoutLocked };
+  }
+
   function openSessionOf(vehicleId: number) {
     return state.sessions.find((session) => session.vehicleId === vehicleId && session.exitedAt === null);
   }
@@ -1015,6 +1044,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         const required = passValidUntil ? 0 : MIN_FEE;                     // Đợt 5: có vé tháng thì không cần điểm
         const reason = openSessionOf(found.vehicle.id)
           ? ('SESSION_ALREADY_OPEN' as const)
+          : studentHasParkedVehicle(found.owner.id) ? ('STUDENT_ALREADY_PARKED' as const)
           : balance < required ? ('INSUFFICIENT_POINTS' as const) : null;
         return {
           plateNumber: plate, vehicleTypeCode: found.vehicle.vehicleTypeCode,
@@ -1031,6 +1061,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         const found = findOwnerByPlate(plate);
         if (!found) return fail('PLATE_NOT_FOUND');
         if (openSessionOf(found.vehicle.id)) fail('SESSION_ALREADY_OPEN');
+        if (studentHasParkedVehicle(found.owner.id)) fail('STUDENT_ALREADY_PARKED');
         if (!passUntil(found.vehicle.id, new Date()) && balanceOf(found.owner.id) < MIN_FEE) fail('INSUFFICIENT_POINTS');
         const guard = currentUser();
         const hasPass = Boolean(passUntil(found.vehicle.id, new Date()));
@@ -1073,9 +1104,9 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
             reason: 'NO_OPEN_SESSION' as const,
           };
         }
-        const passValidUntil = passUntil(found.vehicle.id, new Date());
-        const fee = passValidUntil ? 0 : feeAt(new Date());
-        const reason = balance < fee ? ('INSUFFICIENT_POINTS' as const) : null;
+        const { passValidUntil, fee, overnight, checkoutLocked } = quoteSession(session, new Date());
+        const reason = checkoutLocked ? ('CHECKOUT_CURFEW' as const)
+          : balance < fee ? ('INSUFFICIENT_POINTS' as const) : null;
         const vietQrOrder =
           reason === 'INSUFFICIENT_POINTS'
             ? buildVietQrOrderFor(session.id, plate, found.owner.studentCode ?? '', found.owner.fullName, fee)
@@ -1083,7 +1114,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         return {
           ...owner, sessionId: session.id, enteredAt: session.enteredAt, balance, fee, allowed: reason === null, reason,
           passValidUntil,
-          overnight: false,
+          overnight,
           curfewTime: mockPolicy.curfewEnabled ? mockPolicy.checkoutCurfewTime : null,
           vietQrOrder,
         };
@@ -1099,10 +1130,11 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           const vehicle = state.vehicles.find((candidate) => candidate.id === session.vehicleId);
           if (!vehicle) return fail('NO_OPEN_SESSION');
           const now = new Date();
-          const passValidUntil = passUntil(vehicle.id, now);
+          const { exitedAt, passValidUntil, fee, checkoutLocked } = quoteSession(session, now);
+          if (checkoutLocked) fail('CHECKOUT_CURFEW');
           if (passValidUntil) {
             // Đợt 5: vé tháng -> chỉ đóng lượt, không ghi giao dịch
-            session.exitedAt = toVietnamIso(now);
+            session.exitedAt = exitedAt;
             session.exitGuardId = guard.id;
             notify(vehicle.userId, 'XE_RA', `Xe ${displayPlate(vehicle.plateNumber)} vừa ra bãi (vé tháng)`,
               `Lượt gửi miễn phí bằng vé tháng (hiệu lực đến ${passValidUntil.split('-').reverse().join('/')}).`);
@@ -1111,9 +1143,8 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
               passValidUntil,
             };
           }
-          const fee = feeAt(now);
           if (balanceOf(vehicle.userId) < fee) fail('INSUFFICIENT_POINTS');
-          session.exitedAt = toVietnamIso(now);
+          session.exitedAt = exitedAt;
           session.exitGuardId = guard.id;
           const transaction = record('THANH_TOAN', [[vehicle.userId, -fee], [OWNER_ID, fee]], now, {
             performedBy: guard.id, sessionId: session.id,
@@ -2395,10 +2426,10 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           const vehicle = state.vehicles.find((candidate) => candidate.id === session.vehicleId);
           if (!vehicle) return fail('NO_OPEN_SESSION');
           const now = new Date();
-          const fee = toVietnamIso(now).slice(0, 10) > session.enteredAt.slice(0, 10)
-            ? mockPolicy.overnightFeePoints
-            : feeAt(now);
-          session.exitedAt = toVietnamIso(now);
+          const { exitedAt, fee, checkoutLocked } = quoteSession(session, now);
+          if (checkoutLocked) fail('CHECKOUT_CURFEW');
+          if (fee === 0) fail('INVALID_AMOUNT');
+          session.exitedAt = exitedAt;
           session.exitGuardId = guard.id;
           // Bảo toàn điểm R12: nạp DOI_DIEM vào ví SV rồi thanh toán THANH_TOAN sang ví Chủ bãi
           record('DOI_DIEM', [[vehicle.userId, fee]], now, { performedBy: guard.id });
@@ -2428,9 +2459,10 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           const owner = vehicle ? state.users.find((u) => u.id === vehicle.userId) : undefined;
           if (!vehicle || !owner) return fail('NO_OPEN_SESSION');
           const now = new Date();
-          const overnight = toVietnamIso(now).slice(0, 10) > session.enteredAt.slice(0, 10);
-          const amount = overnight ? mockPolicy.overnightFeePoints : feeAt(now);
-          session.exitedAt = toVietnamIso(now);
+          const { exitedAt, fee: amount, overnight, checkoutLocked } = quoteSession(session, now);
+          if (checkoutLocked) fail('CHECKOUT_CURFEW');
+          if (amount === 0) fail('INVALID_AMOUNT');
+          session.exitedAt = exitedAt;
           session.exitGuardId = guard.id;
           const activeShift = (state.shifts ?? []).find((s) => s.guardId === guard.id && s.endedAt === null);
           const collectedAt = session.exitedAt;
