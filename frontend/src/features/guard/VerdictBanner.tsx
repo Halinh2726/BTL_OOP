@@ -27,7 +27,7 @@ export function VerdictBanner({ allowed, allowedText, reason, shortfall, curfewT
   if (reason === 'CHECKOUT_CURFEW') {
     return (
       <div className="rounded-xl bg-red-600 px-5 py-4 text-center text-white" role="alert">
-        <p className="text-2xl font-bold">✗ Đã khóa lấy xe từ {curfewTime ?? '20:00'}</p>
+        <p className="text-2xl font-bold">✗ Đã khóa lấy xe từ {curfewTime ?? '22:00'}</p>
         <p className="mt-1 text-base">
           Không cho lấy xe sau giờ quy định. Sinh viên quay lại lấy xe vào ngày hôm sau (áp dụng phí qua đêm).
         </p>

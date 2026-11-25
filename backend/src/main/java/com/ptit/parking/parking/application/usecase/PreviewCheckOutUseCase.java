@@ -21,7 +21,7 @@ import java.util.Optional;
 
 /**
  * BV02 bước 1–2 (Đặc tả API #14) — bảo vệ nhập biển số xe ra, xem lượt gửi đang mở, chủ xe (đối chiếu thẻ — R07),
- * số điểm, PHÍ TẠM TÍNH theo giờ hiện tại (hoặc phí qua đêm theo Mục 3.9), kiểm tra giờ khóa (từ 20:00)
+ * số điểm, PHÍ TẠM TÍNH theo giờ hiện tại (hoặc phí qua đêm theo Mục 3.9), kiểm tra giờ khóa (từ 22:00)
  * và sinh mã VietQR động nếu thiếu điểm. CHỈ ĐỌC: không khóa, không trừ điểm.
  */
 public class PreviewCheckOutUseCase {

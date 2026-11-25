@@ -61,7 +61,7 @@ export const checkOutFlow: GateFlow = {
     if (result.sessionId !== null) sessionByPlate.set(plate, result.sessionId);
     const detail =
       result.reason === 'CHECKOUT_CURFEW'
-        ? `Khóa lấy xe từ ${result.curfewTime ?? '20:00'}`
+        ? `Khóa lấy xe từ ${result.curfewTime ?? '22:00'}`
         : result.passValidUntil
           ? `Vé tháng đến ${formatDay(result.passValidUntil)} — miễn phí`
           : result.fee === null

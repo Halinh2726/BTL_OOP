@@ -9,7 +9,7 @@ import java.util.function.Supplier;
 /**
  * Decorator cho {@link FeePolicy} áp dụng quy tắc Mục 3.9:
  * <ul>
- *   <li>Khóa lấy xe từ mốc giờ cấu hình (mặc định 20:00 giờ Việt Nam).</li>
+ *   <li>Khóa lấy xe từ mốc giờ cấu hình (mặc định 22:00 giờ Việt Nam).</li>
  *   <li>Lượt còn mở qua ngày hôm sau tính mức phí qua đêm cố định (mặc định 15.000 điểm tổng cộng),
  *       không cộng dồn với phí thường theo ngày.</li>
  * </ul>
