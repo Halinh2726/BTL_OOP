@@ -1,5 +1,6 @@
 
 .env
+.parking-secrets/
 
 backend/target/
 !backend/.mvn/wrapper/maven-wrapper.jar

@@ -48,8 +48,9 @@ public class JsonSecurityErrorHandler implements AuthenticationEntryPoint, Acces
     public void handle(HttpServletRequest request, HttpServletResponse response, AccessDeniedException ex)
             throws IOException {
         if (ex instanceof CsrfException) {
-            // Chưa đăng nhập thì lỗi đúng hơn là 401 (thứ tự kiểm tra: phiên -> ... -> quyền, Đặc tả API mục 4)
-            writeError(response, isLoggedIn() ? ErrorCode.CSRF_INVALID : ErrorCode.UNAUTHENTICATED);
+            // Đăng ký OAuth dùng CSRF giữa lúc đã xác thực với nhà cung cấp và lúc có phiên ứng dụng.
+            boolean canRetry = isLoggedIn() || SecurityConfig.SOCIAL_REGISTER_URL.equals(request.getRequestURI());
+            writeError(response, canRetry ? ErrorCode.CSRF_INVALID : ErrorCode.UNAUTHENTICATED);
         } else {
             writeError(response, ErrorCode.FORBIDDEN);
         }

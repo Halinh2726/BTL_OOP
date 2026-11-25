@@ -39,7 +39,7 @@ import com.ptit.parking.shared.infrastructure.security.WebSecurityTestConfig;
  * HTTP, phiên, CSRF và định dạng lỗi — logic đăng nhập đã có LoginUseCaseTest.
  */
 @WebMvcTest(AuthController.class)
-@Import({WebSecurityTestConfig.class, SessionSignIn.class, LoginThrottle.class})
+@Import({WebSecurityTestConfig.class, SessionSignIn.class, LoginThrottle.class, SocialLoginSession.class})
 class AuthControllerTest {
 
     private static final AuthenticatedUser MANAGER = new AuthenticatedUser(

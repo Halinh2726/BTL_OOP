@@ -25,6 +25,8 @@ public class ConstraintErrorTranslator {
             Map.entry("uq_vehicles_plate", new ConstraintError(ErrorCode.PLATE_EXISTS, null)),
             Map.entry("uq_vehicles_active_plate", new ConstraintError(ErrorCode.PLATE_EXISTS, null)),
             Map.entry("uq_users_email", new ConstraintError(ErrorCode.EMAIL_EXISTS, null)),
+            Map.entry("uq_student_social_identity", new ConstraintError(ErrorCode.SOCIAL_ACCOUNT_EXISTS, null)),
+            Map.entry("uq_student_social_provider", new ConstraintError(ErrorCode.SOCIAL_ACCOUNT_EXISTS, null)),
             Map.entry("uq_guard_shifts_open", new ConstraintError(ErrorCode.SHIFT_ALREADY_OPEN, null)),
             Map.entry("uq_withdrawal_requests_transaction", new ConstraintError(ErrorCode.WITHDRAWAL_STATUS_CONFLICT, null)),
             Map.entry("uq_daily_reconciliations_date", new ConstraintError(ErrorCode.ALREADY_RECONCILED, null)),

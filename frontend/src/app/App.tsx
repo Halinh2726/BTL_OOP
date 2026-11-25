@@ -6,6 +6,7 @@ import { ForcedPasswordChangePage } from '../features/account/ForcedPasswordChan
 import { ForgotPasswordPage } from '../features/auth/ForgotPasswordPage';
 import { LoginPage } from '../features/auth/LoginPage';
 import { RegisterPage } from '../features/auth/RegisterPage';
+import { SocialRegisterPage } from '../features/auth/SocialRegisterPage';
 import { HOME_BY_ROLE, SessionProvider, useSession } from '../features/auth/session';
 import { GuardPage } from '../features/guard/GuardPage';
 import { ManagerPage } from '../features/manager/ManagerPage';
@@ -73,6 +74,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/register/social" element={<SocialRegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route
         path="/"

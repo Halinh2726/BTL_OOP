@@ -11,6 +11,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import com.ptit.parking.auth.application.usecase.LoginUseCase;
+import com.ptit.parking.auth.application.usecase.StudentSocialSignInUseCase;
+import com.ptit.parking.auth.domain.Role;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -31,6 +34,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.mock.web.MockHttpSession;
@@ -90,6 +94,51 @@ class ParkingFlowIntegrationTest {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    private StudentSocialSignInUseCase socialSignIn;
+
+    @Autowired
+    private LoginUseCase passwordLogin;
+
+    @Test
+    void socialRegistrationCreatesAStudentAndWalletAndRollsBackOnDuplicateIdentity() {
+        var student = socialSignIn.register("google", "google-test-subject", "SOCIAL001", "Sinh Viên OAuth",
+                "studentsocial01", "studentsocial01@gmail.com", PASSWORD);
+
+        assertThat(student.role()).isEqualTo(Role.SINH_VIEN);
+        assertThat(balanceOf(student.username())).isZero();
+        assertThat(socialSignIn.findLinkedUser("google", "google-test-subject")).contains(student);
+        assertThat(passwordLogin.login(student.username(), PASSWORD)).isEqualTo(student);
+        assertThatThrownBy(() -> socialSignIn.register("google", "google-test-subject", "SOCIAL002",
+                "Sinh Viên Trùng", "studentsocial02", null, null)).isInstanceOf(DuplicateKeyException.class);
+
+        assertThat(jdbc.sql("SELECT COUNT(*) FROM users WHERE username = 'studentsocial02'").query(Long.class).single())
+                .isZero();
+    }
+
+    @Test
+    void passwordGoogleAndMicrosoftResolveToTheSameAccountAfterLinking() throws Exception {
+        Student profile = registerStudent();
+        var local = passwordLogin.login(profile.username(), PASSWORD);
+        assertThat(socialSignIn.findLinkedUser("google", "link-test-google")).isEmpty();
+        assertThat(socialSignIn.findLinkedUser("microsoft", "link-test-microsoft")).isEmpty();
+
+        socialSignIn.link(local, "google", "link-test-google");
+        socialSignIn.link(local, "microsoft", "link-test-microsoft");
+
+        assertThat(socialSignIn.findLinkedUser("google", "link-test-google")).contains(local);
+        assertThat(socialSignIn.findLinkedUser("microsoft", "link-test-microsoft")).contains(local);
+        assertThat(passwordLogin.login(profile.username(), PASSWORD)).isEqualTo(local);
+        assertThat(socialSignIn.linkedProviders(local)).containsExactly("google", "microsoft");
+        mvc.perform(get(API + "/me/wallet").session(login(profile.username(), PASSWORD)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.balance").value(0));
+
+        var other = passwordLogin.login(registerStudent().username(), PASSWORD);
+        assertThatThrownBy(() -> socialSignIn.link(other, "google", "link-test-google"))
+                .isInstanceOf(DuplicateKeyException.class);
+        assertThat(socialSignIn.linkedProviders(other)).isEmpty();
+    }
 
     @Test
     void luongDayDu_dangKy_doiDiem_xeVao_xeRa_chuTaiKhoanNhanDiem_rutDiem() throws Exception {

@@ -316,6 +316,22 @@ npm run dev:mock
 
 > **Lưu ý:** Đây là tài khoản và mật khẩu **chỉ dành cho môi trường demo**. Không sử dụng các thông tin mặc định này khi triển khai thực tế.
 
+#### Đăng ký và đăng nhập qua Google hoặc Microsoft
+
+Sinh viên có thể chọn Google hoặc Microsoft ngay ở trang đăng nhập và đăng ký. Lần đầu dùng một tài khoản chưa liên kết, hệ thống yêu cầu MSSV, họ tên và tên đăng nhập để tạo tài khoản gửi xe. Bạn có thể đặt thêm mật khẩu để đăng nhập bằng tên đăng nhập vào cùng tài khoản. Nếu đã có tài khoản gửi xe, chọn **Đăng nhập để liên kết**, nhập tên đăng nhập và mật khẩu hiện tại, rồi bấm **Xác nhận liên kết** trong trang **Tài khoản**. Sau đó có thể đăng nhập bằng nhà cung cấp đã liên kết.
+
+Với email trường `@ptit.edu.vn`, dùng **Đăng nhập bằng email PTIT** hoặc **Liên kết email PTIT**. Hai lối này gửi yêu cầu xác thực trực tiếp đến miền của trường và dùng cùng URL chuyển hướng Microsoft.
+
+Đăng nhập bằng tài khoản quản lý và mở **Cấu hình → Đăng nhập Google / Microsoft** để cấu hình nhanh. Sao chép URL chuyển hướng vào ứng dụng OAuth, rồi nhập Client ID và Client Secret và bấm **Lưu cấu hình**. Thay đổi áp dụng ngay. Có thể chọn **Dùng cấu hình .env** để bỏ cấu hình đã lưu của từng nhà cung cấp. Docker lưu cấu hình quản lý trong volume riêng `oauthsettings`. Khi chạy cục bộ, backend lưu trong thư mục riêng `.parking-secrets`.
+
+Bạn cũng có thể cấu hình mặc định bằng `.env` theo các bước dưới đây.
+
+1. **Google Cloud**. Chọn đối tượng **External** để dùng Gmail cá nhân rồi tạo OAuth Client ID loại **Web application**. Thêm URI chuyển hướng `http://localhost:5173/api/v1/auth/social/callback/google` và điền `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` vào file `.env` ở gốc dự án. [Hướng dẫn Google](https://developers.google.com/identity/openid-connect/openid-connect)
+2. **Microsoft Entra ID**. Trong **App registrations**, chọn **Accounts in any organizational directory and personal Microsoft accounts** để dùng cả tài khoản trường `@ptit.edu.vn` lẫn Outlook/Hotmail cá nhân. Thêm nền tảng **Web** với URI `http://localhost:5173/api/v1/auth/social/callback/microsoft`. Dùng quyền Microsoft Graph **Delegated User.Read**. Điền Application (client) ID vào `MICROSOFT_OAUTH_CLIENT_ID` và **Value** của client secret vào `MICROSOFT_OAUTH_CLIENT_SECRET`. Nếu Microsoft hiện **Need admin approval** khi dùng email trường, quản trị viên Microsoft 365 của PTIT cần phê duyệt ứng dụng. [Đăng ký ứng dụng trong Entra](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app) · [Quyền Microsoft Graph](https://learn.microsoft.com/en-us/graph/api/user-get?view=graph-rest-1.0)
+3. Giữ `OAUTH_PUBLIC_ORIGIN=http://localhost:5173` khi phát triển và mở ứng dụng bằng đúng địa chỉ này. Khi triển khai, đặt biến thành origin HTTPS công khai của frontend, cập nhật cả hai URI chuyển hướng tương ứng và đặt `COOKIE_SECURE=true`. Với Docker Compose, chạy `docker compose up -d --build backend frontend` để áp dụng mã và cấu hình mới. Khi chạy cục bộ, khởi động lại backend sau khi đổi `.env`. Hai nút luôn hiển thị trên trang đăng nhập và đăng ký. Mỗi nút được bật khi backend có đủ client ID và secret của nhà cung cấp đó.
+
+Địa chỉ Gmail hoặc Google Workspace đã được xác minh có thể dùng làm email khôi phục khi tạo tài khoản mới. Nếu đăng ký qua Microsoft, bạn có thể thêm email khôi phục trong trang **Tài khoản**.
+
 ### 6.7. Kiểm thử dự án
 
 **Backend:**

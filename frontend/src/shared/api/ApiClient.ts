@@ -71,6 +71,11 @@ import type {
   Profile,
   RegisteredStudent,
   RegisterStudentRequest,
+  SocialAuthStatus,
+  SocialProvider,
+  SocialProviderConfig,
+  SocialRegisterRequest,
+  UpdateSocialProviderConfig,
   RegisterVehicleRequest,
   StudentSummary,
   TemporaryPasswordResult,
@@ -103,6 +108,9 @@ export interface ApiClient {
   logout(): Promise<void>;
   me(): Promise<MeResponse>;
   registerStudent(body: RegisterStudentRequest): Promise<RegisteredStudent>;
+  socialAuthStatus(): Promise<SocialAuthStatus>;
+  registerWithSocial(body: SocialRegisterRequest): Promise<MeResponse>;
+  linkSocialAccount(id: string): Promise<void>;
   vehicleTypes(): Promise<VehicleType[]>;
   feeRules(): Promise<FeeRule[]>;
   feeRulesByVehicleType(): Promise<VehicleTypeFeeSchedule[]>;
@@ -261,4 +269,7 @@ export interface ApiClient {
   updateSmtpConfig(body: UpdateSmtpConfigRequest): Promise<SmtpConfig>;
   resetSmtpConfig(): Promise<SmtpConfig>;
   testSmtpConfig(toEmail?: string): Promise<TestSmtpResponse>;
+  socialLoginConfig(): Promise<SocialProviderConfig[]>;
+  updateSocialLoginConfig(provider: SocialProvider, body: UpdateSocialProviderConfig): Promise<SocialProviderConfig>;
+  resetSocialLoginConfig(provider: SocialProvider): Promise<SocialProviderConfig>;
 }

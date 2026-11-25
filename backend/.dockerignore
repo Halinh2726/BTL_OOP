@@ -1,4 +1,6 @@
 target
+.env
+.parking-secrets
 .mvn
 mvnw
 mvnw.cmd

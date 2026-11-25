@@ -23,6 +23,7 @@ export interface MeResponse {
 export interface LoginRequest {
   username: string;
   password: string;
+  socialLinkId?: string;
 }
 
 export interface RegisterStudentRequest {
@@ -32,6 +33,42 @@ export interface RegisterStudentRequest {
   password: string;
   email?: string;
 }
+
+export type SocialProvider = 'google' | 'microsoft';
+
+export interface SocialAuthPending {
+  id: string;
+  provider: SocialProvider;
+  fullName: string | null;
+  label: string | null;
+}
+
+export interface SocialAuthStatus {
+  providers: SocialProvider[];
+  linked: SocialProvider[];
+  pending: SocialAuthPending | null;
+}
+
+export interface SocialProviderConfig {
+  provider: SocialProvider;
+  clientId: string;
+  hasSecret: boolean;
+  enabled: boolean;
+  active: boolean;
+  managed: boolean;
+  redirectUri: string;
+}
+
+export interface UpdateSocialProviderConfig {
+  enabled: boolean;
+  clientId: string;
+  clientSecret?: string;
+}
+
+export type SocialRegisterRequest = Pick<RegisterStudentRequest, 'studentCode' | 'fullName' | 'username'> & {
+  id: string;
+  password?: string;
+};
 
 export interface RegisteredStudent {
   id: number;

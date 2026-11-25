@@ -14,11 +14,12 @@ import { LedgerTab } from './LedgerTab';
 import { PassCatalogTab } from './PassCatalogTab';
 import { ReconciliationTab } from './ReconciliationTab';
 import { SmtpConfigTab } from './SmtpConfigTab';
+import { SocialLoginConfigTab } from './SocialLoginConfigTab';
 import { StudentsTab } from './StudentsTab';
 import { TimesheetTab } from './TimesheetTab';
 import { WithdrawalRequestsTab } from './WithdrawalRequestsTab';
 
-type Group = 'cashier' | 'cases' | 'lookup' | 'stats' | 'staff';
+type Group = 'cashier' | 'cases' | 'lookup' | 'stats' | 'staff' | 'settings';
 
 interface Section {
   id: string;
@@ -26,10 +27,7 @@ interface Section {
   render: () => ReactNode;
 }
 
-/**
- * Các chức năng của quản lý gom thành 4 nhóm theo công việc (Đợt 4a: 10 màn hình không còn vừa một hàng tab).
- * Mỗi nhóm nhớ tab con đang mở khi chuyển qua lại.
- */
+/** Mỗi nhóm nhớ tab con đang mở khi chuyển qua lại. */
 const GROUPS: Record<Group, { label: string; sections: Section[] }> = {
   cashier: {
     label: 'Thu ngân',
@@ -41,7 +39,6 @@ const GROUPS: Record<Group, { label: string; sections: Section[] }> = {
       { id: 'adjust', label: 'Điều chỉnh', render: () => <AdjustmentTab /> },
       { id: 'reconcile', label: 'Đối soát cuối ngày', render: () => <ReconciliationTab /> },
       { id: 'bank', label: 'Ngân hàng & Giờ khóa', render: () => <BankConfigTab /> },
-      { id: 'smtp', label: 'Email (SMTP)', render: () => <SmtpConfigTab /> },
     ],
   },
   cases: {
@@ -71,13 +68,19 @@ const GROUPS: Record<Group, { label: string; sections: Section[] }> = {
       { id: 'accounts', label: 'Tài khoản', render: () => <AccountsTab /> },
     ],
   },
+  settings: {
+    label: 'Cấu hình',
+    sections: [
+      { id: 'smtp', label: 'Email (SMTP)', render: () => <SmtpConfigTab /> },
+      { id: 'social-login', label: 'Đăng nhập Google / Microsoft', render: () => <SocialLoginConfigTab /> },
+    ],
+  },
 };
 
-/** Trang quản lý bãi xe: thu ngân, xử lý khiếu nại / sự cố, tra cứu, thống kê, nhân sự. */
 export function ManagerPage() {
   const [group, setGroup] = useState<Group>('cashier');
   const [openSection, setOpenSection] = useState<Record<Group, string>>({
-    cashier: 'deposit', cases: 'complaints', lookup: 'students', stats: 'traffic', staff: 'guards',
+    cashier: 'deposit', cases: 'complaints', lookup: 'students', stats: 'traffic', staff: 'guards', settings: 'smtp',
   });
   const sections = GROUPS[group].sections;
   const current = sections.find((section) => section.id === openSection[group]) ?? sections[0];
@@ -87,6 +90,7 @@ export function ManagerPage() {
       <Tabs
         active={group}
         onChange={setGroup}
+        wrap
         tabs={(Object.keys(GROUPS) as Group[]).map((id) => ({ id, label: GROUPS[id].label }))}
       />
       {sections.length > 1 && (

@@ -10,7 +10,8 @@ FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
-RUN groupadd --system spring && useradd --system --gid spring spring
+RUN groupadd --system spring && useradd --system --gid spring spring \
+    && install -d -m 0700 -o spring -g spring /app/.parking-secrets
 COPY --from=build --chown=spring:spring /workspace/target/parking-backend-*.jar app.jar
 
 USER spring:spring

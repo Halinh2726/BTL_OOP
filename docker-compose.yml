@@ -36,6 +36,11 @@ services:
       SERVER_PORT: 8080
       DB_CONNECTION_TIMEOUT_MS: ${DB_CONNECTION_TIMEOUT_MS:-10000}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      OAUTH_PUBLIC_ORIGIN: ${OAUTH_PUBLIC_ORIGIN:-http://localhost:5173}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      MICROSOFT_OAUTH_CLIENT_ID: ${MICROSOFT_OAUTH_CLIENT_ID:-}
+      MICROSOFT_OAUTH_CLIENT_SECRET: ${MICROSOFT_OAUTH_CLIENT_SECRET:-}
       PARKING_MAIL_FROM: ${PARKING_MAIL_FROM:-no-reply@parking.ptit.edu.vn}
       PARKING_MAIL_ALERT_TO: ${PARKING_MAIL_ALERT_TO:-}
       MAIL_HOST: ${MAIL_HOST:-}
@@ -50,6 +55,8 @@ services:
       VIETQR_ACCOUNT_NAME: ${VIETQR_ACCOUNT_NAME:-BAI XE HOC VIEN PTIT}
       VIETQR_TEMPLATE: ${VIETQR_TEMPLATE:-compact2}
       WEBHOOK_API_KEY: ${WEBHOOK_API_KEY:-sepay_secret_key_123456}
+    volumes:
+      - oauthsettings:/app/.parking-secrets
     depends_on:
       mysql:
         condition: service_healthy
@@ -68,3 +75,4 @@ services:
 
 volumes:
   mysqldata:
+  oauthsettings:
