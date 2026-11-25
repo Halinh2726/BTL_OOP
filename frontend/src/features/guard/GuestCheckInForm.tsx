@@ -6,7 +6,8 @@ import { Alert } from '../../shared/components/Alert';
 import { Button } from '../../shared/components/Button';
 import { Card } from '../../shared/components/Card';
 import type { GuestEntry } from '../../shared/types/guest';
-import { formatCash, formatDuration } from '../../shared/utils/format';
+import { slotMeta } from '../../shared/utils/feeSlots';
+import { formatCash } from '../../shared/utils/format';
 import { GuestTicketCard } from './GuestTicketCard';
 
 const INPUT = 'block w-full rounded-lg border border-slate-300 bg-white px-3 py-2';
@@ -105,7 +106,9 @@ export function GuestCheckInForm({ initialPlate, onStudent }: { initialPlate: st
             <h3 className="font-semibold">Giá gửi xe khách</h3>
             <ul className="grid gap-2 text-sm sm:grid-cols-3">
               {preview.data.rules.map((rule) => (
-                <li key={rule.upToMinutes}>Đến {formatDuration(rule.upToMinutes)} · <strong>{formatCash(rule.feePoints * preview.data!.cashPerPoint)}</strong></li>
+                <li key={rule.upToMinutes}>
+                  {slotMeta(rule.upToMinutes).shortLabel} · <strong>{formatCash(rule.feePoints * preview.data!.cashPerPoint)}</strong>
+                </li>
               ))}
             </ul>
             <Button type="button" variant="success" loading={checkIn.isPending} onClick={() => {

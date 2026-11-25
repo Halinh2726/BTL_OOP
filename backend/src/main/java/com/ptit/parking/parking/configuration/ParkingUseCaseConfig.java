@@ -44,7 +44,7 @@ public class ParkingUseCaseConfig {
     FeePolicy feePolicy(FeeRuleRepository feeRules, VehicleOwnerDirectory vehicles, PassCoverage passes,
                         ParkingPolicyRepository policyRepository, Clock clock) {
         FeePolicy regular = new PassAwareFeePolicy(
-                new VehicleTypeDurationFeePolicy(feeRules, vehicles), passes, clock.getZone());
+                new VehicleTypeDurationFeePolicy(feeRules, vehicles, clock.getZone()), passes, clock.getZone());
         return new OvernightAwareFeePolicy(regular, policyRepository::current, clock.getZone());
     }
 

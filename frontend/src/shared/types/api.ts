@@ -35,6 +35,7 @@ export interface RegisterStudentRequest {
 }
 
 export type SocialProvider = 'google' | 'microsoft';
+export type SocialLoginOption = SocialProvider | 'microsoft-ptit';
 
 export interface SocialAuthPending {
   id: string;
@@ -44,7 +45,7 @@ export interface SocialAuthPending {
 }
 
 export interface SocialAuthStatus {
-  providers: SocialProvider[];
+  providers: SocialLoginOption[];
   linked: SocialProvider[];
   pending: SocialAuthPending | null;
 }
@@ -55,12 +56,15 @@ export interface SocialProviderConfig {
   hasSecret: boolean;
   enabled: boolean;
   active: boolean;
+  ptitEnabled: boolean;
+  ptitActive: boolean;
   managed: boolean;
   redirectUri: string;
 }
 
 export interface UpdateSocialProviderConfig {
   enabled: boolean;
+  ptitEnabled?: boolean;
   clientId: string;
   clientSecret?: string;
 }

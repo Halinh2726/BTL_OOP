@@ -147,22 +147,14 @@ const VEHICLE_TYPES: VehicleType[] = [
   { code: 'XE_MAY_DIEN', name: 'Xe máy điện' },
 ];
 const FEE_RULES: FeeRule[] = [
-  { upToMinutes: 120, feePoints: 3000 },
-  { upToMinutes: 360, feePoints: 5000 },
-  { upToMinutes: 1440, feePoints: 7000 },
+  { upToMinutes: 1080, feePoints: 3000 },
+  { upToMinutes: 1320, feePoints: 5000 },
+  { upToMinutes: 1440, feePoints: 15000 },
 ];
 const DEFAULT_FEE_SCHEDULES: Record<string, FeeRule[]> = {
-  XE_MAY: [...FEE_RULES],
-  XE_MAY_DIEN: [
-    { upToMinutes: 120, feePoints: 2500 },
-    { upToMinutes: 360, feePoints: 4000 },
-    { upToMinutes: 1440, feePoints: 6000 },
-  ],
-  XE_DAP: [
-    { upToMinutes: 120, feePoints: 1500 },
-    { upToMinutes: 360, feePoints: 2500 },
-    { upToMinutes: 1440, feePoints: 4000 },
-  ],
+  XE_MAY: FEE_RULES.map((r) => ({ ...r })),
+  XE_MAY_DIEN: FEE_RULES.map((r) => ({ ...r })),
+  XE_DAP: FEE_RULES.map((r) => ({ ...r })),
 };
 const CASH_PER_POINT = 1;
 const MAX_AMOUNT = 10_000_000;
@@ -195,24 +187,6 @@ function invalid(fields: FieldViolation[]): void {
 /** Biển số: bỏ khoảng trắng, dấu chấm, gạch ngang rồi viết hoa — cùng quy tắc với PlateNumber của backend. */
 function normalizePlate(raw: string): string {
   return raw.replace(/[\s.-]/g, '').toUpperCase();
-}
-
-function parkingDurationMs(enteredAt: string, exitedAt: string): number {
-  const elapsed = Date.parse(exitedAt) - Date.parse(enteredAt);
-  if (!Number.isFinite(elapsed) || elapsed < 0) fail('INTERNAL_ERROR');
-  return elapsed;
-}
-
-function feeForRules(elapsed: number, rules: FeeRule[]): number {
-  const minuteMs = 60_000;
-  const dayRule = rules.at(-1)!;
-  const dayMs = dayRule.upToMinutes * minuteMs;
-  const fullDays = Math.floor(elapsed / dayMs);
-  const remainder = elapsed % dayMs;
-  const fullDayPoints = fullDays * dayRule.feePoints;
-  if (fullDays > 0 && remainder === 0) return fullDayPoints;
-  const rule = rules.find((tier) => remainder <= tier.upToMinutes * minuteMs) ?? dayRule;
-  return fullDayPoints + rule.feePoints;
 }
 
 const MIN_FEE = Math.min(...FEE_RULES.map((rule) => rule.feePoints));
@@ -281,7 +255,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
 
   function defaultSocialConfig(provider: SocialProvider): SocialProviderConfig {
     return {
-      provider, enabled: false, active: false, managed: false, clientId: '', hasSecret: false,
+      provider, enabled: false, active: false, ptitEnabled: false, ptitActive: false, managed: false, clientId: '', hasSecret: false,
       redirectUri: `http://localhost:5173/api/v1/auth/social/callback/${provider}`,
     };
   }
@@ -959,13 +933,20 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
 
   function quoteSession(session: { enteredAt: string; vehicleId: number }, now: Date) {
     const exitedAt = toVietnamIso(now);
-    const elapsed = parkingDurationMs(session.enteredAt, exitedAt);
     const vehicle = state.vehicles.find((v) => v.id === session.vehicleId);
     const rules = rulesForType(vehicle?.vehicleTypeCode ?? 'XE_MAY');
     const passValidUntil = passUntil(session.vehicleId, now);
-    const overnight = !passValidUntil && exitedAt.slice(0, 10) > session.enteredAt.slice(0, 10);
-    const fee = passValidUntil ? 0 : overnight ? mockPolicy.overnightFeePoints : feeForRules(elapsed, rules);
-    const checkoutLocked = mockPolicy.curfewEnabled && exitedAt.slice(11, 16) >= mockPolicy.checkoutCurfewTime;
+    const entryDayMs = Date.parse(`${session.enteredAt.slice(0, 10)}T00:00:00Z`);
+    const exitDayMs = Date.parse(`${exitedAt.slice(0, 10)}T00:00:00Z`);
+    const nights = Math.max(0, Math.round((exitDayMs - entryDayMs) / 86_400_000));
+    const exitTime = exitedAt.slice(11, 16);
+    const dayFee = rules.find((r) => r.upToMinutes === 1080)?.feePoints ?? rules[0]?.feePoints ?? 3000;
+    const eveningFee = rules.find((r) => r.upToMinutes === 1320)?.feePoints ?? rules[1]?.feePoints ?? 5000;
+    const overnightFee = rules.find((r) => r.upToMinutes === 1440)?.feePoints ?? rules[rules.length - 1]?.feePoints ?? 15000;
+    const exitSlotFee = exitTime < '18:00' ? dayFee : exitTime < '22:00' ? eveningFee : overnightFee;
+    const overnight = !passValidUntil && (nights > 0 || exitTime >= '22:00');
+    const fee = passValidUntil ? 0 : nights * overnightFee + exitSlotFee;
+    const checkoutLocked = mockPolicy.curfewEnabled && exitTime >= mockPolicy.checkoutCurfewTime;
     return { exitedAt, passValidUntil, overnight, fee, checkoutLocked };
   }
 
@@ -2140,12 +2121,19 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         const sorted = [...rules]
           .map((r) => ({ upToMinutes: Math.round(r.upToMinutes), feePoints: Math.round(r.feePoints) }))
           .sort((a, b) => a.upToMinutes - b.upToMinutes);
-        if (sorted.some((r) => r.upToMinutes < 1 || r.upToMinutes > 1440 || r.feePoints < 100 || r.feePoints > 10_000_000)) {
+        if (
+          sorted.length !== 3 ||
+          sorted[0]?.upToMinutes !== 1080 ||
+          sorted[1]?.upToMinutes !== 1320 ||
+          sorted[2]?.upToMinutes !== 1440
+        ) {
           fail('VALIDATION_ERROR');
         }
-        if (sorted[sorted.length - 1]?.upToMinutes !== 1440) fail('VALIDATION_ERROR');
+        if (sorted.some((r) => r.feePoints < 100 || r.feePoints > 10_000_000)) {
+          fail('VALIDATION_ERROR');
+        }
         for (let i = 1; i < sorted.length; i += 1) {
-          if (sorted[i]!.upToMinutes === sorted[i - 1]!.upToMinutes || sorted[i]!.feePoints < sorted[i - 1]!.feePoints) {
+          if (sorted[i]!.feePoints < sorted[i - 1]!.feePoints) {
             fail('VALIDATION_ERROR');
           }
         }
@@ -2754,8 +2742,18 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         const previous = socialConfig[provider];
         const clientId = body.clientId.trim();
         const hasSecret = Boolean(body.clientSecret?.trim()) || (clientId === previous.clientId && previous.hasSecret);
-        if (body.enabled && (!clientId || !hasSecret)) fail('VALIDATION_ERROR');
-        const updated = { ...previous, clientId, hasSecret, enabled: body.enabled, active: body.enabled, managed: true };
+        const ptitEnabled = provider === 'microsoft' && Boolean(body.ptitEnabled);
+        if ((body.enabled || ptitEnabled) && (!clientId || !hasSecret)) fail('VALIDATION_ERROR');
+        const updated = {
+          ...previous,
+          clientId,
+          hasSecret,
+          enabled: body.enabled,
+          active: body.enabled && Boolean(clientId) && hasSecret,
+          ptitEnabled,
+          ptitActive: ptitEnabled && Boolean(clientId) && hasSecret,
+          managed: true,
+        };
         socialConfig[provider] = updated;
         return updated;
       }),

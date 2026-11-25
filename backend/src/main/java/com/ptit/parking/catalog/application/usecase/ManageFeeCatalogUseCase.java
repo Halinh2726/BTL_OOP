@@ -32,8 +32,8 @@ public class ManageFeeCatalogUseCase {
     }
 
     public List<VehicleTypeFeeSchedule> view(CustomerType customer) {
-        Map<String, List<FeeRule>> byType = feeRules.allByVehicleType(customer);
-        List<FeeRule> fallback = customer == CustomerType.SINH_VIEN ? feeRules.allFeeRules() : List.of();
+        Map<String, List<FeeRule>> byType = feeRules.allByVehicleType(CustomerType.SINH_VIEN);
+        List<FeeRule> fallback = feeRules.allFeeRules();
         return vehicleTypes.allVehicleTypes().stream()
                 .map(type -> {
                     List<FeeRule> raw = byType.getOrDefault(type.code(), List.of());
@@ -56,15 +56,15 @@ public class ManageFeeCatalogUseCase {
 
         List<FeeRule> validated;
         try {
-            validated = FeeRule.validateSchedule(rawRules);
+            validated = FeeRule.validateTimeSlotSchedule(rawRules);
         } catch (IllegalArgumentException ex) {
             throw new DomainException(ErrorCode.VALIDATION_ERROR, ex.getMessage());
         }
 
         transactions.inTransaction(() -> {
-            feeRules.replaceRulesForVehicleType(customer, target.code(), validated);
+            feeRules.replaceRulesForVehicleType(CustomerType.SINH_VIEN, target.code(), validated);
             return null;
         });
-        return view(customer);
+        return view(CustomerType.SINH_VIEN);
     }
 }

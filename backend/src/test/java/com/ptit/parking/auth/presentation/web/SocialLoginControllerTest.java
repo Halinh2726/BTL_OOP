@@ -104,7 +104,7 @@ class SocialLoginControllerTest {
     void googleRedirectUsesThePublicOriginAndRejectsInvalidState() throws Exception {
         mvc.perform(get(BASE + "/status"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.providers", contains("google", "microsoft")));
+                .andExpect(jsonPath("$.providers", contains("google", "microsoft", "microsoft-ptit")));
 
         MvcResult started = mvc.perform(get(BASE + "/start/google"))
                 .andExpect(status().is3xxRedirection())

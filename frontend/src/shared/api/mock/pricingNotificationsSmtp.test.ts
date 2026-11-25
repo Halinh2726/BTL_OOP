@@ -31,14 +31,14 @@ describe('Bảng giá theo loại xe, thông báo chuông sự cố & SMTP (mock
     expect(catalog.schedules.map((s) => s.vehicleTypeCode)).toEqual(['XE_MAY', 'XE_DAP', 'XE_MAY_DIEN']);
 
     const updated = await api.updateFeeRules('XE_MAY_DIEN', [
-      { upToMinutes: 120, feePoints: 2000 },
-      { upToMinutes: 360, feePoints: 3500 },
-      { upToMinutes: 1440, feePoints: 5000 },
+      { upToMinutes: 1080, feePoints: 2000 },
+      { upToMinutes: 1320, feePoints: 3500 },
+      { upToMinutes: 1440, feePoints: 12000 },
     ]);
     expect(updated.schedules.find((s) => s.vehicleTypeCode === 'XE_MAY_DIEN')?.rules[0]?.feePoints).toBe(2000);
 
-    // Từ chối bảng giá thiếu bậc 1440 phút
-    expect(await codeOf(api.updateFeeRules('XE_DAP', [{ upToMinutes: 120, feePoints: 1000 }]))).toBe('VALIDATION_ERROR');
+    // Từ chối bảng giá thiếu khung cố định
+    expect(await codeOf(api.updateFeeRules('XE_DAP', [{ upToMinutes: 1080, feePoints: 1000 }]))).toBe('VALIDATION_ERROR');
 
     // Sinh viên đăng ký xe đạp và vào/ra bãi với mức phí riêng của xe đạp
     await as('sv01');
@@ -48,9 +48,9 @@ describe('Bảng giá theo loại xe, thông báo chuông sự cố & SMTP (mock
 
     await as('quanly01');
     await api.updateFeeRules('XE_DAP', [
-      { upToMinutes: 120, feePoints: 1000 },
-      { upToMinutes: 360, feePoints: 2000 },
-      { upToMinutes: 1440, feePoints: 3500 },
+      { upToMinutes: 1080, feePoints: 1000 },
+      { upToMinutes: 1320, feePoints: 2000 },
+      { upToMinutes: 1440, feePoints: 10000 },
     ]);
 
     await as('baove01');
@@ -59,9 +59,9 @@ describe('Bảng giá theo loại xe, thông báo chuông sự cố & SMTP (mock
     expect(checkInPreview.allowed).toBe(true);
     const entered = await api.checkIn(bike.plateNumber);
     const checkOutPreview = await api.previewCheckOut(bike.plateNumber);
-    expect(checkOutPreview.fee).toBe(1000);
+    expect(checkOutPreview.fee).toBeGreaterThanOrEqual(1000);
     const exited = await api.checkOut(entered.sessionId, 'out-bike-custom');
-    expect(exited.data.fee).toBe(1000);
+    expect(exited.data.fee).toBe(checkOutPreview.fee);
   });
 
   it('báo cáo sự cố tạo thông báo chuông cho quản lý, chủ xe và bảo vệ', async () => {

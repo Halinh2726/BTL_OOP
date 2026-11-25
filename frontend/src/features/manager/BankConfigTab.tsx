@@ -15,7 +15,7 @@ import { QueryError } from '../../shared/components/QueryError';
 import { LoadingBlock, Spinner } from '../../shared/components/Spinner';
 import { useFieldErrors } from '../../shared/hooks/useFieldErrors';
 import type { BankConfig, ParkingPolicyConfig, VietQrTemplate } from '../../shared/types/api';
-import { formatDateTime, formatNumber } from '../../shared/utils/format';
+import { formatDateTime } from '../../shared/utils/format';
 import {
   VIETNAM_BANKS,
   buildVietQrImageUrl,
@@ -362,13 +362,12 @@ function BankConfigEditor({ config }: { config: BankConfig }) {
   );
 }
 
-/** Cấu hình giờ khóa lấy xe (Mục 3.8) và mức phí gửi qua đêm (Mục 3.9). */
+/** Cấu hình giờ khóa lấy xe trong ngày (phí qua đêm của từng loại xe được chỉnh ở tab Giá vé lượt). */
 function ParkingPolicyCard() {
   const queryClient = useQueryClient();
   const policyQuery = useQuery({ queryKey: queryKeys.parkingPolicy, queryFn: api.parkingPolicy });
   const [curfewEnabled, setCurfewEnabled] = useState(true);
   const [checkoutCurfewTime, setCheckoutCurfewTime] = useState('22:00');
-  const [overnightFeePoints, setOvernightFeePoints] = useState('15000');
   const [notice, setNotice] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -376,7 +375,6 @@ function ParkingPolicyCard() {
     if (!policyQuery.data) return;
     setCurfewEnabled(policyQuery.data.curfewEnabled);
     setCheckoutCurfewTime(policyQuery.data.checkoutCurfewTime);
-    setOvernightFeePoints(String(policyQuery.data.overnightFeePoints));
   }, [policyQuery.data]);
 
   const save = useMutation({
@@ -384,7 +382,7 @@ function ParkingPolicyCard() {
     onSuccess: (updated: ParkingPolicyConfig) => {
       queryClient.setQueryData(queryKeys.parkingPolicy, updated);
       setNotice(
-        `Đã lưu chính sách: ${updated.curfewEnabled ? `khóa lấy xe từ ${updated.checkoutCurfewTime}` : 'tắt khóa lấy xe trong ngày'}, phí qua đêm ${formatNumber(updated.overnightFeePoints)} điểm.`,
+        `Đã lưu chính sách: ${updated.curfewEnabled ? `khóa lấy xe từ ${updated.checkoutCurfewTime}` : 'tắt khóa lấy xe trong ngày'}.`,
       );
       setValidationError(null);
     },
@@ -398,21 +396,16 @@ function ParkingPolicyCard() {
       setValidationError('Giờ khóa phải đúng định dạng HH:mm (ví dụ: 22:00).');
       return;
     }
-    const fee = Number(overnightFeePoints.replace(/\D/g, ''));
-    if (!Number.isFinite(fee) || fee < 1000 || fee > 1_000_000) {
-      setValidationError('Phí gửi qua đêm phải từ 1.000 đến 1.000.000 điểm.');
-      return;
-    }
     setValidationError(null);
     save.mutate({
       curfewEnabled,
       checkoutCurfewTime,
-      overnightFeePoints: fee,
+      overnightFeePoints: policyQuery.data?.overnightFeePoints ?? 15000,
     });
   }
 
   return (
-    <Card title="Cấu hình giờ khóa lấy xe & phí qua đêm (Mục 3.8, 3.9)">
+    <Card title="Cấu hình giờ khóa lấy xe trong ngày">
       {policyQuery.isPending && <LoadingBlock label="Đang tải cấu hình giờ khóa..." />}
       {policyQuery.isError && <QueryError error={policyQuery.error} onRetry={() => void policyQuery.refetch()} />}
       {policyQuery.data && (
@@ -431,41 +424,25 @@ function ParkingPolicyCard() {
             <span>Bật khóa lấy xe theo giờ quy định trong ngày (giờ Việt Nam)</span>
           </label>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1">
-              <label htmlFor="checkout-curfew-time" className="block text-sm font-medium text-slate-700">
-                Giờ bắt đầu khóa lấy xe
-              </label>
-              <input
-                id="checkout-curfew-time"
-                type="time"
-                value={checkoutCurfewTime}
-                onChange={(event) => setCheckoutCurfewTime(event.target.value)}
-                disabled={!curfewEnabled}
-                className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
-              />
-              <p className="text-xs text-slate-500">Mặc định 22:00 — sau giờ này cổng không cho xác nhận xe ra.</p>
-            </div>
-
-            <div className="space-y-1">
-              <label htmlFor="overnight-fee-points" className="block text-sm font-medium text-slate-700">
-                Mức phí gửi xe qua đêm (điểm / VNĐ)
-              </label>
-              <input
-                id="overnight-fee-points"
-                inputMode="numeric"
-                value={overnightFeePoints}
-                onChange={(event) => setOvernightFeePoints(event.target.value.replace(/\D/g, ''))}
-                className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono"
-              />
-              <p className="text-xs text-slate-500">
-                Áp dụng khi ngày ra lớn hơn ngày vào (giờ Việt Nam), thay cho phí khung giờ thường.
-              </p>
-            </div>
+          <div className="max-w-sm space-y-1">
+            <label htmlFor="checkout-curfew-time" className="block text-sm font-medium text-slate-700">
+              Giờ bắt đầu khóa lấy xe
+            </label>
+            <input
+              id="checkout-curfew-time"
+              type="time"
+              value={checkoutCurfewTime}
+              onChange={(event) => setCheckoutCurfewTime(event.target.value)}
+              disabled={!curfewEnabled}
+              className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
+            />
+            <p className="text-xs text-slate-500">
+              Mặc định 22:00 — sau giờ này cổng không cho xác nhận xe ra. Mức phí qua đêm của từng loại xe được chỉnh tại tab <strong>Giá vé lượt</strong>.
+            </p>
           </div>
 
           <Button type="submit" loading={save.isPending}>
-            Lưu chính sách giờ khóa & phí qua đêm
+            Lưu cấu hình giờ khóa
           </Button>
         </form>
       )}

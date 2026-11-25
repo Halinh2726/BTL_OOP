@@ -330,19 +330,19 @@ export function seedState(now = new Date()): MockState {
     passPrices: { XE_MAY: 100_000, XE_MAY_DIEN: 80_000, XE_DAP: 50_000 },
     feeSchedules: {
       XE_MAY: [
-        { upToMinutes: 120, feePoints: 3000 },
-        { upToMinutes: 360, feePoints: 5000 },
-        { upToMinutes: 1440, feePoints: 7000 },
+        { upToMinutes: 1080, feePoints: 3000 },
+        { upToMinutes: 1320, feePoints: 5000 },
+        { upToMinutes: 1440, feePoints: 15000 },
       ],
       XE_MAY_DIEN: [
-        { upToMinutes: 120, feePoints: 2500 },
-        { upToMinutes: 360, feePoints: 4000 },
-        { upToMinutes: 1440, feePoints: 6000 },
+        { upToMinutes: 1080, feePoints: 3000 },
+        { upToMinutes: 1320, feePoints: 5000 },
+        { upToMinutes: 1440, feePoints: 15000 },
       ],
       XE_DAP: [
-        { upToMinutes: 120, feePoints: 1500 },
-        { upToMinutes: 360, feePoints: 2500 },
-        { upToMinutes: 1440, feePoints: 4000 },
+        { upToMinutes: 1080, feePoints: 3000 },
+        { upToMinutes: 1320, feePoints: 5000 },
+        { upToMinutes: 1440, feePoints: 15000 },
       ],
     },
   };
