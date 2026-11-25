@@ -466,7 +466,7 @@ export interface GuardTimesheet {
   shifts: ShiftView[];
 }
 
-export type IncidentType = 'XE_GUI_QUA_LAU' | 'XE_CHUA_DANG_KY' | 'XE_HU_HONG' | 'KHAC';
+export type IncidentType = 'XE_GUI_QUA_LAU' | 'XE_CHUA_DANG_KY' | 'XE_HU_HONG' | 'MAT_VE' | 'KHAC';
 export type IncidentStatus = 'MOI' | 'DANG_XU_LY' | 'DA_XU_LY' | 'TU_CHOI';
 
 export interface IncidentItem {
@@ -999,6 +999,7 @@ export interface CashCheckOutResult {
 }
 
 export interface GuardCashSheetItem {
+  guest?: boolean;
   collectionId: number;
   sessionId: number;
   plateNumber: string;
@@ -1029,6 +1030,7 @@ export interface ManagerGateCashGuardTotal {
 }
 
 export interface ManagerGateCashItem {
+  guest?: boolean;
   collectionId: number;
   sessionId: number;
   plateNumber: string;

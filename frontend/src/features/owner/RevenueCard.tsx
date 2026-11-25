@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { api } from '../../shared/api';
+import { api, guestApi, isMockMode } from '../../shared/api';
 import { queryKeys } from '../../shared/api/queryKeys';
 import { Button } from '../../shared/components/Button';
 import { Card } from '../../shared/components/Card';
@@ -51,6 +51,12 @@ export function RevenueCard() {
     queryFn: () => api.ownerRevenue(from, to),
     enabled: valid,
     placeholderData: keepPreviousData, // đổi khoảng ngày: giữ biểu đồ cũ (mờ đi) thay vì nháy trắng
+  });
+  const guestReport = useQuery({
+    queryKey: ['guest', 'revenue', from, to],
+    queryFn: () => guestApi.revenue(from, to),
+    enabled: valid && !isMockMode,
+    placeholderData: keepPreviousData,
   });
   const preset = matchingPreset(from, to, today);
   const data = report.data;
@@ -119,10 +125,26 @@ export function RevenueCard() {
         {report.isPending && valid && <LoadingBlock />}
         {report.isError && <QueryError error={report.error} onRetry={() => void report.refetch()} />}
 
+        {valid && !isMockMode && (
+          <section className="space-y-2 rounded-xl bg-blue-50 p-4">
+            <h3 className="font-semibold text-blue-950">Doanh thu gửi xe khách</h3>
+            {guestReport.isPending && <LoadingBlock label="Đang tải doanh thu khách..." />}
+            {guestReport.isError && <QueryError error={guestReport.error} onRetry={() => void guestReport.refetch()} />}
+            {guestReport.data && (
+              <dl className={`grid grid-cols-2 gap-3 sm:grid-cols-4 ${guestReport.isPlaceholderData ? 'opacity-50' : ''}`}>
+                <div><dt className="text-xs text-slate-600">Tổng thu khách</dt><dd className="font-bold">{formatCash(guestReport.data.cash + guestReport.data.vietqr)}</dd></div>
+                <div><dt className="text-xs text-slate-600">Tiền mặt</dt><dd className="font-semibold">{formatCash(guestReport.data.cash)}</dd></div>
+                <div><dt className="text-xs text-slate-600">VietQR</dt><dd className="font-semibold">{formatCash(guestReport.data.vietqr)}</dd></div>
+                <div><dt className="text-xs text-slate-600">Lượt đã thu</dt><dd className="font-semibold">{formatNumber(guestReport.data.payments)}</dd></div>
+              </dl>
+            )}
+          </section>
+        )}
+
         {data && (
           <div className={`space-y-6 transition-opacity ${report.isPlaceholderData ? 'opacity-50' : ''}`}>
             <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-500">Doanh thu</dt><dd className="text-xl font-bold text-slate-900">{formatPoints(data.totalRevenue)}</dd></div>
+              <div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-500">Doanh thu sinh viên</dt><dd className="text-xl font-bold text-slate-900">{formatPoints(data.totalRevenue)}</dd></div>
               <div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-500">Lượt xe ra</dt><dd className="text-xl font-bold text-slate-900">{formatNumber(data.totalPayments)}</dd></div>
               <div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-500">Tiền mặt vào</dt><dd className="text-xl font-bold text-slate-900">{formatCash(data.totalCashIn)}</dd></div>
               <div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-500">Tiền mặt ra</dt><dd className="text-xl font-bold text-slate-900">{formatCash(data.totalCashOut)}</dd></div>

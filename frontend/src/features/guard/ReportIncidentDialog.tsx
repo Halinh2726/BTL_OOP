@@ -17,7 +17,7 @@ import { resizeImage, type PreparedPhoto } from '../../shared/utils/resizeImage'
 const TYPES = Object.keys(INCIDENT_TYPE_LABELS) as IncidentType[];
 
 const schema = z.object({
-  type: z.enum(['XE_GUI_QUA_LAU', 'XE_CHUA_DANG_KY', 'XE_HU_HONG', 'KHAC']),
+  type: z.enum(['XE_GUI_QUA_LAU', 'XE_CHUA_DANG_KY', 'XE_HU_HONG', 'MAT_VE', 'KHAC']),
   plateNumber: z
     .string()
     .transform(normalizePlate)

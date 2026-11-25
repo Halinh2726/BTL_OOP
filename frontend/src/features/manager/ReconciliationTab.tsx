@@ -173,7 +173,7 @@ export function ReconciliationTab() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {gateCash.data.entries.map((entry) => (
-                      <tr key={entry.collectionId}>
+                      <tr key={`${Boolean(entry.guest)}-${entry.collectionId}`}>
                         <td className="whitespace-nowrap px-5 py-2 text-slate-600">{formatTime(entry.collectedAt)}</td>
                         <td className="whitespace-nowrap px-3 py-2 font-mono font-semibold">{entry.plateDisplay}</td>
                         <td className="px-3 py-2">

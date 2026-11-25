@@ -22,7 +22,8 @@ public interface GateCashRepository {
             Long shiftId,
             long amount,
             boolean overnight,
-            Instant collectedAt
+            Instant collectedAt,
+            boolean guest
     ) {}
 
     Optional<GateCashCollection> findByIdempotencyKey(UUID key);

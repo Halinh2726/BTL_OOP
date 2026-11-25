@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { api, errorMessage } from '../../shared/api';
+import { api, errorMessage, isMockMode } from '../../shared/api';
 import { queryKeys } from '../../shared/api/queryKeys';
 import { Alert } from '../../shared/components/Alert';
 import { Badge } from '../../shared/components/Badge';
@@ -17,12 +17,27 @@ import { SuccessPanel } from './SuccessPanel';
 import { usePlateFocus } from './usePlateFocus';
 import { VerdictBanner } from './VerdictBanner';
 import { VietQrPaymentCard } from './VietQrPaymentCard';
+import { GateCustomerMode } from './GateCustomerMode';
+import { GuestCheckoutPanel } from './GuestCheckoutPanel';
 
 /**
  * BV02 — xe ra: tra cứu (kèm phí tạm tính) -> xác nhận trừ điểm, thu qua VietQR tại cổng hoặc thu tiền mặt.
  * Phí hiển thị do backend tính (đã gồm phí qua đêm nếu lấy từ ngày hôm sau và khóa sau giờ quy định).
  */
 export function CheckOutPanel() {
+  const [guestToken, setGuestToken] = useState<string | null>(null);
+  return (
+    <>
+      {!isMockMode && <GateCustomerMode guest={guestToken !== null}
+        onChange={(guest) => setGuestToken(guest ? guestToken ?? '' : null)} />}
+      {guestToken === null
+        ? <StudentCheckOutPanel onGuestToken={isMockMode ? undefined : setGuestToken} />
+        : <GuestCheckoutPanel key={guestToken} initialToken={guestToken || undefined} />}
+    </>
+  );
+}
+
+function StudentCheckOutPanel({ onGuestToken }: { onGuestToken?: (token: string) => void }) {
   const { inputRef, formKey, resetForm } = usePlateFocus();
   const typeName = useVehicleTypeName();
   const { feedback, continuousScan } = useGuardPreferences();
@@ -112,7 +127,7 @@ export function CheckOutPanel() {
   }
 
   if (continuousScan) {
-    return <ContinuousScanPanel flow={checkOutFlow} />;
+    return <ContinuousScanPanel flow={checkOutFlow} onGuestToken={onGuestToken} />;
   }
 
   if (checkOut.data) {
@@ -219,6 +234,7 @@ export function CheckOutPanel() {
           pending={preview.isPending}
           disabled={busy}
           parkedOnly
+          onGuestToken={onGuestToken}
           onEdit={() => {
             preview.reset();
             clearMutations();

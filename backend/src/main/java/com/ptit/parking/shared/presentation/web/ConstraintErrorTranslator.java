@@ -38,6 +38,8 @@ public class ConstraintErrorTranslator {
             Map.entry("ck_daily_reconciliations_note", new ConstraintError(ErrorCode.RECONCILIATION_NOTE_REQUIRED, "note")),
             Map.entry("fk_vehicles_type", new ConstraintError(ErrorCode.VALIDATION_ERROR, "vehicleTypeCode")),
             Map.entry("uq_parking_sessions_open", new ConstraintError(ErrorCode.SESSION_ALREADY_OPEN, null)),
+            Map.entry("uq_guest_open_plate", new ConstraintError(ErrorCode.GUEST_SESSION_ALREADY_OPEN, null)),
+            Map.entry("uq_guest_payment_idempotency", new ConstraintError(ErrorCode.IDEMPOTENCY_KEY_REUSED, null)),
             Map.entry("uq_payment_details_session", new ConstraintError(ErrorCode.SESSION_ALREADY_PAID, null)),
             Map.entry("ck_wallets_balance", new ConstraintError(ErrorCode.INSUFFICIENT_POINTS, null)));
 

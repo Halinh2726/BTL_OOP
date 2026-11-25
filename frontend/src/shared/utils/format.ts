@@ -59,6 +59,7 @@ export const INCIDENT_TYPE_LABELS: Record<IncidentType, string> = {
   XE_GUI_QUA_LAU: 'Xe gửi quá lâu',
   XE_CHUA_DANG_KY: 'Xe chưa đăng ký đỗ trong bãi',
   XE_HU_HONG: 'Xe bị hư hỏng',
+  MAT_VE: 'Khách mất vé',
   KHAC: 'Khác',
 };
 
@@ -201,6 +202,7 @@ export const GUARD_STATUS_LABELS: Record<GuardStatus, string> = {
 export const REASON_LABELS: Record<string, string> = {
   PLATE_NOT_FOUND: 'Biển số chưa được đăng ký',
   SESSION_ALREADY_OPEN: 'Xe đang có lượt gửi chưa kết thúc',
+  GUEST_SESSION_ALREADY_OPEN: 'Xe đang có vé khách. Hãy kết thúc lượt khách trước.',
   STUDENT_ALREADY_PARKED: 'Sinh viên đã có xe đang gửi. Hãy lấy xe đó ra trước',
   NO_OPEN_SESSION: 'Xe không có lượt gửi đang mở',
   INSUFFICIENT_POINTS: 'Không đủ điểm',

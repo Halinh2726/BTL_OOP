@@ -31,11 +31,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private final RateLimiter registrations;
     private final RateLimiter sessions;
+    private final RateLimiter guestTickets;
     private final JsonSecurityErrorHandler errors;
 
     public RateLimitFilter(Clock clock, JsonSecurityErrorHandler errors) {
         this.registrations = new RateLimiter(REGISTER_LIMIT, Duration.ofHours(1), clock);
         this.sessions = new RateLimiter(SESSION_LIMIT, Duration.ofMinutes(1), clock);
+        this.guestTickets = new RateLimiter(60, Duration.ofMinutes(1), clock);
         this.errors = errors;
     }
 
@@ -53,6 +55,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private Optional<Duration> check(HttpServletRequest request) {
         String path = request.getRequestURI();
+        if (path.startsWith(SecurityConfig.PUBLIC_GUEST_TICKETS_PATH)) {
+            return guestTickets.tryAcquire(request.getRemoteAddr());
+        }
         if (SecurityConfig.REGISTER_URL.equals(path) || SecurityConfig.SOCIAL_REGISTER_URL.equals(path)) {
             return "POST".equals(request.getMethod())
                     ? registrations.tryAcquire(request.getRemoteAddr())

@@ -53,7 +53,8 @@ public class ReportIncidentUseCase {
                 photo != null, clock.instant());
         return transactions.inTransaction(() -> {
             Incident saved = incidents.save(incident, photo);
-            Long ownerId = plate == null ? null : incidents.findActiveVehicleOwnerId(plate).orElse(null);
+            Long ownerId = plate == null || command.type() == IncidentType.MAT_VE
+                    ? null : incidents.findActiveVehicleOwnerId(plate).orElse(null);
             events.publish(IncidentChanged.of(saved, ownerId));
             return saved;
         });

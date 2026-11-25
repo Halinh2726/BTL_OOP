@@ -40,6 +40,12 @@ class VehicleJdbcAdapter implements VehicleRepository {
     }
 
     @Override
+    public boolean plateExistsForUpdate(PlateNumber plate) {
+        return jdbc.sql("SELECT id FROM vehicles WHERE active_plate = :plate FOR UPDATE")
+                .param("plate", plate.value()).query(Long.class).optional().isPresent();
+    }
+
+    @Override
     public Vehicle save(Vehicle vehicle) {
         KeyHolder keys = new GeneratedKeyHolder();
         jdbc.sql("""

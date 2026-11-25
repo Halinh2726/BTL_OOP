@@ -85,6 +85,14 @@ public enum ErrorCode {
     PASS_NOT_AVAILABLE(422, "Loại xe này chưa bán vé tháng."),
     DATE_RANGE_INVALID(422, "Khoảng ngày không hợp lệ: ngày bắt đầu phải trước ngày kết thúc, tối đa 93 ngày."),
     CHECKOUT_CURFEW(422, "Đã quá giờ khóa lấy xe trong ngày. Lượt gửi giữ nguyên ĐANG GỬI và tính phí qua đêm vào hôm sau."),
+    GUEST_PARKING_DISABLED(422, "Bãi đang tạm ngừng nhận xe khách."),
+    GUEST_PLATE_BELONGS_TO_STUDENT(422, "Biển số thuộc xe sinh viên. Vui lòng dùng luồng Sinh viên."),
+    GUEST_SESSION_ALREADY_OPEN(409, "Biển số này đã có lượt gửi xe khách đang mở."),
+    GUEST_TICKET_NOT_FOUND(404, "Không tìm thấy vé gửi xe khách."),
+    GUEST_TICKET_PLATE_MISMATCH(422, "Biển số thực tế không khớp với biển số trên vé."),
+    GUEST_LOST_TICKET_REQUIRES_MANAGER(422, "Xe đạp không biển bị mất vé. Cần Quản lý xác minh và duyệt."),
+    GUEST_AMOUNT_CHANGED(409, "Phí đã thay đổi. Vui lòng tra lại vé và kiểm tra số tiền trước khi xác nhận."),
+    GUEST_TICKET_LIMIT(422, "Đã hết mã vé khách trong ngày."),
 
     // 429 / 500
     TOO_MANY_REQUESTS(429, "Thao tác quá nhiều lần. Vui lòng thử lại sau ít phút."),

@@ -4,6 +4,7 @@ import com.ptit.parking.catalog.application.port.out.FeeRuleRepository;
 import com.ptit.parking.catalog.application.port.out.VehicleTypeRepository;
 import com.ptit.parking.catalog.application.usecase.GetCatalogUseCase.VehicleTypeFeeSchedule;
 import com.ptit.parking.catalog.domain.FeeRule;
+import com.ptit.parking.catalog.domain.CustomerType;
 import com.ptit.parking.catalog.domain.VehicleType;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import com.ptit.parking.shared.domain.DomainException;
@@ -27,8 +28,12 @@ public class ManageFeeCatalogUseCase {
     }
 
     public List<VehicleTypeFeeSchedule> view() {
-        Map<String, List<FeeRule>> byType = feeRules.allByVehicleType();
-        List<FeeRule> fallback = feeRules.allFeeRules().stream().sorted().toList();
+        return view(CustomerType.SINH_VIEN);
+    }
+
+    public List<VehicleTypeFeeSchedule> view(CustomerType customer) {
+        Map<String, List<FeeRule>> byType = feeRules.allByVehicleType(customer);
+        List<FeeRule> fallback = customer == CustomerType.SINH_VIEN ? feeRules.allFeeRules() : List.of();
         return vehicleTypes.allVehicleTypes().stream()
                 .map(type -> {
                     List<FeeRule> raw = byType.getOrDefault(type.code(), List.of());
@@ -39,6 +44,10 @@ public class ManageFeeCatalogUseCase {
     }
 
     public List<VehicleTypeFeeSchedule> update(String rawVehicleTypeCode, List<FeeRule> rawRules) {
+        return update(CustomerType.SINH_VIEN, rawVehicleTypeCode, rawRules);
+    }
+
+    public List<VehicleTypeFeeSchedule> update(CustomerType customer, String rawVehicleTypeCode, List<FeeRule> rawRules) {
         String code = rawVehicleTypeCode == null ? "" : rawVehicleTypeCode.trim().toUpperCase(Locale.ROOT);
         VehicleType target = vehicleTypes.allVehicleTypes().stream()
                 .filter(type -> type.code().equals(code))
@@ -53,9 +62,9 @@ public class ManageFeeCatalogUseCase {
         }
 
         transactions.inTransaction(() -> {
-            feeRules.replaceRulesForVehicleType(target.code(), validated);
+            feeRules.replaceRulesForVehicleType(customer, target.code(), validated);
             return null;
         });
-        return view();
+        return view(customer);
     }
 }

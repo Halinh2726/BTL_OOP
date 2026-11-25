@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, errorMessage } from '../../shared/api';
+import { useState } from 'react';
+import { api, errorMessage, isMockMode } from '../../shared/api';
 import { Alert } from '../../shared/components/Alert';
 import { Button } from '../../shared/components/Button';
 import { Card, InfoRow } from '../../shared/components/Card';
@@ -12,9 +13,24 @@ import { PlateLookupForm } from './PlateLookupForm';
 import { SuccessPanel } from './SuccessPanel';
 import { usePlateFocus } from './usePlateFocus';
 import { VerdictBanner } from './VerdictBanner';
+import { GateCustomerMode } from './GateCustomerMode';
+import { GuestCheckInForm } from './GuestCheckInForm';
 
 /** BV01 — xe vào: tra cứu -> xem kết luận -> xác nhận cho vào. Chỉ kiểm tra điểm, KHÔNG trừ điểm. */
 export function CheckInPanel() {
+  const [guestPlate, setGuestPlate] = useState<string | null>(null);
+  return (
+    <>
+      {!isMockMode && <GateCustomerMode guest={guestPlate !== null}
+        onChange={(guest) => setGuestPlate(guest ? guestPlate ?? '' : null)} />}
+      {guestPlate === null
+        ? <StudentCheckInPanel onGuest={isMockMode ? undefined : setGuestPlate} />
+        : <GuestCheckInForm initialPlate={guestPlate} onStudent={() => setGuestPlate(null)} />}
+    </>
+  );
+}
+
+function StudentCheckInPanel({ onGuest }: { onGuest?: (plate: string) => void }) {
   const { inputRef, formKey, resetForm } = usePlateFocus();
   const typeName = useVehicleTypeName();
   const { feedback, continuousScan } = useGuardPreferences();
@@ -81,6 +97,9 @@ export function CheckInPanel() {
             <VerdictBanner allowed={data.allowed} allowedText="Cho xe vào" reason={data.reason}
               shortfall={data.balance === null ? null : data.minFee - data.balance}
             />
+            {data.reason === 'PLATE_NOT_FOUND' && onGuest && (
+              <Button variant="secondary" onClick={() => onGuest(preview.variables ?? '')}>Gửi theo diện khách</Button>
+            )}
             {data.fullName !== null && (
               <dl className="text-lg">
                 <InfoRow label="Biển số" value={<span className="font-mono">{formatPlate(data.plateNumber ?? '')}</span>} />

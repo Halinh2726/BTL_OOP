@@ -11,6 +11,11 @@ public interface VehicleRepository {
     /** Biển số đang thuộc một xe ĐANG DÙNG (xe đã ngừng không giữ chỗ biển số). */
     boolean plateExists(PlateNumber plate);
 
+    /** Tra và khóa biển số trong transaction cấp vé khách, kể cả khi chưa có xe đang dùng. */
+    default boolean plateExistsForUpdate(PlateNumber plate) {
+        return plateExists(plate);
+    }
+
     /** Lưu xe CHƯA có id; trả về xe đã có id do CSDL sinh. */
     Vehicle save(Vehicle vehicle);
 

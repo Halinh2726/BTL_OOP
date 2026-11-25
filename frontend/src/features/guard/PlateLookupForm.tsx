@@ -15,6 +15,7 @@ interface PlateLookupFormProps {
   parkedOnly: boolean;
   /** Bảo vệ bắt đầu gõ biển số khác -> bỏ kết quả tra cứu của xe trước để không nhìn nhầm. */
   onEdit: () => void;
+  onGuestToken?: (token: string) => void;
 }
 
 /**
@@ -22,7 +23,7 @@ interface PlateLookupFormProps {
  * hoặc gõ đủ biển. Biển số chuẩn hóa giống backend trước khi tra cứu.
  */
 export const PlateLookupForm = forwardRef<HTMLInputElement, PlateLookupFormProps>(function PlateLookupForm(
-  { onLookup, pending, disabled = false, parkedOnly, onEdit },
+  { onLookup, pending, disabled = false, parkedOnly, onEdit, onGuestToken },
   ref,
 ) {
   const [value, setValue] = useState('');
@@ -116,12 +117,13 @@ export const PlateLookupForm = forwardRef<HTMLInputElement, PlateLookupFormProps
         <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
           <path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10" />
         </svg>
-        Quét mã QR của sinh viên
+        {onGuestToken ? 'Quét mã QR gửi xe' : 'Quét mã QR của sinh viên'}
       </Button>
 
       {scanning && (
         <QrScannerDialog
           onClose={() => setScanning(false)}
+          onGuestToken={onGuestToken}
           onResult={(plate) => {
             setScanning(false);
             lookup(plate);

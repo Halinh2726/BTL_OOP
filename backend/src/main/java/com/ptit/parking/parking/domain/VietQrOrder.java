@@ -25,7 +25,13 @@ public record VietQrOrder(
     public static VietQrOrder create(long sessionId, String plateNumber, String studentCode,
                                      String fullName, long fee, String bankId,
                                      String accountNo, String accountName, String template) {
-        String transferContent = "TTGX " + sessionId;
+        return withTransferContent(sessionId, plateNumber, studentCode, fullName, fee,
+                bankId, accountNo, accountName, template, "TTGX " + sessionId);
+    }
+
+    public static VietQrOrder withTransferContent(long sessionId, String plateNumber, String studentCode,
+                                                  String fullName, long fee, String bankId, String accountNo,
+                                                  String accountName, String template, String transferContent) {
         String encodedContent = URLEncoder.encode(transferContent, StandardCharsets.UTF_8).replace("+", "%20");
         String encodedName = URLEncoder.encode(accountName, StandardCharsets.UTF_8).replace("+", "%20");
         String qrCodeUrl = String.format(

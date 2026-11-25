@@ -19,13 +19,14 @@ class GateCashSheetController {
 
     record CashEntryView(long collectionId, long sessionId, String plateNumber, String plateDisplay,
                          String vehicleTypeCode, String studentCode, String fullName,
-                         long amount, boolean overnight, String collectedAt) {
+                         long amount, boolean overnight, String collectedAt, boolean guest) {
 
         static CashEntryView of(CashEntry e, ZoneId zone) {
             return new CashEntryView(
-                    e.collectionId(), e.sessionId(), e.plate().value(), e.plate().display(),
+                    e.collectionId(), e.sessionId(), e.plate() == null ? null : e.plate().value(),
+                    e.plate() == null ? "Không biển" : e.plate().display(),
                     e.vehicleTypeCode(), e.studentCode(), e.fullName(),
-                    e.amount(), e.overnight(), GateResponses.time(e.collectedAt(), zone));
+                    e.amount(), e.overnight(), GateResponses.time(e.collectedAt(), zone), e.guest());
         }
     }
 

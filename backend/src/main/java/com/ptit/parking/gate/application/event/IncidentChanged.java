@@ -76,6 +76,7 @@ public record IncidentChanged(
             case XE_GUI_QUA_LAU -> "Xe gửi quá lâu";
             case XE_CHUA_DANG_KY -> "Xe chưa đăng ký đỗ trong bãi";
             case XE_HU_HONG -> "Xe bị hư hỏng";
+            case MAT_VE -> "Khách mất vé";
             case KHAC -> "Sự cố khác";
         };
     }

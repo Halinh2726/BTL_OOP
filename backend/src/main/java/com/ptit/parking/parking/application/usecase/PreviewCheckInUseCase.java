@@ -73,6 +73,8 @@ public class PreviewCheckInUseCase {
         ErrorCode reason = null;
         if (sessions.hasOpenSession(owner.vehicleId())) {
             reason = ErrorCode.SESSION_ALREADY_OPEN;                         // R05
+        } else if (vehicles.hasOpenGuestSession(plate)) {
+            reason = ErrorCode.GUEST_SESSION_ALREADY_OPEN;
         } else if (sessions.hasOpenSessionForStudent(owner.studentUserId())) {
             reason = ErrorCode.STUDENT_ALREADY_PARKED;
         } else if (!wallet.hasAtLeast(required)) {

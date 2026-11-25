@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { api, errorMessage } from '../../shared/api';
+import { api, errorMessage, guestApi, isMockMode } from '../../shared/api';
 import { queryKeys } from '../../shared/api/queryKeys';
 import { Alert } from '../../shared/components/Alert';
 import { Button } from '../../shared/components/Button';
@@ -9,6 +9,8 @@ import { QueryError } from '../../shared/components/QueryError';
 import { LoadingBlock } from '../../shared/components/Spinner';
 import type { FeeRule, VehicleTypeFeeSchedule } from '../../shared/types/api';
 import { formatPoints } from '../../shared/utils/format';
+
+const guestCatalogKey = ['guest', 'fee-catalog'] as const;
 
 function durationLabel(minutes: number): string {
   if (minutes <= 0) return '0 phút';
@@ -47,9 +49,11 @@ function validateTiers(tiers: FeeRule[]): string | null {
 
 function VehicleFeeEditor({
   schedule,
+  guest,
   onSaved,
 }: {
   schedule: VehicleTypeFeeSchedule;
+  guest: boolean;
   onSaved: (msg: string) => void;
 }) {
   const queryClient = useQueryClient();
@@ -63,16 +67,18 @@ function VehicleFeeEditor({
 
   const save = useMutation({
     mutationFn: () =>
-      api.updateFeeRules(
+      (guest ? guestApi.updateFeeRules : api.updateFeeRules)(
         schedule.vehicleTypeCode,
         [...tiers].sort((a, b) => a.upToMinutes - b.upToMinutes),
       ),
     onSuccess: async (data) => {
-      queryClient.setQueryData(queryKeys.managerFeeCatalog, data);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.feeRulesByVehicleType }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.feeRules }),
-      ]);
+      queryClient.setQueryData(guest ? guestCatalogKey : queryKeys.managerFeeCatalog, data);
+      if (!guest) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.feeRulesByVehicleType }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.feeRules }),
+        ]);
+      }
       onSaved(`Đã lưu bảng giá gửi lượt mới cho ${schedule.vehicleTypeName}.`);
     },
   });
@@ -107,7 +113,7 @@ function VehicleFeeEditor({
           <h3 className="text-base font-bold text-slate-900">{schedule.vehicleTypeName}</h3>
           <p className="text-xs text-slate-500">
             Mã loại xe: <span className="font-mono font-semibold">{schedule.vehicleTypeCode}</span> · Mức tối thiểu khi
-            vào bãi: <span className="font-semibold text-blue-700">{formatPoints(tiers[0]?.feePoints ?? 0)}</span>
+            {guest ? 'mỗi lượt' : 'vào bãi'}: <span className="font-semibold text-blue-700">{formatPoints(tiers[0]?.feePoints ?? 0)}</span>
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -199,25 +205,37 @@ function VehicleFeeEditor({
 /** Quản lý cấu hình bảng giá gửi lượt theo từng loại xe. */
 export function FeeCatalogTab() {
   const [message, setMessage] = useState<string | null>(null);
+  const [guest, setGuest] = useState(false);
   const catalog = useQuery({
-    queryKey: queryKeys.managerFeeCatalog,
-    queryFn: api.managerFeeCatalog,
+    queryKey: guest ? guestCatalogKey : queryKeys.managerFeeCatalog,
+    queryFn: guest ? guestApi.feeCatalog : api.managerFeeCatalog,
   });
 
   return (
     <Card title="Bảng giá gửi lượt theo loại xe">
+      {!isMockMode && (
+        <div className="mb-4 flex gap-2" role="group" aria-label="Nhóm áp dụng giá vé">
+          {[false, true].map((value) => (
+            <Button key={String(value)} size="sm" variant={guest === value ? 'primary' : 'secondary'}
+              aria-pressed={guest === value} onClick={() => { setGuest(value); setMessage(null); }}>
+              {value ? 'Khách' : 'Sinh viên'}
+            </Button>
+          ))}
+        </div>
+      )}
       {catalog.isPending && <LoadingBlock label="Đang tải bảng giá theo loại xe..." />}
       {catalog.isError && <QueryError error={catalog.error} onRetry={() => void catalog.refetch()} />}
       {catalog.data && (
         <div className="space-y-4">
           <p className="text-sm text-slate-600">
-            Quản lý điều chỉnh mức phí theo thời lượng gửi cho từng loại xe. Thay đổi được áp dụng ngay cho các lượt xe
-            vào/ra tiếp theo (chỉ dùng khi xe không có vé tháng và không tính qua đêm).
+            {guest
+              ? 'Phí gửi xe khách được quy đổi sang VNĐ theo tỷ lệ hiện hành. Lượt qua đêm dùng mức phí trong cấu hình giờ khóa.'
+              : 'Quản lý điều chỉnh mức phí theo thời lượng gửi cho từng loại xe. Thay đổi áp dụng ngay cho lượt gửi thường của sinh viên.'}
           </p>
           {message && <Alert tone="success">{message}</Alert>}
           <div className="space-y-4">
             {catalog.data.schedules.map((schedule) => (
-              <VehicleFeeEditor key={schedule.vehicleTypeCode} schedule={schedule} onSaved={setMessage} />
+              <VehicleFeeEditor key={`${guest}-${schedule.vehicleTypeCode}`} schedule={schedule} guest={guest} onSaved={setMessage} />
             ))}
           </div>
         </div>

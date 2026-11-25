@@ -332,6 +332,13 @@ Bạn cũng có thể cấu hình mặc định bằng `.env` theo các bước 
 
 Địa chỉ Gmail hoặc Google Workspace đã được xác minh có thể dùng làm email khôi phục khi tạo tài khoản mới. Nếu đăng ký qua Microsoft, bạn có thể thêm email khôi phục trong trang **Tài khoản**.
 
+#### Gửi xe khách và phụ huynh
+
+- Bảo vệ mở **Xe vào → Khách**, nhập biển số và loại xe rồi xác nhận cấp vé. Xe đạp có thể gửi không biển. Khách giữ mã vé hoặc QR để lấy xe.
+- Khi xe ra, bảo vệ quét QR hoặc tra vé, đối chiếu xe rồi thu tiền mặt hoặc xác nhận đã nhận chuyển khoản VietQR. Khi mất vé, nhập bốn số cuối giấy tờ đã đối chiếu. Xe đạp không biển cần Quản lý duyệt trong **Tra cứu → Lượt xe khách** trước khi thu.
+- Quản lý chỉnh giá ở **Thu ngân → Giá vé lượt → Khách**. Trong **Cấu hình → Gửi xe khách**, có thể đổi phí mất vé hoặc tạm ngừng nhận xe mới. Chủ bãi xem tiền mặt và VietQR của khách trong báo cáo doanh thu.
+- QR vé sử dụng địa chỉ frontend đang mở ở chốt. Để khách quét bằng điện thoại, mở giao diện chốt qua địa chỉ HTTPS mà điện thoại truy cập được. Máy in nhiệt dùng khổ 58 mm.
+
 ### 6.7. Kiểm thử dự án
 
 **Backend:**
