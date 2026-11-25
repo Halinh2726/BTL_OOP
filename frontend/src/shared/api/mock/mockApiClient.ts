@@ -33,6 +33,7 @@ import type {
   VehicleType,
 } from '../../types/api';
 import { buildVietQrImageUrl, normalizeBankAccountName } from '../../utils/vietQr';
+import { STANDARD_PLATE, isPlateValidForVehicleType } from '../../utils/format';
 import type { ApiClient, Idempotent } from '../ApiClient';
 import { ApiError } from '../ApiError';
 import { endsSession, notifySessionEnded } from '../sessionEvents';
@@ -79,6 +80,7 @@ const ERRORS = {
   RESET_CODE_EXPIRED: [422, 'Mã xác nhận đã hết hạn hoặc đã được dùng. Vui lòng yêu cầu mã mới.'],
   RESET_CODE_LOCKED: [422, 'Nhập sai mã quá 5 lần. Vui lòng yêu cầu mã mới.'],
   PLATE_REQUIRED: [422, 'Vui lòng nhập biển số. Chỉ xe đạp không có biển mới được bãi cấp mã.'],
+  PLATE_TYPE_MISMATCH: [422, 'Cấu trúc biển số không khớp với loại xe đã chọn.'],
   VEHICLE_LIMIT_REACHED: [422, 'Mỗi sinh viên được tối đa 3 xe đang sử dụng.'],
   NO_OPEN_SHIFT: [409, 'Bạn chưa nhận ca trực.'],
   HANDOVER_PENDING: [409, 'Có biên bản bàn giao ca chưa được xác nhận. Xem lại rồi bấm Nhận ca.'],
@@ -150,11 +152,10 @@ const LOGIN_WINDOW_MS = 60_000;
 const MAX_SUGGESTIONS = 8;
 
 const USERNAME = /^[a-z0-9._]{4,50}$/;
-const PLATE = /^[A-Z0-9]{5,20}$/;
+const PLATE = /^[A-Z0-9Đ]{5,20}$/;
 const STUDENT_CODE = /^[A-Z0-9]{1,20}$/;
 const PHONE = /^0[0-9]{9,10}$/;
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-const STANDARD_PLATE = /^([0-9]{2}[A-Z]{1,2}[0-9]{4,6}|XD[0-9]{5})$/;
 const MAX_ACTIVE_VEHICLES = 3;
 const RESET_CODE_TTL_MS = 10 * 60_000;
 const TEMPORARY_PASSWORD = 'TamThoi2345';
@@ -188,7 +189,9 @@ const MIN_FEE = Math.min(...FEE_RULES.map((rule) => rule.feePoints));
 function displayPlate(plate: string): string {
   const bicycle = /^XD([0-9]{5})$/.exec(plate);
   if (bicycle) return `XD-${bicycle[1]}`;
-  const parts = /^([0-9]{2}[A-Z]{1,2})([0-9]{4,6})$/.exec(plate);
+  const electric = /^([0-9]{2}MĐ)([0-9]{5})$/.exec(plate);
+  if (electric) return `${electric[1]}-${electric[2]?.slice(0, 3)}.${electric[2]?.slice(3)}`;
+  const parts = /^([0-9]{2}[A-ZĐ][A-Z0-9Đ]?)([0-9]{4,6})$/.exec(plate);
   if (!parts) return plate;
   let series = parts[1] ?? '';
   let digits = parts[2] ?? '';
@@ -927,7 +930,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         if (plateNumber !== '' && !STANDARD_PLATE.test(plateNumber)) {
           fields.push({
             field: 'plateNumber', code: 'PATTERN',
-            message: 'Biển số theo dạng 29A-1514 hoặc 29A-123.45 (tối đa 5 số cuối)',
+            message: 'Biển xăng theo dạng 36S4-12345 hoặc 26DC-12345; xe điện theo dạng 29MĐ-123.45',
           });
         }
         if (!VEHICLE_TYPES.some((type) => type.code === body.vehicleTypeCode)) {
@@ -935,6 +938,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         }
         invalid(fields);
         if (plateNumber === '' && body.vehicleTypeCode !== 'XE_DAP') fail('PLATE_REQUIRED');
+        if (plateNumber !== '' && !isPlateValidForVehicleType(plateNumber, body.vehicleTypeCode)) fail('PLATE_TYPE_MISMATCH');
         const active = state.vehicles.filter((vehicle) => vehicle.userId === user.id && isActive(vehicle)).length;
         if (active >= MAX_ACTIVE_VEHICLES) fail('VEHICLE_LIMIT_REACHED');
         if (plateNumber === '') {
@@ -1331,16 +1335,6 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         audit(user.id, 'KHOI_PHUC_MAT_KHAU', user.id, 'Đặt lại mật khẩu bằng mã gửi qua email');
         notify(user.id, 'BAO_MAT', 'Mật khẩu đã được khôi phục',
           'Mật khẩu tài khoản vừa được đặt lại qua mã xác nhận email.');
-      }),
-
-    changeVehicleType: (vehicleId, vehicleTypeCode) =>
-      call(() => {
-        const vehicle = ownedIdleVehicle(requireRole('SINH_VIEN'), vehicleId);
-        if (!VEHICLE_TYPES.some((type) => type.code === vehicleTypeCode)) {
-          invalid([{ field: 'vehicleTypeCode', code: 'NOT_FOUND', message: 'Loại xe không tồn tại' }]);
-        }
-        vehicle.vehicleTypeCode = vehicleTypeCode;
-        return toVehicle(vehicle);
       }),
 
     deactivateVehicle: (vehicleId) =>

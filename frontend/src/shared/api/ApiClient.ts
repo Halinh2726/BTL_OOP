@@ -134,7 +134,6 @@ export interface ApiClient {
   confirmPasswordReset(body: ConfirmPasswordResetRequest): Promise<void>;
 
   // Đợt 1 — xe của tôi
-  changeVehicleType(vehicleId: number, vehicleTypeCode: string): Promise<Vehicle>;
   deactivateVehicle(vehicleId: number): Promise<Vehicle>;
 
   // Đợt 1 — quản lý tài khoản

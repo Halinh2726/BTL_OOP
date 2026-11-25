@@ -52,7 +52,7 @@ class RegisterVehicleUseCaseTest {
     void bienSoDaCo_duViet_khacKieu_vanBaoPlateExists() {
         register.register(new Command(7L, "29A12345", "XE_MAY"));
 
-        assertThatThrownBy(() -> register.register(new Command(8L, "29a 123.45", "XE_DAP")))
+        assertThatThrownBy(() -> register.register(new Command(8L, "29a 123.45", "XE_MAY")))
                 .isInstanceOfSatisfying(DomainException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.PLATE_EXISTS));
         assertThat(vehicles.saved).hasSize(1);
@@ -91,8 +91,8 @@ class RegisterVehicleUseCaseTest {
                 .isInstanceOfSatisfying(DomainException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.VEHICLE_LIMIT_REACHED));
 
-        third.deactivate(NOW);                                   // "đổi xe" = ngừng xe cũ ...
-        assertThat(register.register(new Command(7L, "29A44444", "XE_MAY")).id()).isNotNull();   // ... rồi đăng ký mới
+        third.deactivate(NOW);
+        assertThat(register.register(new Command(7L, "29A44444", "XE_MAY")).id()).isNotNull();
     }
 
     @Test
