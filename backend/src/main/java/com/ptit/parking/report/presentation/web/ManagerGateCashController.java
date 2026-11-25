@@ -27,13 +27,14 @@ class ManagerGateCashController {
 
     record GateCashEntryView(long collectionId, long sessionId, String plateNumber, String plateDisplay,
                              String studentCode, String fullName, String guardName, Long shiftId,
-                             long amount, boolean overnight, String collectedAt) {
+                             long amount, boolean overnight, String collectedAt, boolean guest) {
 
         static GateCashEntryView of(CashEntry e, ZoneId zone) {
             return new GateCashEntryView(
-                    e.collectionId(), e.sessionId(), e.plate().value(), e.plate().display(),
+                    e.collectionId(), e.sessionId(), e.plate() == null ? null : e.plate().value(),
+                    e.plate() == null ? "Không biển" : e.plate().display(),
                     e.studentCode(), e.fullName(), e.guardName(), e.shiftId(),
-                    e.amount(), e.overnight(), LedgerItem.iso(e.collectedAt(), zone));
+                    e.amount(), e.overnight(), LedgerItem.iso(e.collectedAt(), zone), e.guest());
         }
     }
 

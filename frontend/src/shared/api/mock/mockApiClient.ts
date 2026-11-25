@@ -952,6 +952,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
       case 'XE_GUI_QUA_LAU': return 'Xe gửi quá lâu';
       case 'XE_CHUA_DANG_KY': return 'Xe chưa đăng ký đỗ trong bãi';
       case 'XE_HU_HONG': return 'Xe bị hư hỏng';
+      case 'MAT_VE': return 'Khách mất vé';
       default: return 'Sự cố khác';
     }
   }

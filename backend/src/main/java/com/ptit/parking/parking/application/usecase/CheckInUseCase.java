@@ -63,6 +63,9 @@ public class CheckInUseCase {
             if (sessions.hasOpenSession(vehicle.vehicleId())) {
                 throw new DomainException(ErrorCode.SESSION_ALREADY_OPEN);                 // R05
             }
+            if (vehicles.hasOpenGuestSession(plate)) {
+                throw new DomainException(ErrorCode.GUEST_SESSION_ALREADY_OPEN);
+            }
             if (sessions.hasOpenSessionForStudent(vehicle.studentUserId())) {
                 throw new DomainException(ErrorCode.STUDENT_ALREADY_PARKED);
             }

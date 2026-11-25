@@ -37,6 +37,7 @@ public class SecurityConfig {
     public static final String SOCIAL_REGISTER_URL = SocialLoginClients.BASE + "/register";
     public static final String HEALTH_URL = "/api/v1/health";
     public static final String WEBHOOK_URL = "/api/v1/webhooks/**";
+    public static final String PUBLIC_GUEST_TICKETS_PATH = "/api/v1/public/guest-tickets/";
     /** Quên mật khẩu (yêu cầu mã + đặt lại): chưa đăng nhập nên không có phiên, không có CSRF token. */
     public static final String PASSWORD_RESET_URL = "/api/v1/auth/password-reset";
     public static final String PASSWORD_RESET_CONFIRM_URL = "/api/v1/auth/password-reset/confirm";
@@ -51,7 +52,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> {
                     auth.requestMatchers(LOGIN_URL, REGISTER_URL, HEALTH_URL, WEBHOOK_URL,
                             PASSWORD_RESET_URL, PASSWORD_RESET_CONFIRM_URL).permitAll();
-                    auth.requestMatchers(HttpMethod.GET, SocialLoginClients.BASE + "/status",
+                    auth.requestMatchers(HttpMethod.GET, PUBLIC_GUEST_TICKETS_PATH + "*", SocialLoginClients.BASE + "/status",
                             SocialLoginClients.START + "/*", SocialLoginClients.CALLBACK + "/*").permitAll();
                     auth.requestMatchers(HttpMethod.POST, SOCIAL_REGISTER_URL).permitAll();
                     auth.requestMatchers(SocialLoginClients.MANAGER_CONFIG, SocialLoginClients.MANAGER_CONFIG + "/*")

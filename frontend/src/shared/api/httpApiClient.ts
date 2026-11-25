@@ -1,6 +1,7 @@
 import type { ApiClient, Idempotent } from './ApiClient';
 import { ApiError, isApiErrorBody } from './ApiError';
 import { endsSession, notifySessionEnded } from './sessionEvents';
+import type { GuestApi } from '../types/guest';
 
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 type QueryValue = string | number | undefined;
@@ -32,7 +33,7 @@ export function readCookie(name: string): string | null {
  * Gọi backend thật bằng fetch. Base URL là đường dẫn TƯƠNG ĐỐI: giao diện và API cùng origin
  * (Vite proxy khi dev, Nginx khi triển khai), nên cookie phiên SESSION tự đi kèm, không cần CORS.
  */
-export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch = (...args) => fetch(...args)): ApiClient {
+export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch = (...args) => fetch(...args)): ApiClient & { guest: GuestApi } {
   function url(path: string, query?: Record<string, QueryValue>): string {
     const params = new URLSearchParams();
     Object.entries(query ?? {}).forEach(([key, value]) => {
@@ -100,6 +101,29 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
   }
 
   return {
+    guest: {
+      previewEntry: (body) => json('/gate/guest/check-in/preview', { method: 'POST', body }),
+      checkIn: (body) => json('/gate/guest/check-in', { method: 'POST', body }),
+      previewCheckout: (body) => json('/gate/guest/check-out/preview', { method: 'POST', body }),
+      vietQr: (id, body) => json(`/gate/guest/sessions/${id}/vietqr`, { method: 'POST', body }),
+      checkout: (route, body, key) => idempotent(`/gate/guest/check-out/${route}`, body, key),
+      parked: (plate, offset) => json('/gate/guest/parked', { query: { plate, offset } }),
+      publicTicket: (token) => json(`/public/guest-tickets/${encodeURIComponent(token)}`),
+      settings: () => json('/manager/guest-config'),
+      saveSettings: (body) => json('/manager/guest-config', { method: 'PUT', body }),
+      search: (filters, offset) => json('/manager/guest-sessions', { query: { ...filters, offset } }),
+      exportSessions: async (filters) => (await send('/manager/guest-sessions/export', {
+        query: { ...filters }, accept: 'text/csv',
+      })).blob(),
+      approveLostTicket: async (id) => {
+        await send(`/manager/guest-sessions/${id}/approve-lost-ticket`, { method: 'POST' });
+      },
+      revenue: (from, to) => json('/owner/guest-revenue', { query: { from, to } }),
+      feeCatalog: () => json('/manager/fee-rules', { query: { customerType: 'KHACH' } }),
+      updateFeeRules: (vehicleTypeCode, rules) => json(`/manager/fee-rules/${encodeURIComponent(vehicleTypeCode)}`, {
+        method: 'PUT', query: { customerType: 'KHACH' }, body: { rules },
+      }),
+    },
     login: (body) => json(LOGIN_PATH, { method: 'POST', body }),
     logout: async () => {
       await send('/auth/logout', { method: 'POST' });

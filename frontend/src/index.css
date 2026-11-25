@@ -2,6 +2,43 @@
 @tailwind components;
 @tailwind utilities;
 
+.guest-ticket-sheet {
+  display: none;
+}
+
+@media print {
+  @page guest-ticket {
+    size: 58mm 105mm;
+    margin: 2mm;
+  }
+
+  body.printing-guest-ticket #root {
+    display: none;
+  }
+
+  body.printing-guest-ticket .guest-ticket-sheet {
+    page: guest-ticket;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2mm;
+    text-align: center;
+    max-width: 54mm;
+    padding: 2mm 0;
+    box-shadow: none;
+    color: #000;
+  }
+
+  body.printing-guest-ticket {
+    background: #fff;
+  }
+
+  body.printing-guest-ticket .guest-ticket-sheet img {
+    width: 38mm;
+    height: 38mm;
+  }
+}
+
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;

@@ -5,5 +5,6 @@ public enum IncidentType {
     XE_GUI_QUA_LAU,
     XE_CHUA_DANG_KY,
     XE_HU_HONG,
+    MAT_VE,
     KHAC
 }

@@ -24,15 +24,24 @@ import org.springframework.stereotype.Component;
 class GateCashJdbcAdapter implements GateCashRepository {
 
     private static final String BASE_ENTRY_SELECT = """
-            SELECT c.id, c.session_id, v.plate_number, v.vehicle_type_code, s.student_code,
-                   su.full_name AS student_name, c.guard_id, gu.full_name AS guard_name,
-                   c.shift_id, c.amount, c.overnight, c.collected_at
-            FROM gate_cash_collections c
-            JOIN parking_sessions ps ON ps.id = c.session_id
-            JOIN vehicles v          ON v.id = ps.vehicle_id
-            JOIN students s          ON s.user_id = v.student_id
-            JOIN users su            ON su.id = s.user_id
-            JOIN users gu            ON gu.id = c.guard_id
+            SELECT * FROM (
+                SELECT c.id, c.session_id, v.plate_number, v.vehicle_type_code, s.student_code,
+                       su.full_name AS student_name, c.guard_id, gu.full_name AS guard_name,
+                       c.shift_id, c.amount, c.overnight, c.collected_at, FALSE AS guest
+                FROM gate_cash_collections c
+                JOIN parking_sessions ps ON ps.id = c.session_id
+                JOIN vehicles v          ON v.id = ps.vehicle_id
+                JOIN students s          ON s.user_id = v.student_id
+                JOIN users su            ON su.id = s.user_id
+                JOIN users gu            ON gu.id = c.guard_id
+                UNION ALL
+                SELECT p.id, p.guest_session_id, g.plate_number, g.vehicle_type_code, g.ticket_code,
+                       'Khách', p.guard_id, gu.full_name, p.shift_id, p.amount, p.overnight, p.paid_at, TRUE
+                FROM guest_payments p
+                JOIN guest_sessions g ON g.id = p.guest_session_id
+                JOIN users gu        ON gu.id = p.guard_id
+                WHERE p.method = 'TIEN_MAT'
+            ) c
             """;
 
     private final JdbcClient jdbc;
@@ -116,10 +125,11 @@ class GateCashJdbcAdapter implements GateCashRepository {
     }
 
     private static CashEntry mapEntry(ResultSet rs, int row) throws SQLException {
+        String plate = rs.getString("plate_number");
         return new CashEntry(
                 rs.getLong("id"),
                 rs.getLong("session_id"),
-                new PlateNumber(rs.getString("plate_number")),
+                plate == null ? null : new PlateNumber(plate),
                 rs.getString("vehicle_type_code"),
                 rs.getString("student_code"),
                 rs.getString("student_name"),
@@ -128,6 +138,7 @@ class GateCashJdbcAdapter implements GateCashRepository {
                 rs.getObject("shift_id", Long.class),
                 rs.getLong("amount"),
                 rs.getBoolean("overnight"),
-                rs.getObject("collected_at", LocalDateTime.class).toInstant(ZoneOffset.UTC));
+                rs.getObject("collected_at", LocalDateTime.class).toInstant(ZoneOffset.UTC),
+                rs.getBoolean("guest"));
     }
 }

@@ -9,6 +9,7 @@ import { RegisterPage } from '../features/auth/RegisterPage';
 import { SocialRegisterPage } from '../features/auth/SocialRegisterPage';
 import { HOME_BY_ROLE, SessionProvider, useSession } from '../features/auth/session';
 import { GuardPage } from '../features/guard/GuardPage';
+import { GuestTicketPage } from '../features/guest/GuestTicketPage';
 import { ManagerPage } from '../features/manager/ManagerPage';
 import { OwnerPage } from '../features/owner/OwnerPage';
 import { StudentPage } from '../features/student/StudentPage';
@@ -38,9 +39,10 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <SessionProvider>
-          <AppRoutes />
-        </SessionProvider>
+        <Routes>
+          <Route path="/ve/:token" element={<GuestTicketPage />} />
+          <Route path="*" element={<SessionProvider><AppRoutes /></SessionProvider>} />
+        </Routes>
       </BrowserRouter>
     </QueryClientProvider>
   );

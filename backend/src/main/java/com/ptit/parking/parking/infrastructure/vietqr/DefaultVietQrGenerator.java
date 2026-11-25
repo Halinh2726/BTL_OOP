@@ -29,4 +29,11 @@ public class DefaultVietQrGenerator implements VietQrGenerator {
         return VietQrOrder.create(sessionId, plateNumber, studentCode, fullName, fee,
                 cfg.bankId(), cfg.accountNo(), cfg.accountName(), cfg.template());
     }
+
+    @Override
+    public VietQrOrder generateGuest(long sessionId, String plateNumber, String ticketCode, long amount) {
+        BankAccountConfig cfg = configSupplier.get();
+        return VietQrOrder.withTransferContent(sessionId, plateNumber, ticketCode, "Khách", amount,
+                cfg.bankId(), cfg.accountNo(), cfg.accountName(), cfg.template(), ticketCode);
+    }
 }

@@ -7,6 +7,7 @@ import { newIdempotencyKey } from '../../../shared/hooks/useIdempotencyKey';
 import { useVehicleTypeName } from '../../../shared/hooks/useVehicleTypeName';
 import { formatCash, formatPlate, formatPoints, formatTime, normalizePlate, REASON_LABELS } from '../../../shared/utils/format';
 import { plateFromQr } from '../../../shared/utils/plateQr';
+import { guestTokenFromQr } from '../../../shared/utils/guestTicket';
 import { useGuardPreferences } from '../guardPreferences';
 import { usePlateSuggestions } from '../usePlateSuggestions';
 import { useQrCamera } from '../useQrCamera';
@@ -28,7 +29,7 @@ interface HistoryItem {
  * bị từ chối thì báo đỏ → tự quay lại quét xe tiếp theo. Bảo vệ không phải chạm màn hình, chỉ chạm "Dừng" khi
  * thấy tên / biển số không khớp. Luồng xe vào hay xe ra được truyền vào qua {@link GateFlow}.
  */
-export function ContinuousScanPanel({ flow }: { flow: GateFlow }) {
+export function ContinuousScanPanel({ flow, onGuestToken }: { flow: GateFlow; onGuestToken?: (token: string) => void }) {
   const queryClient = useQueryClient();
   const { feedback } = useGuardPreferences();
   const typeName = useVehicleTypeName();
@@ -49,6 +50,11 @@ export function ContinuousScanPanel({ flow }: { flow: GateFlow }) {
   const { error: cameraError } = useQrCamera(
     videoRef,
     (text) => {
+      const guestToken = onGuestToken ? guestTokenFromQr(text) : null;
+      if (guestToken && onGuestToken) {
+        onGuestToken(guestToken);
+        return;
+      }
       const plate = plateFromQr(text);
       if (plate) detect(plate);
       else setForeignCode(true);

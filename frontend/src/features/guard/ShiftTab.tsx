@@ -291,6 +291,10 @@ function GuardCashSheetCard() {
             <div className="rounded-xl bg-amber-50 p-3 ring-1 ring-amber-200">
               <p className="text-xs text-amber-800">+ Thu tiền mặt tại chốt ({sheet.data.entries.length} lượt)</p>
               <p className="text-lg font-bold text-amber-900">{formatCash(sheet.data.totalCollected)}</p>
+              <p className="text-xs text-amber-800">
+                Tiền mặt từ khách {formatCash(sheet.data.entries.filter((entry) => entry.guest)
+                  .reduce((total, entry) => total + entry.amount, 0))}
+              </p>
             </div>
             <div className="rounded-xl bg-blue-50 p-3 ring-1 ring-blue-200">
               <p className="text-xs text-blue-800">= Dự kiến bàn giao</p>
@@ -307,14 +311,14 @@ function GuardCashSheetCard() {
                   <tr>
                     <th className="px-5 py-2 font-medium">Giờ thu</th>
                     <th className="px-3 py-2 font-medium">Biển số</th>
-                    <th className="px-3 py-2 font-medium">Sinh viên</th>
+                    <th className="px-3 py-2 font-medium">Người gửi / Mã vé</th>
                     <th className="px-3 py-2 font-medium">Loại phí</th>
                     <th className="px-5 py-2 text-right font-medium">Số tiền</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {sheet.data.entries.map((entry) => (
-                    <tr key={entry.collectionId}>
+                    <tr key={`${Boolean(entry.guest)}-${entry.collectionId}`}>
                       <td className="whitespace-nowrap px-5 py-2 text-slate-600">{formatTime(entry.collectedAt)}</td>
                       <td className="whitespace-nowrap px-3 py-2 font-mono font-semibold">{entry.plateDisplay}</td>
                       <td className="px-3 py-2">

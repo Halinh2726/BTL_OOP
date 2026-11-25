@@ -11,5 +11,9 @@ public interface VietQrGenerator {
      * Sinh đơn thanh toán VietQR động cho một lượt gửi xe.
      */
     VietQrOrder generate(long sessionId, String plateNumber, String studentCode, String fullName, long fee);
+
+    default VietQrOrder generateGuest(long sessionId, String plateNumber, String ticketCode, long amount) {
+        throw new UnsupportedOperationException("Chưa cấu hình VietQR cho khách");
+    }
 }
 

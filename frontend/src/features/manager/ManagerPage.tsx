@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Tabs } from '../../shared/components/Tabs';
+import { isMockMode } from '../../shared/api';
 import { TrafficStatsCard } from '../stats/TrafficStatsCard';
 import { AccountsTab } from './AccountsTab';
 import { AdjustmentTab } from './AdjustmentTab';
@@ -10,6 +11,8 @@ import { ShiftPlanTab } from './ShiftPlanTab';
 import { DepositTab } from './DepositTab';
 import { FeeCatalogTab } from './FeeCatalogTab';
 import { GuardsTab } from './GuardsTab';
+import { GuestConfigTab } from './GuestConfigTab';
+import { GuestSessionsTab } from './GuestSessionsTab';
 import { LedgerTab } from './LedgerTab';
 import { PassCatalogTab } from './PassCatalogTab';
 import { ReconciliationTab } from './ReconciliationTab';
@@ -53,6 +56,7 @@ const GROUPS: Record<Group, { label: string; sections: Section[] }> = {
     sections: [
       { id: 'students', label: 'Sinh viên', render: () => <StudentsTab /> },
       { id: 'ledger', label: 'Sổ giao dịch', render: () => <LedgerTab /> },
+      ...(!isMockMode ? [{ id: 'guest-sessions', label: 'Lượt xe khách', render: () => <GuestSessionsTab /> }] : []),
     ],
   },
   stats: {
@@ -73,6 +77,7 @@ const GROUPS: Record<Group, { label: string; sections: Section[] }> = {
     sections: [
       { id: 'smtp', label: 'Email (SMTP)', render: () => <SmtpConfigTab /> },
       { id: 'social-login', label: 'Đăng nhập Google / Microsoft', render: () => <SocialLoginConfigTab /> },
+      ...(!isMockMode ? [{ id: 'guest-config', label: 'Gửi xe khách', render: () => <GuestConfigTab /> }] : []),
     ],
   },
 };

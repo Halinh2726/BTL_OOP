@@ -25,6 +25,10 @@ public interface VehicleOwnerDirectory {
     /** Xe và chủ xe theo id xe — khi xe ra, từ lượt gửi tìm ra ví của ai cần trừ phí. Chỉ đọc, không khóa. */
     Optional<VehicleOwner> findByVehicleId(long vehicleId);
 
+    default boolean hasOpenGuestSession(PlateNumber plate) {
+        return false;
+    }
+
     
     /**
      * Biển số CHỨA {@code fragment} (đã chuẩn hóa); biển KẾT THÚC bằng {@code fragment} xếp trước, rồi theo biển số.

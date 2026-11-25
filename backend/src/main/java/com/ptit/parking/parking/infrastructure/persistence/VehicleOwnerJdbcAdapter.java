@@ -53,6 +53,12 @@ class VehicleOwnerJdbcAdapter implements VehicleOwnerDirectory {
                 .optional();
     }
 
+    @Override
+    public boolean hasOpenGuestSession(PlateNumber plate) {
+        return jdbc.sql("SELECT id FROM guest_sessions WHERE open_plate = :plate")
+                .param("plate", plate.value()).query(Long.class).optional().isPresent();
+    }
+
         /**
      * open_vehicle_id = id xe khi lượt đang gửi (cột tính toán của V005), nên LEFT JOIN theo nó cho biết xe có trong bãi.
      * fragment chỉ gồm chữ và số (use case đã kiểm tra) nên không chứa ký tự đại diện % hay _ của LIKE.

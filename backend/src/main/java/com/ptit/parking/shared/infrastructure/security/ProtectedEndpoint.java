@@ -47,6 +47,20 @@ public enum ProtectedEndpoint {
     CHECK_OUT          (HttpMethod.POST,  "/api/v1/guard/check-out",          PARKING_CHECK_OUT),  // #15
     CHECK_OUT_VIETQR   (HttpMethod.POST,  "/api/v1/guard/check-out/vietqr",   PARKING_CHECK_OUT),  // BV02-VietQR
     CHECK_OUT_CASH     (HttpMethod.POST,  "/api/v1/guard/check-out/cash",     PARKING_CHECK_OUT),  // BV02-Tiền mặt
+    GUEST_CHECK_IN     (HttpMethod.POST,  "/api/v1/gate/guest/check-in", PARKING_CHECK_IN),
+    GUEST_IN_PREVIEW   (HttpMethod.POST,  "/api/v1/gate/guest/check-in/preview", PARKING_CHECK_IN),
+    GUEST_OUT_PREVIEW  (HttpMethod.POST,  "/api/v1/gate/guest/check-out/preview", PARKING_CHECK_OUT),
+    GUEST_OUT_CASH     (HttpMethod.POST,  "/api/v1/gate/guest/check-out/cash", PARKING_CHECK_OUT),
+    GUEST_OUT_VIETQR   (HttpMethod.POST,  "/api/v1/gate/guest/check-out/vietqr", PARKING_CHECK_OUT),
+    GUEST_LOST_TICKET  (HttpMethod.POST,  "/api/v1/gate/guest/check-out/lost-ticket", PARKING_CHECK_OUT),
+    GUEST_VIETQR       (HttpMethod.POST,  "/api/v1/gate/guest/sessions/*/vietqr", PARKING_CHECK_OUT),
+    GUEST_PARKED       (HttpMethod.GET,   "/api/v1/gate/guest/parked", PARKING_CHECK_IN, PARKING_CHECK_OUT),
+    MANAGER_GUESTS     (HttpMethod.GET,   "/api/v1/manager/guest-sessions", CASE_HANDLE),
+    GUEST_EXPORT       (HttpMethod.GET,   "/api/v1/manager/guest-sessions/export", CASE_HANDLE),
+    GUEST_APPROVAL     (HttpMethod.POST,  "/api/v1/manager/guest-sessions/*/approve-lost-ticket", CASE_HANDLE),
+    GET_GUEST_CONFIG   (HttpMethod.GET,   "/api/v1/manager/guest-config", CASH_DEPOSIT),
+    PUT_GUEST_CONFIG   (HttpMethod.PUT,   "/api/v1/manager/guest-config", CASH_DEPOSIT),
+    OWNER_GUEST_REVENUE(HttpMethod.GET,   "/api/v1/owner/guest-revenue", OWNER_FINANCE),
     GUARD_CASH_SHEET   (HttpMethod.GET,   "/api/v1/guard/cash-sheet",         PARKING_CHECK_IN, PARKING_CHECK_OUT), // Bảng kê tiền mặt ca trực
     SUGGEST_PLATES     (HttpMethod.GET,   "/api/v1/guard/plates",             PARKING_CHECK_IN, PARKING_CHECK_OUT), // #24
     PARKED_VEHICLES    (HttpMethod.GET,   "/api/v1/guard/parked-vehicles",    PARKING_CHECK_IN, PARKING_CHECK_OUT), // Đợt 2

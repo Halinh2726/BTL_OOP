@@ -12,13 +12,15 @@ interface VietQrPaymentCardProps {
   confirming: boolean;
   onCancel: () => void;
   error?: string | null;
+  guest?: boolean;
+  expiresAt?: string;
 }
 
 /**
  * Thẻ hiển thị mã VietQR động khi ví sinh viên không đủ điểm.
  * Cho phép sinh viên quét mã bằng bất kỳ app ngân hàng nào (Napas247) và bảo vệ xác nhận cho xe ra.
  */
-export function VietQrPaymentCard({ order, onConfirm, confirming, onCancel, error }: VietQrPaymentCardProps) {
+export function VietQrPaymentCard({ order, onConfirm, confirming, onCancel, error, guest = false, expiresAt }: VietQrPaymentCardProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   function copy(text: string, label: string) {
@@ -37,12 +39,12 @@ export function VietQrPaymentCard({ order, onConfirm, confirming, onCancel, erro
           <div className="flex items-center gap-2">
             <span className="text-xl">⚠️</span>
             <div>
-              <p className="font-bold">Ví sinh viên không đủ điểm</p>
-              <p className="text-sm text-amber-700">Chuyển sang thanh toán trực tiếp tại cổng qua VietQR Napas247.</p>
+              <p className="font-bold">{guest ? 'Thanh toán vé xe khách' : 'Ví sinh viên không đủ điểm'}</p>
+              <p className="text-sm text-amber-700">Thanh toán tại cổng qua VietQR Napas247.</p>
             </div>
           </div>
           <span className="rounded bg-amber-200 px-2 py-1 font-mono text-xs font-bold text-amber-900">
-            Đơn #{order.sessionId}
+            {guest ? order.transferContent : `Đơn #${order.sessionId}`}
           </span>
         </div>
 
@@ -64,8 +66,8 @@ export function VietQrPaymentCard({ order, onConfirm, confirming, onCancel, erro
           {/* Chi tiết tài khoản nhận tiền */}
           <div className="flex-1 space-y-3 w-full">
             <dl className="space-y-1 text-base">
-              <InfoRow label="Biển số xe" value={<span className="font-mono font-bold">{order.plateNumber}</span>} />
-              <InfoRow label="Chủ xe" value={`${order.fullName} (${order.studentCode})`} />
+              <InfoRow label="Biển số xe" value={<span className="font-mono font-bold">{order.plateNumber ?? 'Không biển'}</span>} />
+              {!guest && <InfoRow label="Chủ xe" value={`${order.fullName} (${order.studentCode})`} />}
               <InfoRow
                 label="Số tiền cần trả"
                 value={<span className="text-2xl font-extrabold text-red-600">{formatNumber(order.fee)} đ</span>}
@@ -115,9 +117,10 @@ export function VietQrPaymentCard({ order, onConfirm, confirming, onCancel, erro
             </dl>
 
             <p className="text-xs text-slate-500">
-              * Sinh viên quét mã QR bằng app ngân hàng bất kỳ để chuyển tiền. Sau khi hoàn tất chuyển khoản, bảo vệ bấm nút
-              xác nhận bên dưới để mở cổng cho xe ra.
+              {guest ? 'Khách quét mã bằng ứng dụng ngân hàng. Bảo vệ đối chiếu giao dịch đã nhận trước khi xác nhận.'
+                : 'Sinh viên quét mã QR bằng ứng dụng ngân hàng. Bảo vệ xác nhận sau khi đã nhận chuyển khoản.'}
             </p>
+            {expiresAt && <p className="text-xs text-slate-500">Mức phí được giữ đến {expiresAt}.</p>}
           </div>
         </div>
 

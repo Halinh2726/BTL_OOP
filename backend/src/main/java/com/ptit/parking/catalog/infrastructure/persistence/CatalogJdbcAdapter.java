@@ -12,6 +12,7 @@ import com.ptit.parking.catalog.application.port.out.ExchangeRateRepository;
 import com.ptit.parking.catalog.application.port.out.FeeRuleRepository;
 import com.ptit.parking.catalog.application.port.out.VehicleTypeRepository;
 import com.ptit.parking.catalog.domain.FeeRule;
+import com.ptit.parking.catalog.domain.CustomerType;
 import com.ptit.parking.catalog.domain.VehicleType;
 import com.ptit.parking.payment.domain.ExchangeRate;
 
@@ -39,7 +40,7 @@ class CatalogJdbcAdapter implements VehicleTypeRepository, FeeRuleRepository, Ex
         List<FeeRule> xeMayRules = jdbc.sql("""
                 SELECT up_to_minutes, fee_points
                 FROM duration_fee_rules
-                WHERE vehicle_type_code = 'XE_MAY'
+                WHERE customer_type = 'SINH_VIEN' AND vehicle_type_code = 'XE_MAY'
                 ORDER BY up_to_minutes""")
                 .query((rs, row) -> new FeeRule(rs.getInt("up_to_minutes"), rs.getInt("fee_points")))
                 .list();
@@ -49,7 +50,8 @@ class CatalogJdbcAdapter implements VehicleTypeRepository, FeeRuleRepository, Ex
         return jdbc.sql("""
                 SELECT up_to_minutes, fee_points
                 FROM duration_fee_rules
-                WHERE vehicle_type_code = (SELECT MIN(vehicle_type_code) FROM duration_fee_rules)
+                WHERE customer_type = 'SINH_VIEN' AND vehicle_type_code = (
+                    SELECT MIN(vehicle_type_code) FROM duration_fee_rules WHERE customer_type = 'SINH_VIEN')
                 ORDER BY up_to_minutes""")
                 .query((rs, row) -> new FeeRule(rs.getInt("up_to_minutes"), rs.getInt("fee_points")))
                 .list();
@@ -57,24 +59,37 @@ class CatalogJdbcAdapter implements VehicleTypeRepository, FeeRuleRepository, Ex
 
     @Override
     public List<FeeRule> rulesForVehicleType(String vehicleTypeCode) {
-        List<FeeRule> rules = jdbc.sql("""
-                SELECT up_to_minutes, fee_points
-                FROM duration_fee_rules
-                WHERE vehicle_type_code = :code
-                ORDER BY up_to_minutes""")
-                .param("code", vehicleTypeCode)
-                .query((rs, row) -> new FeeRule(rs.getInt("up_to_minutes"), rs.getInt("fee_points")))
-                .list();
+        List<FeeRule> rules = rulesForVehicleType(CustomerType.SINH_VIEN, vehicleTypeCode);
         return rules.isEmpty() ? allFeeRules() : rules;
     }
 
     @Override
+    public List<FeeRule> rulesForVehicleType(CustomerType customer, String vehicleTypeCode) {
+        return jdbc.sql("""
+                SELECT up_to_minutes, fee_points
+                FROM duration_fee_rules
+                WHERE customer_type = :customer AND vehicle_type_code = :code
+                ORDER BY up_to_minutes""")
+                .param("customer", customer.name())
+                .param("code", vehicleTypeCode)
+                .query((rs, row) -> new FeeRule(rs.getInt("up_to_minutes"), rs.getInt("fee_points")))
+                .list();
+    }
+
+    @Override
     public Map<String, List<FeeRule>> allByVehicleType() {
+        return allByVehicleType(CustomerType.SINH_VIEN);
+    }
+
+    @Override
+    public Map<String, List<FeeRule>> allByVehicleType(CustomerType customer) {
         Map<String, List<FeeRule>> byType = new LinkedHashMap<>();
         jdbc.sql("""
                 SELECT vehicle_type_code, up_to_minutes, fee_points
                 FROM duration_fee_rules
+                WHERE customer_type = :customer
                 ORDER BY vehicle_type_code, up_to_minutes""")
+                .param("customer", customer.name())
                 .query(rs -> {
                     String code = rs.getString("vehicle_type_code");
                     FeeRule rule = new FeeRule(rs.getInt("up_to_minutes"), rs.getInt("fee_points"));
@@ -85,13 +100,20 @@ class CatalogJdbcAdapter implements VehicleTypeRepository, FeeRuleRepository, Ex
 
     @Override
     public void replaceRulesForVehicleType(String vehicleTypeCode, List<FeeRule> rules) {
-        jdbc.sql("DELETE FROM duration_fee_rules WHERE vehicle_type_code = :code")
+        replaceRulesForVehicleType(CustomerType.SINH_VIEN, vehicleTypeCode, rules);
+    }
+
+    @Override
+    public void replaceRulesForVehicleType(CustomerType customer, String vehicleTypeCode, List<FeeRule> rules) {
+        jdbc.sql("DELETE FROM duration_fee_rules WHERE customer_type = :customer AND vehicle_type_code = :code")
+                .param("customer", customer.name())
                 .param("code", vehicleTypeCode)
                 .update();
         for (FeeRule rule : rules) {
             jdbc.sql("""
-                    INSERT INTO duration_fee_rules (vehicle_type_code, up_to_minutes, fee_points)
-                    VALUES (:code, :upToMinutes, :feePoints)""")
+                    INSERT INTO duration_fee_rules (customer_type, vehicle_type_code, up_to_minutes, fee_points)
+                    VALUES (:customer, :code, :upToMinutes, :feePoints)""")
+                    .param("customer", customer.name())
                     .param("code", vehicleTypeCode)
                     .param("upToMinutes", rule.upToMinutes())
                     .param("feePoints", rule.feePoints())

@@ -3,6 +3,7 @@ package com.ptit.parking.catalog.presentation.web;
 import com.ptit.parking.catalog.application.usecase.GetCatalogUseCase.VehicleTypeFeeSchedule;
 import com.ptit.parking.catalog.application.usecase.ManageFeeCatalogUseCase;
 import com.ptit.parking.catalog.domain.FeeRule;
+import com.ptit.parking.catalog.domain.CustomerType;
 import com.ptit.parking.catalog.presentation.web.CatalogResponses.VehicleTypeFeeScheduleResponse;
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Quản lý cấu hình bảng giá gửi xe theo lượt theo từng loại xe (quyền CASH_DEPOSIT). */
@@ -52,12 +54,14 @@ class ManagerFeeCatalogController {
     }
 
     @GetMapping("/fee-rules")
-    FeeCatalogResponse view() {
-        return FeeCatalogResponse.from(manageFeeCatalog.view());
+    FeeCatalogResponse view(@RequestParam(defaultValue = "SINH_VIEN") CustomerType customerType) {
+        return FeeCatalogResponse.from(customerType == CustomerType.SINH_VIEN
+                ? manageFeeCatalog.view() : manageFeeCatalog.view(customerType));
     }
 
     @PutMapping("/fee-rules/{vehicleTypeCode}")
     FeeCatalogResponse update(@PathVariable String vehicleTypeCode,
+                              @RequestParam(defaultValue = "SINH_VIEN") CustomerType customerType,
                               @Valid @RequestBody UpdateFeeScheduleRequest body) {
         List<FeeRule> parsed;
         try {
@@ -67,6 +71,8 @@ class ManagerFeeCatalogController {
         } catch (IllegalArgumentException ex) {
             throw new DomainException(ErrorCode.VALIDATION_ERROR, ex.getMessage());
         }
-        return FeeCatalogResponse.from(manageFeeCatalog.update(vehicleTypeCode, parsed));
+        return FeeCatalogResponse.from(customerType == CustomerType.SINH_VIEN
+                ? manageFeeCatalog.update(vehicleTypeCode, parsed)
+                : manageFeeCatalog.update(customerType, vehicleTypeCode, parsed));
     }
 }
