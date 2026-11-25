@@ -10,6 +10,7 @@ import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
 import com.ptit.parking.student.application.port.out.StudentAccountRepository;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 /**
  * SV01 — sinh viên tự đăng ký tài khoản (Đặc tả API #4).
@@ -40,6 +41,11 @@ public class RegisterStudentUseCase {
     }
 
     public Student register(Command command) {
+        return register(command, student -> {});
+    }
+
+    /** Thực hiện thêm thao tác lưu trữ trong cùng giao dịch tạo sinh viên và ví. */
+    public Student register(Command command, Consumer<Student> onCreated) {
         Optional<EmailAddress> email = EmailAddress.ofNullable(command.email());
         // Băm BCrypt (chậm, cố ý) TRƯỚC khi mở transaction để không giữ kết nối CSDL lâu
         Student student = Student.register(command.username(), hasher.hash(command.password()),
@@ -61,6 +67,7 @@ public class RegisterStudentUseCase {
                     ? students.save(student, email.get().value())
                     : students.save(student);
             wallets.insert(Wallet.openFor(saved.id()));
+            onCreated.accept(saved);
             return saved;
         });
     }

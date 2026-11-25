@@ -8,14 +8,15 @@ interface TabsProps<T extends string> {
   active: T;
   onChange: (id: T) => void;
   size?: 'md' | 'lg';
+  wrap?: boolean;
 }
 
-export function Tabs<T extends string>({ tabs, active, onChange, size = 'md' }: TabsProps<T>) {
+export function Tabs<T extends string>({ tabs, active, onChange, size = 'md', wrap = false }: TabsProps<T>) {
   const buttonSize = size === 'lg'
     ? 'min-h-11 min-w-11 flex-auto whitespace-nowrap px-1.5 py-2 text-xs sm:flex-1 sm:px-4 sm:py-4 sm:text-xl'
     : 'flex-1 px-4 py-2.5 text-sm';
   return (
-    <div role="tablist" className="flex gap-1 rounded-xl bg-slate-200 p-1">
+    <div role="tablist" className={`flex gap-1 rounded-xl bg-slate-200 p-1${wrap ? ' flex-wrap' : ''}`}>
       {tabs.map((tab) => {
         const selected = tab.id === active;
         return (

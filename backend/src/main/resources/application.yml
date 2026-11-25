@@ -60,11 +60,20 @@ server:
       cookie:
         name: SESSION
         http-only: true            # JavaScript không đọc được cookie phiên
-        same-site: strict
+        same-site: lax               # gửi cookie SESSION khi Google/Microsoft chuyển người dùng về qua GET
         secure: ${COOKIE_SECURE:false}
 # Cấu hình nghiệp vụ của ứng dụng
 parking:
   zone-id: Asia/Ho_Chi_Minh        # R03: giờ tính phí là giờ Việt Nam theo đồng hồ máy chủ
+  social:
+    origin: ${OAUTH_PUBLIC_ORIGIN:http://localhost:5173}
+    config-directory: ${OAUTH_CONFIG_DIRECTORY:.parking-secrets}
+    google:
+      client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
+      client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET:}
+    microsoft:
+      client-id: ${MICROSOFT_OAUTH_CLIENT_ID:}
+      client-secret: ${MICROSOFT_OAUTH_CLIENT_SECRET:}
   mail:
     from: ${PARKING_MAIL_FROM:no-reply@parking.ptit.edu.vn}
     alert-to: ${PARKING_MAIL_ALERT_TO:}

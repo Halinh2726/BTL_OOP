@@ -33,6 +33,41 @@ export interface RegisterStudentRequest {
   email?: string;
 }
 
+export type SocialProvider = 'google' | 'microsoft';
+
+export interface SocialAuthPending {
+  id: string;
+  provider: SocialProvider;
+  fullName: string | null;
+  label: string | null;
+}
+
+export interface SocialAuthStatus {
+  providers: SocialProvider[];
+  linked: SocialProvider[];
+  pending: SocialAuthPending | null;
+}
+
+export interface SocialProviderConfig {
+  provider: SocialProvider;
+  clientId: string;
+  hasSecret: boolean;
+  enabled: boolean;
+  active: boolean;
+  managed: boolean;
+  redirectUri: string;
+}
+
+export interface UpdateSocialProviderConfig {
+  enabled: boolean;
+  clientId: string;
+  clientSecret?: string;
+}
+
+export type SocialRegisterRequest = Pick<RegisterStudentRequest, 'studentCode' | 'fullName' | 'username'> & {
+  id: string;
+};
+
 export interface RegisteredStudent {
   id: number;
   username: string;

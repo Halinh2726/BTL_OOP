@@ -106,6 +106,11 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
     },
     me: () => json('/me'),
     registerStudent: (body) => json('/students/register', { method: 'POST', body }),
+    socialAuthStatus: () => json('/auth/social/status'),
+    registerWithSocial: (body) => json('/auth/social/register', { method: 'POST', body }),
+    linkSocialAccount: async (id) => {
+      await send('/auth/social/link', { method: 'POST', body: { id } });
+    },
     vehicleTypes: () => json('/vehicle-types'),
     feeRules: () => json('/fee-rules'),
     feeRulesByVehicleType: () => json('/fee-rules/by-vehicle-type'),
@@ -269,6 +274,10 @@ export function createHttpApiClient(baseUrl = '/api/v1', fetchFn: typeof fetch =
     updateSmtpConfig: (body) => json('/manager/smtp-config', { method: 'PUT', body }),
     resetSmtpConfig: () => json('/manager/smtp-config', { method: 'DELETE' }),
     testSmtpConfig: (toEmail) => json('/manager/smtp-config/test', { method: 'POST', body: toEmail ? { toEmail } : {} }),
+    socialLoginConfig: () => json('/manager/social-login-config'),
+    updateSocialLoginConfig: (provider, body) =>
+      json(`/manager/social-login-config/${provider}`, { method: 'PUT', body }),
+    resetSocialLoginConfig: (provider) => json(`/manager/social-login-config/${provider}`, { method: 'DELETE' }),
   };
 }
 

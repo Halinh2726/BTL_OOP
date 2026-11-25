@@ -8,7 +8,9 @@ import { Alert } from '../../shared/components/Alert';
 import { Button } from '../../shared/components/Button';
 import { PasswordField, TextField } from '../../shared/components/Field';
 import { AuthLayout } from './AuthLayout';
+import { SocialSignInOptions } from './SocialSignInOptions';
 import { HOME_BY_ROLE, useSession } from './session';
+import { socialErrorMessage } from './socialAuth';
 
 const schema = z.object({
   username: z.string().trim().min(1, 'Vui lòng nhập tên đăng nhập'),
@@ -38,6 +40,7 @@ export function LoginPage() {
   }
 
   const notice = state.status === 'anonymous' ? state.notice : undefined;
+  const socialError = socialErrorMessage(new URLSearchParams(location.search).get('social'));
   const { errors } = form.formState;
 
   return (
@@ -50,6 +53,7 @@ export function LoginPage() {
           <Alert tone="success">Đã đặt lại mật khẩu. Mời bạn đăng nhập bằng mật khẩu mới.</Alert>
         )}
         {notice && !login.isError && <Alert tone="warning">{notice}</Alert>}
+        {socialError && !login.isError && <Alert tone="error">{socialError}</Alert>}
         {login.isError && <Alert tone="error">{errorMessage(login.error)}</Alert>}
 
         <TextField
@@ -74,6 +78,7 @@ export function LoginPage() {
           Đăng nhập
         </Button>
       </form>
+      <SocialSignInOptions />
       <p className="mt-5 text-center text-sm text-slate-600">
         Sinh viên chưa có tài khoản?{' '}
         <Link to="/register" className="font-semibold text-blue-700 hover:underline">

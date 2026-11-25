@@ -2,12 +2,14 @@ import type { LedgerQuery, TransactionType } from '../types/api';
 
 /** Khóa cache của TanStack Query — gom một chỗ để invalidate đúng dữ liệu sau mỗi thao tác. */
 export const queryKeys = {
+  socialAuth: ['social-auth'] as const,
   me: ['me'] as const,
   vehicleTypes: ['vehicle-types'] as const,
   feeRules: ['fee-rules'] as const,
   feeRulesByVehicleType: ['fee-rules', 'by-vehicle-type'] as const,
   managerFeeCatalog: ['manager', 'fee-rules'] as const,
   smtpConfig: ['manager', 'smtp-config'] as const,
+  socialLoginConfig: ['manager', 'social-login-config'] as const,
   exchangeRate: ['exchange-rate'] as const,
   myVehicles: ['me', 'vehicles'] as const,
   myWallet: ['me', 'wallet'] as const,

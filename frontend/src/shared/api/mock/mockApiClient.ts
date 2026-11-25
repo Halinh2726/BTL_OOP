@@ -17,6 +17,8 @@ import type {
   AuditItem,
   RevenueDay,
   SmtpConfig,
+  SocialProvider,
+  SocialProviderConfig,
   VietQrOrder,
   WithdrawalView,
   IncidentItem,
@@ -72,6 +74,7 @@ const ERRORS = {
   PASSWORD_CHANGE_REQUIRED: [403, 'Bạn cần đổi mật khẩu tạm trước khi tiếp tục.'],
   VEHICLE_NOT_FOUND: [404, 'Không tìm thấy xe.'],
   EMAIL_EXISTS: [409, 'Email đã được dùng cho tài khoản khác'],
+  SOCIAL_FLOW_EXPIRED: [422, 'Phiên xác thực đã hết hạn. Vui lòng chọn lại Google hoặc Microsoft.'],
   VEHICLE_PARKED: [409, 'Xe đang trong bãi. Lấy xe ra trước khi sửa hoặc ngừng sử dụng.'],
   VEHICLE_INACTIVE: [409, 'Xe đã ngừng sử dụng.'],
   PASSWORD_POLICY: [422, 'Mật khẩu phải dài 8–72 ký tự.'],
@@ -275,6 +278,17 @@ function loadState(): MockState {
 export function createMockApiClient(options: { latencyMs?: number; initialState?: MockState } = {}): ApiClient {
   const latencyMs = options.latencyMs ?? 250;
   const state: MockState = options.initialState ?? loadState();
+
+  function defaultSocialConfig(provider: SocialProvider): SocialProviderConfig {
+    return {
+      provider, enabled: false, active: false, managed: false, clientId: '', hasSecret: false,
+      redirectUri: `http://localhost:5173/api/v1/auth/social/callback/${provider}`,
+    };
+  }
+  const socialConfig = {
+    google: defaultSocialConfig('google'),
+    microsoft: defaultSocialConfig('microsoft'),
+  };
 
   const ENV_DEFAULT_BANK = {
     bankId: 'MB',
@@ -999,6 +1013,9 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
       }),
 
     me: () => call(() => meOf(currentUser())),
+    socialAuthStatus: () => call(() => ({ providers: [], linked: [], pending: null })),
+    registerWithSocial: () => call(() => fail('SOCIAL_FLOW_EXPIRED')),
+    linkSocialAccount: () => call(() => fail('SOCIAL_FLOW_EXPIRED')),
 
     registerStudent: (body) =>
       call(() => {
@@ -2722,6 +2739,32 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           byGuard: [...byGuardMap.values()],
           entries,
         };
+      }),
+
+    socialLoginConfig: () =>
+      call(() => {
+        if (currentUser().role !== 'QUAN_LY') fail('FORBIDDEN');
+        return Object.values(socialConfig);
+      }),
+
+    updateSocialLoginConfig: (provider, body) =>
+      call(() => {
+        if (currentUser().role !== 'QUAN_LY') fail('FORBIDDEN');
+        const previous = socialConfig[provider];
+        const clientId = body.clientId.trim();
+        const hasSecret = Boolean(body.clientSecret?.trim()) || (clientId === previous.clientId && previous.hasSecret);
+        if (body.enabled && (!clientId || !hasSecret)) fail('VALIDATION_ERROR');
+        const updated = { ...previous, clientId, hasSecret, enabled: body.enabled, active: body.enabled, managed: true };
+        socialConfig[provider] = updated;
+        return updated;
+      }),
+
+    resetSocialLoginConfig: (provider) =>
+      call(() => {
+        if (currentUser().role !== 'QUAN_LY') fail('FORBIDDEN');
+        const defaults = defaultSocialConfig(provider);
+        socialConfig[provider] = defaults;
+        return defaults;
       }),
 
     smtpConfig: () =>

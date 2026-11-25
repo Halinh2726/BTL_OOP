@@ -1,10 +1,13 @@
 package com.ptit.parking.auth.configuration;
 
 import com.ptit.parking.auth.application.port.out.PermissionRepository;
+import com.ptit.parking.auth.application.port.out.StudentSocialAccounts;
 import com.ptit.parking.auth.application.port.out.UserRepository;
 import com.ptit.parking.auth.application.usecase.GetCurrentUserUseCase;
 import com.ptit.parking.auth.application.usecase.LoginUseCase;
+import com.ptit.parking.auth.application.usecase.StudentSocialSignInUseCase;
 import com.ptit.parking.auth.domain.PasswordHasher;
+import com.ptit.parking.student.application.usecase.RegisterStudentUseCase;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -23,5 +26,11 @@ public class AuthUseCaseConfig {
     @Bean
     GetCurrentUserUseCase getCurrentUserUseCase(UserRepository users, PermissionRepository permissions) {
         return new GetCurrentUserUseCase(users, permissions);
+    }
+
+    @Bean
+    StudentSocialSignInUseCase studentSocialSignInUseCase(StudentSocialAccounts accounts,
+            RegisterStudentUseCase registration, GetCurrentUserUseCase currentUser) {
+        return new StudentSocialSignInUseCase(accounts, registration, currentUser);
     }
 }

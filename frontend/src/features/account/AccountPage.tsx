@@ -6,6 +6,7 @@ import { HOME_BY_ROLE, useCurrentUser } from '../auth/session';
 import { ChangePasswordForm } from './ChangePasswordForm';
 import { ProfileCard } from './ProfileCard';
 import { SecurityStatusCard } from './SecurityStatusCard';
+import { SocialAccountsCard } from './SocialAccountsCard';
 
 /** Trang "Tài khoản" — chung cho cả 4 vai trò: thông tin cá nhân, đổi mật khẩu và trạng thái bảo mật. */
 export function AccountPage() {
@@ -30,6 +31,7 @@ export function AccountPage() {
           </div>
         </Card>
       </div>
+      {user.role === 'SINH_VIEN' && <SocialAccountsCard />}
       <SecurityStatusCard />
     </div>
   );

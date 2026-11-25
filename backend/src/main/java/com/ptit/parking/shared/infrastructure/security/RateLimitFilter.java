@@ -53,7 +53,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private Optional<Duration> check(HttpServletRequest request) {
         String path = request.getRequestURI();
-        if (SecurityConfig.REGISTER_URL.equals(path)) {
+        if (SecurityConfig.REGISTER_URL.equals(path) || SecurityConfig.SOCIAL_REGISTER_URL.equals(path)) {
             return "POST".equals(request.getMethod())
                     ? registrations.tryAcquire(request.getRemoteAddr())
                     : Optional.empty();
