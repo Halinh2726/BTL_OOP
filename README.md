@@ -195,7 +195,7 @@ Ngoài các thư mục trên, thư mục gốc có cấu hình **Docker Compose*
 ### 6.1. Yêu cầu môi trường
 
 - **JDK 21** trở lên.
-- **Node.js 20** trở lên và npm (để chạy frontend).
+- **Node.js 24 LTS** trở lên và npm (để chạy frontend ngoài Docker).
 - **Docker** và **Docker Compose** (Docker Desktop trên Windows hoặc Docker Engine trên Linux).
 - **Git** (để sao chép mã nguồn).
 
@@ -208,13 +208,16 @@ git clone https://github.com/Halinh2726/BTL_OOP.git
 cd BTL_OOP
 ```
 
-### 6.3. Khởi chạy MySQL
+### 6.3. Khởi chạy toàn bộ hệ thống bằng Docker
 
 Tại **thư mục gốc** của dự án:
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
+
+Docker Compose khởi chạy MySQL, backend Spring Boot và frontend Nginx. Truy cập giao diện tại
+**http://localhost:5173**; Nginx tự chuyển các request `/api` sang backend.
 
 Thiết lập mặc định của môi trường demo:
 
@@ -227,9 +230,24 @@ Thiết lập mặc định của môi trường demo:
 | Backend port | `8080` |
 | Frontend port | `5173` |
 
-Nếu cần thay đổi cấu hình mặc định, tạo file `.env` ở thư mục gốc, chỉnh các thông số Docker Compose và thiết lập các biến môi trường tương ứng cho backend. File `.env` đã được Git bỏ qua và không được commit.
+Nếu cần thay đổi cấu hình mặc định, sao chép `.env.example` thành `.env` rồi chỉnh giá trị.
+File `.env` đã được Git bỏ qua và không được commit. Nếu MySQL đã chạy, Compose
+giữ nguyên volume dữ liệu và chỉ tạo thêm hai container ứng dụng.
 
-### 6.4. Chạy backend
+Kiểm tra trạng thái và log:
+
+```bash
+docker compose ps
+docker compose logs -f backend frontend
+```
+
+Dừng hệ thống nhưng giữ nguyên dữ liệu:
+
+```bash
+docker compose down
+```
+
+### 6.4. Chạy backend khi phát triển cục bộ
 
 Mở terminal ở thư mục gốc dự án, sau đó:
 
@@ -259,7 +277,7 @@ Kết quả mong đợi:
 {"status":"UP","database":"UP"}
 ```
 
-### 6.5. Chạy frontend
+### 6.5. Chạy frontend khi phát triển cục bộ
 
 Mở **terminal khác** tại thư mục gốc `BTL_OOP/` (giữ backend đang chạy):
 
