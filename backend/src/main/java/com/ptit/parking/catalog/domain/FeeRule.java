@@ -1,5 +1,7 @@
 package com.ptit.parking.catalog.domain;
 
+import java.util.List;
+
 /** Mức phí của một bậc thời lượng. Cận trên được tính vào bậc hiện tại. */
 public record FeeRule(int upToMinutes, int feePoints) implements Comparable<FeeRule> {
 
@@ -12,6 +14,25 @@ public record FeeRule(int upToMinutes, int feePoints) implements Comparable<FeeR
         if (feePoints <= 0) {
             throw new IllegalArgumentException("feePoints phải > 0");
         }
+    }
+
+    /** Chuẩn hóa (sắp xếp tăng dần) và kiểm tra bất biến của một bảng giá lượt trong chu kỳ 24 giờ. */
+    public static List<FeeRule> validateSchedule(List<FeeRule> rules) {
+        if (rules == null || rules.isEmpty()) {
+            throw new IllegalArgumentException("Bảng giá phải có ít nhất 1 bậc");
+        }
+        List<FeeRule> sorted = rules.stream().sorted().toList();
+        if (sorted.getLast().upToMinutes() != MINUTES_PER_DAY) {
+            throw new IllegalArgumentException("Bảng giá phải có bậc cuối đến 24 giờ (1440 phút)");
+        }
+        for (int i = 1; i < sorted.size(); i++) {
+            FeeRule previous = sorted.get(i - 1);
+            FeeRule current = sorted.get(i);
+            if (current.upToMinutes() == previous.upToMinutes() || current.feePoints() < previous.feePoints()) {
+                throw new IllegalArgumentException("Mốc thời lượng phải khác nhau và phí không được giảm theo bậc");
+            }
+        }
+        return sorted;
     }
 
     @Override

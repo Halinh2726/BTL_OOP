@@ -1012,3 +1012,47 @@ export interface ManagerGateCashReport {
   byGuard: ManagerGateCashGuardTotal[];
   entries: ManagerGateCashItem[];
 }
+
+export interface VehicleTypeFeeSchedule {
+  vehicleTypeCode: string;
+  vehicleTypeName: string;
+  rules: FeeRule[];
+}
+
+export interface ManagerFeeCatalogResponse {
+  schedules: VehicleTypeFeeSchedule[];
+}
+
+export interface SmtpConfig {
+  enabled: boolean;
+  active: boolean;
+  host: string;
+  port: number;
+  username: string;
+  hasPassword: boolean;
+  fromAddress: string;
+  starttls: boolean;
+  sslEnabled: boolean;
+  alertEmail: string | null;
+  source: 'ENV' | 'DATABASE';
+  updatedAt: string | null;
+  envDefaultHost: string;
+  envDefaultUsername: string;
+}
+
+export interface UpdateSmtpConfigRequest {
+  enabled: boolean;
+  host: string;
+  port: number;
+  username: string;
+  password?: string;
+  fromAddress?: string;
+  starttls: boolean;
+  sslEnabled: boolean;
+  alertEmail?: string;
+}
+
+export interface TestSmtpResponse {
+  message: string;
+  toEmail: string;
+}

@@ -8,10 +8,12 @@ import { ComplaintsTab } from './ComplaintsTab';
 import { IncidentsQueueTab } from './IncidentsQueueTab';
 import { ShiftPlanTab } from './ShiftPlanTab';
 import { DepositTab } from './DepositTab';
+import { FeeCatalogTab } from './FeeCatalogTab';
 import { GuardsTab } from './GuardsTab';
 import { LedgerTab } from './LedgerTab';
 import { PassCatalogTab } from './PassCatalogTab';
 import { ReconciliationTab } from './ReconciliationTab';
+import { SmtpConfigTab } from './SmtpConfigTab';
 import { StudentsTab } from './StudentsTab';
 import { TimesheetTab } from './TimesheetTab';
 import { WithdrawalRequestsTab } from './WithdrawalRequestsTab';
@@ -33,11 +35,13 @@ const GROUPS: Record<Group, { label: string; sections: Section[] }> = {
     label: 'Thu ngân',
     sections: [
       { id: 'deposit', label: 'Đổi điểm', render: () => <DepositTab /> },
+      { id: 'fee-catalog', label: 'Giá vé lượt', render: () => <FeeCatalogTab /> },
       { id: 'pass-catalog', label: 'Giá vé tháng', render: () => <PassCatalogTab /> },
       { id: 'withdraw', label: 'Yêu cầu rút', render: () => <WithdrawalRequestsTab /> },
       { id: 'adjust', label: 'Điều chỉnh', render: () => <AdjustmentTab /> },
       { id: 'reconcile', label: 'Đối soát cuối ngày', render: () => <ReconciliationTab /> },
       { id: 'bank', label: 'Ngân hàng & Giờ khóa', render: () => <BankConfigTab /> },
+      { id: 'smtp', label: 'Email (SMTP)', render: () => <SmtpConfigTab /> },
     ],
   },
   cases: {

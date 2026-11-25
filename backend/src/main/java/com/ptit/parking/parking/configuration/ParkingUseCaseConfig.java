@@ -4,6 +4,7 @@ import com.ptit.parking.catalog.application.port.out.ExchangeRateRepository;
 import com.ptit.parking.catalog.application.port.out.FeeRuleRepository;
 import com.ptit.parking.parking.infrastructure.vietqr.DefaultVietQrGenerator;
 import com.ptit.parking.parking.application.PassAwareFeePolicy;
+import com.ptit.parking.parking.application.VehicleTypeDurationFeePolicy;
 import com.ptit.parking.parking.application.port.out.GateCashRepository;
 import com.ptit.parking.parking.application.port.out.OpenShiftLookup;
 import com.ptit.parking.parking.application.port.out.ParkingPolicyRepository;
@@ -20,7 +21,6 @@ import com.ptit.parking.parking.application.usecase.PreviewCheckOutUseCase;
 import com.ptit.parking.parking.application.usecase.SuggestPlatesUseCase;
 import com.ptit.parking.parking.domain.FeePolicy;
 import com.ptit.parking.parking.domain.OvernightAwareFeePolicy;
-import com.ptit.parking.parking.domain.DurationFeePolicy;
 import com.ptit.parking.payment.application.IdempotencyGuard;
 import com.ptit.parking.payment.application.port.out.PointTransactionRepository;
 import com.ptit.parking.payment.application.port.out.ReceivingWalletProvider;
@@ -35,16 +35,16 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * Composition Root của module parking. Nối chuỗi Decorator cho {@link FeePolicy}:
- * {@code OvernightAwareFeePolicy(PassAwareFeePolicy(DurationFeePolicy))}.
+ * {@code OvernightAwareFeePolicy(PassAwareFeePolicy(VehicleTypeDurationFeePolicy))}.
  */
 @Configuration
 public class ParkingUseCaseConfig {
 
     @Bean
-    FeePolicy feePolicy(FeeRuleRepository feeRules, PassCoverage passes,
+    FeePolicy feePolicy(FeeRuleRepository feeRules, VehicleOwnerDirectory vehicles, PassCoverage passes,
                         ParkingPolicyRepository policyRepository, Clock clock) {
         FeePolicy regular = new PassAwareFeePolicy(
-                new DurationFeePolicy(feeRules.allFeeRules()), passes, clock.getZone());
+                new VehicleTypeDurationFeePolicy(feeRules, vehicles), passes, clock.getZone());
         return new OvernightAwareFeePolicy(regular, policyRepository::current, clock.getZone());
     }
 

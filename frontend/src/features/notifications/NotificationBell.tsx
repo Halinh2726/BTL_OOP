@@ -25,15 +25,15 @@ type Category = 'ALL' | 'PARKING' | 'PASS' | 'SUPPORT' | 'SECURITY';
 
 const CATEGORY_TABS: Array<{ id: Category; label: string; kinds?: string[] }> = [
   { id: 'ALL', label: 'Tất cả' },
-  { id: 'PARKING', label: 'Xe & điểm', kinds: ['XE_VAO', 'XE_RA', 'SO_DU_THAP'] },
+  { id: 'PARKING', label: 'Xe & điểm', kinds: ['XE_VAO', 'XE_RA', 'SO_DU_THAP', 'RUT_DIEM'] },
   { id: 'PASS', label: 'Vé tháng', kinds: ['VE_THANG'] },
-  { id: 'SUPPORT', label: 'Khiếu nại / Camera', kinds: ['KHIEU_NAI', 'CAMERA', 'BOI_THUONG', 'SU_CO'] },
-  { id: 'SECURITY', label: 'Bảo mật', kinds: ['BAO_MAT'] },
+  { id: 'SUPPORT', label: 'Sự cố & Khiếu nại', kinds: ['SU_CO', 'KHIEU_NAI', 'CAMERA', 'BOI_THUONG'] },
+  { id: 'SECURITY', label: 'Bảo mật & Ca trực', kinds: ['BAO_MAT', 'PHAN_CA'] },
 ];
 
 /**
- * Đợt 5 & mở rộng — chuông thông báo trên thanh đầu trang (mọi vai trò). Tự hỏi lại mỗi 15 giây & khi quay lại tab;
- * phân loại theo xe vào/ra, trừ điểm/sắp hết điểm, vé tháng, camera, khiếu nại và bảo mật.
+ * Đợt 5 & mở rộng — chuông thông báo trên thanh đầu trang (mọi vai trò). Tự hỏi lại mỗi 5 giây & khi quay lại tab;
+ * phân loại theo xe vào/ra, trừ điểm/sắp hết điểm, vé tháng, sự cố, camera, khiếu nại và bảo mật.
  */
 export function NotificationBell() {
   const queryClient = useQueryClient();
@@ -43,7 +43,8 @@ export function NotificationBell() {
   const inbox = useQuery({
     queryKey: queryKeys.notifications,
     queryFn: api.notifications,
-    refetchInterval: 15_000,
+    staleTime: 0,
+    refetchInterval: 5_000,
     refetchOnWindowFocus: true,
   });
   const update = (data: NotificationInbox) => queryClient.setQueryData(queryKeys.notifications, data);
@@ -77,7 +78,13 @@ export function NotificationBell() {
     <div className="relative" ref={panel}>
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() =>
+          setOpen((value) => {
+            const next = !value;
+            if (next) void inbox.refetch();
+            return next;
+          })
+        }
         aria-label={unread ? `Thông báo, ${unread} chưa đọc` : 'Thông báo'}
         aria-expanded={open}
         className="relative rounded-lg p-2 text-slate-600 hover:bg-slate-100"

@@ -50,6 +50,7 @@ export function ComplaintsTab() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.managerComplaintsAll }),
       queryClient.invalidateQueries({ queryKey: queryKeys.ledgerAll }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications }),
     ]);
   }
 

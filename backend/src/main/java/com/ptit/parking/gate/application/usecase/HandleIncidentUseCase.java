@@ -1,9 +1,11 @@
 package com.ptit.parking.gate.application.usecase;
 
+import com.ptit.parking.gate.application.event.IncidentChanged;
 import com.ptit.parking.gate.application.port.out.IncidentRepository;
 import com.ptit.parking.gate.domain.Incident;
 import com.ptit.parking.gate.domain.IncidentPhoto;
 import com.ptit.parking.gate.domain.IncidentStatus;
+import com.ptit.parking.shared.application.port.out.EventPublisher;
 import com.ptit.parking.shared.application.port.out.TransactionRunner;
 import com.ptit.parking.shared.domain.DomainException;
 import com.ptit.parking.shared.domain.ErrorCode;
@@ -27,11 +29,18 @@ public class HandleIncidentUseCase {
 
     private final IncidentRepository incidents;
     private final TransactionRunner transactions;
+    private final EventPublisher events;
     private final Clock clock;
 
     public HandleIncidentUseCase(IncidentRepository incidents, TransactionRunner transactions, Clock clock) {
+        this(incidents, transactions, EventPublisher.NONE, clock);
+    }
+
+    public HandleIncidentUseCase(IncidentRepository incidents, TransactionRunner transactions,
+                                 EventPublisher events, Clock clock) {
         this.incidents = incidents;
         this.transactions = transactions;
+        this.events = events;
         this.clock = clock;
     }
 
@@ -63,6 +72,10 @@ public class HandleIncidentUseCase {
                     .orElseThrow(() -> new DomainException(ErrorCode.INCIDENT_NOT_FOUND));
             action.accept(incident);
             incidents.updateHandling(incident);
+            Long ownerId = incident.plate()
+                    .flatMap(incidents::findActiveVehicleOwnerId)
+                    .orElse(null);
+            events.publish(IncidentChanged.of(incident, ownerId));
             return incident;
         });
         return withNames(List.of(changed)).getFirst();

@@ -25,14 +25,15 @@ export function VehicleQrDialog({ vehicle, onClose }: { vehicle: Vehicle; onClos
     <Dialog
       title="Mã QR gửi xe"
       onClose={onClose}
+      maxWidthClass="max-w-lg"
       footer={
         <Button variant="secondary" onClick={onClose}>
-          Đóng
+          Tắt mã QR
         </Button>
       }
     >
       <div className="flex flex-col items-center gap-3">
-        <div className="flex h-72 w-72 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200">
+        <div className="flex h-80 w-80 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200">
           {image ? (
             <img src={image} alt={`Mã QR của xe ${vehicle.plateDisplay}`} className="h-full w-full" />
           ) : failed ? (

@@ -2,6 +2,7 @@ package com.ptit.parking.notification.infrastructure.persistence;
 
 import com.ptit.parking.notification.application.port.out.NotificationRepository;
 import com.ptit.parking.shared.application.event.NotifiableEvent.Notice;
+import com.ptit.parking.shared.application.event.NotifiableEvent.Recipient;
 import com.ptit.parking.shared.application.event.NotifiableEvent.Role;
 import com.ptit.parking.shared.application.event.NotifiableEvent.User;
 import java.time.Instant;
@@ -74,5 +75,23 @@ class NotificationJdbcAdapter implements NotificationRepository {
     public void markAllRead(long userId, Instant at) {
         jdbc.sql("UPDATE notifications SET read_at = :at WHERE user_id = :user AND read_at IS NULL")
                 .param("at", LocalDateTime.ofInstant(at, ZoneOffset.UTC)).param("user", userId).update();
+    }
+
+    @Override
+    public List<String> recipientEmails(Recipient recipient) {
+        return switch (recipient) {
+            case User user -> jdbc.sql("""
+                            SELECT email FROM users
+                            WHERE id = :user AND status = 'HOAT_DONG' AND email IS NOT NULL AND TRIM(email) <> ''""")
+                    .param("user", user.userId())
+                    .query(String.class)
+                    .list();
+            case Role role -> jdbc.sql("""
+                            SELECT email FROM users
+                            WHERE role_code = :role AND status = 'HOAT_DONG' AND email IS NOT NULL AND TRIM(email) <> ''""")
+                    .param("role", role.roleCode())
+                    .query(String.class)
+                    .list();
+        };
     }
 }

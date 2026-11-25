@@ -1,8 +1,10 @@
 package com.ptit.parking.catalog.presentation.web;
 
+import com.ptit.parking.catalog.application.usecase.GetCatalogUseCase.VehicleTypeFeeSchedule;
 import com.ptit.parking.catalog.domain.FeeRule;
 import com.ptit.parking.catalog.domain.VehicleType;
 import com.ptit.parking.payment.domain.ExchangeRate;
+import java.util.List;
 
 /**
  * Dữ liệu JSON của các API danh mục #9, #10, #11.
@@ -23,6 +25,16 @@ final class CatalogResponses {
 
         static FeeRuleResponse from(FeeRule rule) {
             return new FeeRuleResponse(rule.upToMinutes(), rule.feePoints());
+        }
+    }
+
+    record VehicleTypeFeeScheduleResponse(String vehicleTypeCode, String vehicleTypeName, List<FeeRuleResponse> rules) {
+
+        static VehicleTypeFeeScheduleResponse from(VehicleTypeFeeSchedule schedule) {
+            return new VehicleTypeFeeScheduleResponse(
+                    schedule.vehicleTypeCode(),
+                    schedule.vehicleTypeName(),
+                    schedule.rules().stream().map(FeeRuleResponse::from).toList());
         }
     }
 

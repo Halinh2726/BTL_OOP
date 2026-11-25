@@ -58,6 +58,7 @@ export function ReportIncidentDialog({ preset, onClose, onReported }: ReportInci
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.myIncidents }),
         queryClient.invalidateQueries({ queryKey: queryKeys.currentShift }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.notifications }),
       ]);
       onReported(incident);
     },

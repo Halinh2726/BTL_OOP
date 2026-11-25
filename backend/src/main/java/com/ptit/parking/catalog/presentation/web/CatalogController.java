@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.ptit.parking.catalog.presentation.web.CatalogResponses.ExchangeRateResponse;
 import com.ptit.parking.catalog.presentation.web.CatalogResponses.FeeRuleResponse;
+import com.ptit.parking.catalog.presentation.web.CatalogResponses.VehicleTypeFeeScheduleResponse;
 import com.ptit.parking.catalog.presentation.web.CatalogResponses.VehicleTypeResponse;
 import com.ptit.parking.catalog.application.usecase.GetCatalogUseCase;
 
@@ -33,6 +34,11 @@ class CatalogController {
     @GetMapping("/fee-rules")
     List<FeeRuleResponse> feeRules() {
         return catalog.feeRules().stream().map(FeeRuleResponse::from).toList();
+    }
+
+    @GetMapping("/fee-rules/by-vehicle-type")
+    List<VehicleTypeFeeScheduleResponse> feeRulesByVehicleType() {
+        return catalog.feeSchedulesByVehicleType().stream().map(VehicleTypeFeeScheduleResponse::from).toList();
     }
 
     @GetMapping("/config/exchange-rate")

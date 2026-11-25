@@ -3,6 +3,7 @@ package com.ptit.parking.gate.application.port.out;
 import com.ptit.parking.gate.domain.Incident;
 import com.ptit.parking.gate.domain.IncidentPhoto;
 import com.ptit.parking.gate.domain.IncidentStatus;
+import com.ptit.parking.student.domain.PlateNumber;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -37,4 +38,9 @@ public interface IncidentRepository {
     List<Incident> findByStatus(IncidentStatus status, int limit);
 
     Map<Long, String> namesOf(Collection<Long> userIds);
+
+    /** ID chủ xe đang hoạt động theo biển số (nếu có) để báo chuông thông báo khi có sự cố liên quan. */
+    default Optional<Long> findActiveVehicleOwnerId(PlateNumber plate) {
+        return Optional.empty();
+    }
 }

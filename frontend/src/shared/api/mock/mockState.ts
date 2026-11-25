@@ -248,6 +248,7 @@ export interface MockState {
   passes?: MockPass[];
   notifications?: MockNotification[];
   passPrices?: Record<string, number>;
+  feeSchedules?: Record<string, Array<{ upToMinutes: number; feePoints: number }>>;
 }
 
 const HOUR = 60 * 60 * 1000;
@@ -327,5 +328,22 @@ export function seedState(now = new Date()): MockState {
     passes: [],
     notifications: [],
     passPrices: { XE_MAY: 100_000, XE_MAY_DIEN: 80_000, XE_DAP: 50_000 },
+    feeSchedules: {
+      XE_MAY: [
+        { upToMinutes: 120, feePoints: 3000 },
+        { upToMinutes: 360, feePoints: 5000 },
+        { upToMinutes: 1440, feePoints: 7000 },
+      ],
+      XE_MAY_DIEN: [
+        { upToMinutes: 120, feePoints: 2500 },
+        { upToMinutes: 360, feePoints: 4000 },
+        { upToMinutes: 1440, feePoints: 6000 },
+      ],
+      XE_DAP: [
+        { upToMinutes: 120, feePoints: 1500 },
+        { upToMinutes: 360, feePoints: 2500 },
+        { upToMinutes: 1440, feePoints: 4000 },
+      ],
+    },
   };
 }

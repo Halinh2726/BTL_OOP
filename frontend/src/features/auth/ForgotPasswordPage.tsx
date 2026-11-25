@@ -73,6 +73,7 @@ export function ForgotPasswordPage() {
   const request = useMutation({
     mutationFn: (values: IdentifierForm) => api.requestPasswordReset(values.identifier),
     onSuccess: (_, values) => {
+      confirmForm.reset({ code: '', newPassword: '', confirmPassword: '' });
       setIdentifier(values.identifier.trim());
       setResendSeconds(60);
       setOtpSeconds(600);
@@ -112,7 +113,7 @@ export function ForgotPasswordPage() {
       subtitle={identifier ? 'Bước 2/2 — nhập mã OTP và mật khẩu mới' : 'Bước 1/2 — xác định tài khoản & nhận mã OTP'}
     >
       {identifier === null ? (
-        <form className="space-y-4" noValidate onSubmit={idForm.handleSubmit((values) => request.mutate(values))}>
+        <form key="step-request" className="space-y-4" noValidate onSubmit={idForm.handleSubmit((values) => request.mutate(values))}>
           {request.isError && <Alert tone="error">{errorMessage(request.error)}</Alert>}
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 space-y-1">
             <p className="font-semibold text-slate-800">Căn cứ khôi phục mật khẩu:</p>
@@ -132,7 +133,7 @@ export function ForgotPasswordPage() {
           </Button>
         </form>
       ) : (
-        <form className="space-y-4" noValidate onSubmit={confirmForm.handleSubmit((values) => confirm.mutate(values))}>
+        <form key="step-confirm" className="space-y-4" noValidate onSubmit={confirmForm.handleSubmit((values) => confirm.mutate(values))}>
           <Alert tone="info">
             <p>{request.data?.message}</p>
             <p className="mt-1 text-xs">
@@ -185,6 +186,7 @@ export function ForgotPasswordPage() {
                 setIdentifier(null);
                 setResendSeconds(0);
                 setOtpSeconds(0);
+                confirmForm.reset({ code: '', newPassword: '', confirmPassword: '' });
                 confirm.reset();
                 request.reset();
               }}

@@ -2,7 +2,10 @@ package com.ptit.parking.shared.application.event;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.ptit.parking.gate.application.event.IncidentChanged;
 import com.ptit.parking.gate.application.event.ShiftScheduleChanged;
+import com.ptit.parking.gate.domain.IncidentStatus;
+import com.ptit.parking.gate.domain.IncidentType;
 import com.ptit.parking.gate.domain.ShiftSlot;
 import com.ptit.parking.owner.application.event.WithdrawalChanged;
 import com.ptit.parking.owner.domain.WithdrawalStatus;
@@ -70,5 +73,26 @@ class NotifiableEventsTest {
         Notice longOne = Notice.toUser(1, "X", "a".repeat(400), "b".repeat(900));
         assertThat(longOne.title()).hasSize(Notice.MAX_TITLE).endsWith("…");
         assertThat(longOne.body()).hasSize(Notice.MAX_BODY);
+    }
+
+    @Test
+    void suCo_moiBaoQuanLyVaChuXe_xuLyBaoBaoVeVaChuXe() {
+        List<Notice> created = new IncidentChanged(12L, 4L, IncidentType.XE_HU_HONG, "29A-123.45",
+                "Vỡ gương", IncidentStatus.MOI, null, 7L).notices();
+        assertThat(created).extracting(Notice::to).containsExactly(new Role("QUAN_LY"), new User(7L));
+        assertThat(created).extracting(Notice::kind).containsOnly("SU_CO");
+
+        List<Notice> started = new IncidentChanged(12L, 4L, IncidentType.XE_HU_HONG, "29A-123.45",
+                "Vỡ gương", IncidentStatus.DANG_XU_LY, null, 7L).notices();
+        assertThat(started).extracting(Notice::to).containsExactly(new User(4L));
+
+        List<Notice> resolved = new IncidentChanged(12L, 4L, IncidentType.XE_HU_HONG, "29A-123.45",
+                "Vỡ gương", IncidentStatus.DA_XU_LY, "Đã liên hệ sinh viên", 7L).notices();
+        assertThat(resolved).extracting(Notice::to).containsExactly(new User(4L), new User(7L));
+        assertThat(resolved.getFirst().body()).contains("Đã liên hệ sinh viên");
+
+        List<Notice> rejected = new IncidentChanged(12L, 4L, IncidentType.KHAC, null,
+                "Nhầm", IncidentStatus.TU_CHOI, "Không có sự cố", null).notices();
+        assertThat(rejected).extracting(Notice::to).containsExactly(new User(4L));
     }
 }

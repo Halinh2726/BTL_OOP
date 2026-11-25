@@ -136,6 +136,17 @@ class IncidentJdbcAdapter implements IncidentRepository {
         return names;
     }
 
+    @Override
+    public Optional<Long> findActiveVehicleOwnerId(PlateNumber plate) {
+        if (plate == null) {
+            return Optional.empty();
+        }
+        return jdbc.sql("SELECT student_id FROM vehicles WHERE active_plate = :plate")
+                .param("plate", plate.value())
+                .query(Long.class)
+                .optional();
+    }
+
     private static Incident map(ResultSet rs, int row) throws SQLException {
         String plate = rs.getString("plate_number");
         return Incident.restore(rs.getLong("id"), rs.getLong("reported_by"), IncidentType.valueOf(rs.getString("type")),

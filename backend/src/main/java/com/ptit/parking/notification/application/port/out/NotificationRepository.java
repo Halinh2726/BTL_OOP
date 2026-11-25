@@ -1,6 +1,7 @@
 package com.ptit.parking.notification.application.port.out;
 
 import com.ptit.parking.shared.application.event.NotifiableEvent.Notice;
+import com.ptit.parking.shared.application.event.NotifiableEvent.Recipient;
 import java.time.Instant;
 import java.util.List;
 
@@ -21,4 +22,9 @@ public interface NotificationRepository {
     void markRead(long userId, long notificationId, Instant at);
 
     void markAllRead(long userId, Instant at);
+
+    /** Danh sách email (không null) của những người dùng đang hoạt động tương ứng với {@code recipient}. */
+    default List<String> recipientEmails(Recipient recipient) {
+        return List.of();
+    }
 }

@@ -4,16 +4,21 @@ import type {
   CashCheckOutResult,
   DepositInfo,
   GuardCashSheet,
+  ManagerFeeCatalogResponse,
   ManagerGateCashReport,
   ManagerPassCatalogResponse,
   NotificationInbox,
   ParkingPolicyConfig,
   PassOverview,
   SecurityActivityResponse,
+  SmtpConfig,
   StudentSessionsResponse,
+  TestSmtpResponse,
   UpdateBankConfigRequest,
   UpdateComplaintCameraRequest,
   UpdateParkingPolicyRequest,
+  UpdateSmtpConfigRequest,
+  VehicleTypeFeeSchedule,
   VietQrCheckOutResult,
   CompensationDecision,
   ComplaintSession,
@@ -100,6 +105,7 @@ export interface ApiClient {
   registerStudent(body: RegisterStudentRequest): Promise<RegisteredStudent>;
   vehicleTypes(): Promise<VehicleType[]>;
   feeRules(): Promise<FeeRule[]>;
+  feeRulesByVehicleType(): Promise<VehicleTypeFeeSchedule[]>;
   exchangeRate(): Promise<ExchangeRate>;
 
   // Sinh viên, chủ tài khoản
@@ -232,6 +238,8 @@ export interface ApiClient {
   buyPass(body: { vehicleId: number; month: string; monthsCount?: number }, idempotencyKey: string): Promise<Idempotent<BuyPassResult>>;
   managerPassCatalog(): Promise<ManagerPassCatalogResponse>;
   updatePassPrice(vehicleTypeCode: string, monthlyPoints: number): Promise<ManagerPassCatalogResponse>;
+  managerFeeCatalog(): Promise<ManagerFeeCatalogResponse>;
+  updateFeeRules(vehicleTypeCode: string, rules: FeeRule[]): Promise<ManagerFeeCatalogResponse>;
   notifications(): Promise<NotificationInbox>;
   markNotificationRead(id: number): Promise<NotificationInbox>;
   markAllNotificationsRead(): Promise<NotificationInbox>;
@@ -247,4 +255,10 @@ export interface ApiClient {
   checkOutCash(sessionId: number, idempotencyKey: string): Promise<Idempotent<CashCheckOutResult>>;
   guardCashSheet(): Promise<GuardCashSheet>;
   managerGateCash(date?: string): Promise<ManagerGateCashReport>;
+
+  // Cấu hình SMTP gửi email (Quản lý)
+  smtpConfig(): Promise<SmtpConfig>;
+  updateSmtpConfig(body: UpdateSmtpConfigRequest): Promise<SmtpConfig>;
+  resetSmtpConfig(): Promise<SmtpConfig>;
+  testSmtpConfig(toEmail?: string): Promise<TestSmtpResponse>;
 }

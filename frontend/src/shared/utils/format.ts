@@ -160,9 +160,11 @@ export const NOTIFICATION_KIND_META: Record<string, { label: string; tone: 'blue
   VE_THANG: { label: 'Vé tháng', tone: 'blue' },
   KHIEU_NAI: { label: 'Khiếu nại', tone: 'slate' },
   CAMERA: { label: 'Trích xuất camera', tone: 'blue' },
+  BOI_THUONG: { label: 'Bồi thường', tone: 'green' },
   BAO_MAT: { label: 'Bảo mật tài khoản', tone: 'red' },
   SU_CO: { label: 'Sự cố bãi xe', tone: 'amber' },
   PHAN_CA: { label: 'Phân ca trực', tone: 'slate' },
+  RUT_DIEM: { label: 'Rút điểm', tone: 'slate' },
 };
 
 export const COMPLAINT_STATUS_LABELS: Record<ComplaintStatus, string> = {
@@ -211,9 +213,9 @@ export function normalizePlate(raw: string): string {
 }
 
 /** Đợt 1 — biển số theo quy định SAU chuẩn hóa (khớp PlateNumber.STANDARD_PATTERN của backend). */
-export const MOTORCYCLE_PLATE = /^[0-9]{2}[ABCDEFGHKLMNPSTUVXYZ](?:[ABCDEFGHKLMNPSTUVXYZ][0-9]|[ABCDEFGHKLMNPSTUVXYZ])[0-9]{5}$/;
+export const MOTORCYCLE_PLATE = /^[0-9]{2}[ABCDEFGHKLMNPSTUVXYZ](?:[ABCDEFGHKLMNPSTUVXYZ0-9]|[ABCDEFGHKLMNPSTUVXYZ][0-9])[0-9]{5}$/;
 export const ELECTRIC_MOTORCYCLE_PLATE = /^[0-9]{2}MĐ[0-9]{5}$/;
-export const STANDARD_PLATE = /^(?:[0-9]{2}[ABCDEFGHKLMNPSTUVXYZ](?:[ABCDEFGHKLMNPSTUVXYZ][0-9]|[ABCDEFGHKLMNPSTUVXYZ])[0-9]{5}|[0-9]{2}MĐ[0-9]{5}|XD[0-9]{5})$/;
+export const STANDARD_PLATE = /^(?:[0-9]{2}[ABCDEFGHKLMNPSTUVXYZ](?:[ABCDEFGHKLMNPSTUVXYZ0-9]|[ABCDEFGHKLMNPSTUVXYZ][0-9])[0-9]{5}|[0-9]{2}MĐ[0-9]{5}|XD[0-9]{5})$/;
 
 export function isPlateValidForVehicleType(plate: string, vehicleTypeCode: string): boolean {
   if (vehicleTypeCode === 'XE_MAY') return MOTORCYCLE_PLATE.test(plate);

@@ -6,12 +6,16 @@ import com.ptit.parking.account.application.port.out.CredentialRepository;
 import com.ptit.parking.account.application.port.out.EmailSender;
 import com.ptit.parking.account.application.port.out.PasswordResetCodeRepository;
 import com.ptit.parking.account.application.port.out.SecretGenerator;
+import com.ptit.parking.account.application.port.out.SmtpConfigRepository;
+import com.ptit.parking.account.application.port.out.SmtpMailTransport;
 import com.ptit.parking.account.application.usecase.ApplyDemoPasswordUseCase;
 import com.ptit.parking.account.application.usecase.ChangePasswordUseCase;
 import com.ptit.parking.account.application.usecase.ConfirmPasswordResetUseCase;
 import com.ptit.parking.account.application.usecase.IssueTemporaryPasswordUseCase;
 import com.ptit.parking.account.application.usecase.ListAuditLogUseCase;
 import com.ptit.parking.account.application.usecase.ManageMyProfileUseCase;
+import com.ptit.parking.account.application.usecase.ManageSmtpConfigUseCase;
+import com.ptit.parking.account.application.usecase.ManageSmtpConfigUseCase.EnvDefaults;
 import com.ptit.parking.account.application.usecase.RequestPasswordResetUseCase;
 import com.ptit.parking.account.application.usecase.UpdateGuardProfileUseCase;
 import com.ptit.parking.auth.domain.PasswordHasher;
@@ -79,5 +83,11 @@ public class AccountUseCaseConfig {
     ApplyDemoPasswordUseCase applyDemoPasswordUseCase(CredentialRepository credentials, PasswordHasher hasher,
                                                       TransactionRunner transactions, Clock clock) {
         return new ApplyDemoPasswordUseCase(credentials, hasher, transactions, clock);
+    }
+
+    @Bean
+    ManageSmtpConfigUseCase manageSmtpConfigUseCase(SmtpConfigRepository smtpConfigs, EnvDefaults envDefaults,
+                                                    SmtpMailTransport transport, Clock clock) {
+        return new ManageSmtpConfigUseCase(smtpConfigs, envDefaults, transport, clock);
     }
 }

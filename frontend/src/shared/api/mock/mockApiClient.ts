@@ -16,6 +16,7 @@ import type {
   ReconciliationDay,
   AuditItem,
   RevenueDay,
+  SmtpConfig,
   VietQrOrder,
   WithdrawalView,
   IncidentItem,
@@ -147,6 +148,19 @@ const FEE_RULES: FeeRule[] = [
   { upToMinutes: 360, feePoints: 5000 },
   { upToMinutes: 1440, feePoints: 7000 },
 ];
+const DEFAULT_FEE_SCHEDULES: Record<string, FeeRule[]> = {
+  XE_MAY: [...FEE_RULES],
+  XE_MAY_DIEN: [
+    { upToMinutes: 120, feePoints: 2500 },
+    { upToMinutes: 360, feePoints: 4000 },
+    { upToMinutes: 1440, feePoints: 6000 },
+  ],
+  XE_DAP: [
+    { upToMinutes: 120, feePoints: 1500 },
+    { upToMinutes: 360, feePoints: 2500 },
+    { upToMinutes: 1440, feePoints: 4000 },
+  ],
+};
 const CASH_PER_POINT = 1;
 const MAX_AMOUNT = 10_000_000;
 const LOGIN_MAX_FAILURES = 5;
@@ -186,15 +200,15 @@ function parkingDurationMs(enteredAt: string, exitedAt: string): number {
   return elapsed;
 }
 
-function feeForStay(elapsed: number): number {
+function feeForRules(elapsed: number, rules: FeeRule[]): number {
   const minuteMs = 60_000;
-  const dayRule = FEE_RULES.at(-1)!;
+  const dayRule = rules.at(-1)!;
   const dayMs = dayRule.upToMinutes * minuteMs;
   const fullDays = Math.floor(elapsed / dayMs);
   const remainder = elapsed % dayMs;
   const fullDayPoints = fullDays * dayRule.feePoints;
   if (fullDays > 0 && remainder === 0) return fullDayPoints;
-  const rule = FEE_RULES.find((tier) => remainder <= tier.upToMinutes * minuteMs) ?? dayRule;
+  const rule = rules.find((tier) => remainder <= tier.upToMinutes * minuteMs) ?? dayRule;
   return fullDayPoints + rule.feePoints;
 }
 
@@ -845,12 +859,97 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
     return state.vehicles.some((vehicle) => vehicle.userId === studentId && openSessionOf(vehicle.id));
   }
 
+  let mockSmtpState: {
+    enabled: boolean;
+    host: string;
+    port: number;
+    username: string;
+    password: string;
+    fromAddress: string;
+    starttls: boolean;
+    sslEnabled: boolean;
+    alertEmail: string | null;
+    source: 'ENV' | 'DATABASE';
+    updatedAt: string | null;
+  } = {
+    enabled: false,
+    host: 'smtp.gmail.com',
+    port: 587,
+    username: '',
+    password: '',
+    fromAddress: 'no-reply@parking.ptit.edu.vn',
+    starttls: true,
+    sslEnabled: false,
+    alertEmail: null,
+    source: 'ENV',
+    updatedAt: null,
+  };
+
+  function toSmtpConfig(): SmtpConfig {
+    const hasPassword = Boolean(mockSmtpState.password);
+    return {
+      enabled: mockSmtpState.enabled,
+      active: mockSmtpState.enabled && Boolean(mockSmtpState.host) && Boolean(mockSmtpState.username) && hasPassword,
+      host: mockSmtpState.host,
+      port: mockSmtpState.port,
+      username: mockSmtpState.username,
+      hasPassword,
+      fromAddress: mockSmtpState.fromAddress,
+      starttls: mockSmtpState.starttls,
+      sslEnabled: mockSmtpState.sslEnabled,
+      alertEmail: mockSmtpState.alertEmail,
+      source: mockSmtpState.source,
+      updatedAt: mockSmtpState.updatedAt,
+      envDefaultHost: 'smtp.gmail.com',
+      envDefaultUsername: '',
+    };
+  }
+
+  function feeSchedulesMap(): Record<string, FeeRule[]> {
+    if (!state.feeSchedules) {
+      state.feeSchedules = {
+        XE_MAY: [...DEFAULT_FEE_SCHEDULES.XE_MAY!],
+        XE_MAY_DIEN: [...DEFAULT_FEE_SCHEDULES.XE_MAY_DIEN!],
+        XE_DAP: [...DEFAULT_FEE_SCHEDULES.XE_DAP!],
+      };
+    }
+    return state.feeSchedules;
+  }
+
+  function rulesForType(typeCode: string): FeeRule[] {
+    const map = feeSchedulesMap();
+    return (map[typeCode] ?? map.XE_MAY ?? FEE_RULES).slice().sort((a, b) => a.upToMinutes - b.upToMinutes);
+  }
+
+  function minFeeForType(typeCode: string): number {
+    return rulesForType(typeCode)[0]?.feePoints ?? MIN_FEE;
+  }
+
+  function feeSchedulesList() {
+    return VEHICLE_TYPES.map((vt) => ({
+      vehicleTypeCode: vt.code,
+      vehicleTypeName: vt.name,
+      rules: rulesForType(vt.code),
+    }));
+  }
+
+  function incidentTypeLabel(type: MockIncident['type']): string {
+    switch (type) {
+      case 'XE_GUI_QUA_LAU': return 'Xe gửi quá lâu';
+      case 'XE_CHUA_DANG_KY': return 'Xe chưa đăng ký đỗ trong bãi';
+      case 'XE_HU_HONG': return 'Xe bị hư hỏng';
+      default: return 'Sự cố khác';
+    }
+  }
+
   function quoteSession(session: { enteredAt: string; vehicleId: number }, now: Date) {
     const exitedAt = toVietnamIso(now);
     const elapsed = parkingDurationMs(session.enteredAt, exitedAt);
+    const vehicle = state.vehicles.find((v) => v.id === session.vehicleId);
+    const rules = rulesForType(vehicle?.vehicleTypeCode ?? 'XE_MAY');
     const passValidUntil = passUntil(session.vehicleId, now);
     const overnight = !passValidUntil && exitedAt.slice(0, 10) > session.enteredAt.slice(0, 10);
-    const fee = passValidUntil ? 0 : overnight ? mockPolicy.overnightFeePoints : feeForStay(elapsed);
+    const fee = passValidUntil ? 0 : overnight ? mockPolicy.overnightFeePoints : feeForRules(elapsed, rules);
     const checkoutLocked = mockPolicy.curfewEnabled && exitedAt.slice(11, 16) >= mockPolicy.checkoutCurfewTime;
     return { exitedAt, passValidUntil, overnight, fee, checkoutLocked };
   }
@@ -939,7 +1038,8 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
       }),
 
     vehicleTypes: () => call(() => VEHICLE_TYPES),
-    feeRules: () => call(() => FEE_RULES),
+    feeRules: () => call(() => rulesForType('XE_MAY')),
+    feeRulesByVehicleType: () => call(() => feeSchedulesList()),
     exchangeRate: () => call(() => ({ cashPerPoint: CASH_PER_POINT })),
 
     myVehicles: () =>
@@ -1041,7 +1141,8 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         }
         const balance = balanceOf(found.owner.id);
         const passValidUntil = passUntil(found.vehicle.id, new Date());
-        const required = passValidUntil ? 0 : MIN_FEE;                     // Đợt 5: có vé tháng thì không cần điểm
+        const minForVehicle = minFeeForType(found.vehicle.vehicleTypeCode);
+        const required = passValidUntil ? 0 : minForVehicle;                     // Đợt 5: có vé tháng thì không cần điểm
         const reason = openSessionOf(found.vehicle.id)
           ? ('SESSION_ALREADY_OPEN' as const)
           : studentHasParkedVehicle(found.owner.id) ? ('STUDENT_ALREADY_PARKED' as const)
@@ -1062,7 +1163,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         if (!found) return fail('PLATE_NOT_FOUND');
         if (openSessionOf(found.vehicle.id)) fail('SESSION_ALREADY_OPEN');
         if (studentHasParkedVehicle(found.owner.id)) fail('STUDENT_ALREADY_PARKED');
-        if (!passUntil(found.vehicle.id, new Date()) && balanceOf(found.owner.id) < MIN_FEE) fail('INSUFFICIENT_POINTS');
+        if (!passUntil(found.vehicle.id, new Date()) && balanceOf(found.owner.id) < minFeeForType(found.vehicle.vehicleTypeCode)) fail('INSUFFICIENT_POINTS');
         const guard = currentUser();
         const hasPass = Boolean(passUntil(found.vehicle.id, new Date()));
         const session = {
@@ -1152,9 +1253,10 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           const balanceAfter = balanceOf(vehicle.userId);
           notify(vehicle.userId, 'XE_RA', `Xe ${displayPlate(vehicle.plateNumber)} vừa ra bãi`,
             `Đã trừ ${fee.toLocaleString('vi-VN')} điểm phí gửi xe. Số dư còn lại: ${balanceAfter.toLocaleString('vi-VN')} điểm.`);
-          if (balanceAfter < MIN_FEE * 2) {
-            notify(vehicle.userId, 'SO_DU_THAP', balanceAfter < MIN_FEE ? 'Số điểm không đủ lượt tiếp theo' : 'Số điểm sắp hết',
-              `Bạn còn ${balanceAfter.toLocaleString('vi-VN')} điểm (${balanceAfter < MIN_FEE ? 'chưa đủ' : 'chỉ đủ tối thiểu'} ${MIN_FEE.toLocaleString('vi-VN')} điểm/lượt). Vui lòng nạp thêm điểm tại quầy.`);
+          const nextMin = minFeeForType(vehicle.vehicleTypeCode);
+          if (balanceAfter < nextMin * 2) {
+            notify(vehicle.userId, 'SO_DU_THAP', balanceAfter < nextMin ? 'Số điểm không đủ lượt tiếp theo' : 'Số điểm sắp hết',
+              `Bạn còn ${balanceAfter.toLocaleString('vi-VN')} điểm (${balanceAfter < nextMin ? 'chưa đủ' : 'chỉ đủ tối thiểu'} ${nextMin.toLocaleString('vi-VN')} điểm/lượt). Vui lòng nạp thêm điểm tại quầy.`);
           }
           return {
             transactionId: transaction.id, sessionId, fee, exitedAt: transaction.createdAt, balanceAfter, passValidUntil: null,
@@ -1589,6 +1691,25 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
             : null,
         };
         state.incidents = [...(state.incidents ?? []), incident];
+        const label = incidentTypeLabel(incident.type);
+        const plateDisplay = plate ? displayPlate(plate) : null;
+        notify(
+          'QUAN_LY',
+          'SU_CO',
+          `Sự cố mới #${incident.id} — ${label}`,
+          `${plateDisplay ? `Biển số ${plateDisplay}: ` : ''}${description}`,
+        );
+        if (plate) {
+          const owner = findOwnerByPlate(plate);
+          if (owner && owner.owner.id !== guard.id) {
+            notify(
+              owner.owner.id,
+              'SU_CO',
+              `Cảnh báo sự cố xe ${plateDisplay} (#${incident.id})`,
+              `${label}: ${description}`,
+            );
+          }
+        }
         return toIncident(incident);
       }),
 
@@ -1986,6 +2107,34 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         };
       }),
 
+    managerFeeCatalog: () =>
+      call(() => {
+        requireRole('QUAN_LY');
+        return { schedules: feeSchedulesList() };
+      }),
+
+    updateFeeRules: (vehicleTypeCode, rules) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        const code = vehicleTypeCode.trim().toUpperCase();
+        if (!VEHICLE_TYPES.some((vt) => vt.code === code)) fail('VALIDATION_ERROR');
+        if (!rules.length) fail('VALIDATION_ERROR');
+        const sorted = [...rules]
+          .map((r) => ({ upToMinutes: Math.round(r.upToMinutes), feePoints: Math.round(r.feePoints) }))
+          .sort((a, b) => a.upToMinutes - b.upToMinutes);
+        if (sorted.some((r) => r.upToMinutes < 1 || r.upToMinutes > 1440 || r.feePoints < 100 || r.feePoints > 10_000_000)) {
+          fail('VALIDATION_ERROR');
+        }
+        if (sorted[sorted.length - 1]?.upToMinutes !== 1440) fail('VALIDATION_ERROR');
+        for (let i = 1; i < sorted.length; i += 1) {
+          if (sorted[i]!.upToMinutes === sorted[i - 1]!.upToMinutes || sorted[i]!.feePoints < sorted[i - 1]!.feePoints) {
+            fail('VALIDATION_ERROR');
+          }
+        }
+        feeSchedulesMap()[code] = sorted;
+        return { schedules: feeSchedulesList() };
+      }),
+
     notifications: () => call(() => inboxOf(currentUser().id)),
 
     markNotificationRead: (id) =>
@@ -2113,6 +2262,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         moveComplaint(complaint, 'DANG_XU_LY');
         complaint.handledBy = manager.id;
         complaint.handledAt = toVietnamIso(new Date());
+        notify(complaint.studentId, 'KHIEU_NAI', `Khiếu nại #${complaint.id} đã được tiếp nhận`, 'Quản lý đang xem xét khiếu nại của bạn.');
         return toComplaint(complaint);
       }),
 
@@ -2142,6 +2292,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         const text = requireText(note);
         moveComplaint(complaint, 'TU_CHOI');
         Object.assign(complaint, { resolution: text, handledBy: manager.id, handledAt: toVietnamIso(new Date()) });
+        notify(complaint.studentId, 'KHIEU_NAI', `Khiếu nại #${complaint.id} không được chấp nhận`, `Lý do: ${text}`);
         return toComplaint(complaint);
       }),
 
@@ -2154,6 +2305,8 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         const text = requireText(note);
         moveComplaint(complaint, 'CHO_DUYET_BOI_THUONG');
         Object.assign(complaint, { resolution: text, proposedPoints: points, proposedBy: manager.id, proposedAt: toVietnamIso(new Date()) });
+        notify(complaint.studentId, 'KHIEU_NAI', `Khiếu nại #${complaint.id} đang chờ duyệt bồi thường`, `Quản lý đề xuất bồi thường ${points.toLocaleString('vi-VN')} điểm, đang chờ chủ bãi xe duyệt.`);
+        notify('CHU_TAI_KHOAN', 'BOI_THUONG', `Đề xuất bồi thường mới #${complaint.id}`, `${points.toLocaleString('vi-VN')} điểm — căn cứ: ${text}`);
         return toComplaint(complaint);
       }),
 
@@ -2190,6 +2343,8 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         const incident = incidentOf(id);
         if (incident.status !== 'MOI') fail('INCIDENT_STATUS_CONFLICT');
         Object.assign(incident, { status: 'DANG_XU_LY', handledBy: manager.id, handledAt: toVietnamIso(new Date()) });
+        notify(incident.reporterId, 'SU_CO', `Sự cố #${incident.id} đang được xử lý`,
+          `Quản lý đã tiếp nhận báo cáo sự cố ${incident.plateNumber ? `xe ${displayPlate(incident.plateNumber)}` : incidentTypeLabel(incident.type).toLowerCase()}.`);
         return toManagedIncident(incident);
       }),
 
@@ -2200,6 +2355,13 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         const text = requireText(note);
         if (incident.status === 'DA_XU_LY' || incident.status === 'TU_CHOI') fail('INCIDENT_STATUS_CONFLICT');
         Object.assign(incident, { status: 'DA_XU_LY', resolution: text, handledBy: manager.id, handledAt: toVietnamIso(new Date()) });
+        notify(incident.reporterId, 'SU_CO', `Sự cố #${incident.id} đã xử lý xong`, `Kết quả: ${text}`);
+        if (incident.plateNumber) {
+          const owner = findOwnerByPlate(incident.plateNumber);
+          if (owner && owner.owner.id !== incident.reporterId) {
+            notify(owner.owner.id, 'SU_CO', `Sự cố xe ${displayPlate(incident.plateNumber)} (#${incident.id}) đã xử lý`, `Kết quả: ${text}`);
+          }
+        }
         return toManagedIncident(incident);
       }),
 
@@ -2210,6 +2372,7 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
         const text = requireText(note);
         if (incident.status === 'DA_XU_LY' || incident.status === 'TU_CHOI') fail('INCIDENT_STATUS_CONFLICT');
         Object.assign(incident, { status: 'TU_CHOI', resolution: text, handledBy: manager.id, handledAt: toVietnamIso(new Date()) });
+        notify(incident.reporterId, 'SU_CO', `Báo cáo sự cố #${incident.id} bị từ chối`, `Lý do: ${text}`);
         return toManagedIncident(incident);
       }),
 
@@ -2559,6 +2722,66 @@ export function createMockApiClient(options: { latencyMs?: number; initialState?
           byGuard: [...byGuardMap.values()],
           entries,
         };
+      }),
+
+    smtpConfig: () =>
+      call(() => {
+        requireRole('QUAN_LY');
+        return toSmtpConfig();
+      }),
+
+    updateSmtpConfig: (body) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        const host = body.host.trim();
+        const username = body.username.trim();
+        const password = body.password?.trim() || mockSmtpState.password;
+        if (body.port < 1 || body.port > 65535) fail('VALIDATION_ERROR');
+        if (body.enabled && (!host || !username || !password)) fail('VALIDATION_ERROR');
+        if (body.alertEmail?.trim() && !EMAIL.test(body.alertEmail.trim())) fail('VALIDATION_ERROR');
+        mockSmtpState = {
+          enabled: body.enabled,
+          host,
+          port: body.port,
+          username,
+          password,
+          fromAddress: body.fromAddress?.trim() || (username.includes('@') ? username : 'no-reply@parking.ptit.edu.vn'),
+          starttls: body.starttls,
+          sslEnabled: body.sslEnabled,
+          alertEmail: body.alertEmail?.trim().toLowerCase() || null,
+          source: 'DATABASE',
+          updatedAt: toVietnamIso(new Date()),
+        };
+        return toSmtpConfig();
+      }),
+
+    resetSmtpConfig: () =>
+      call(() => {
+        requireRole('QUAN_LY');
+        mockSmtpState = {
+          enabled: false,
+          host: 'smtp.gmail.com',
+          port: 587,
+          username: '',
+          password: '',
+          fromAddress: 'no-reply@parking.ptit.edu.vn',
+          starttls: true,
+          sslEnabled: false,
+          alertEmail: null,
+          source: 'ENV',
+          updatedAt: null,
+        };
+        return toSmtpConfig();
+      }),
+
+    testSmtpConfig: (toEmail) =>
+      call(() => {
+        requireRole('QUAN_LY');
+        const target = (toEmail?.trim() || mockSmtpState.alertEmail || '').toLowerCase();
+        if (!target || !EMAIL.test(target)) fail('VALIDATION_ERROR');
+        const cfg = toSmtpConfig();
+        if (!cfg.active) fail('VALIDATION_ERROR');
+        return { message: `Đã gửi email kiểm tra thành công tới ${target}.`, toEmail: target };
       }),
   };
 }
