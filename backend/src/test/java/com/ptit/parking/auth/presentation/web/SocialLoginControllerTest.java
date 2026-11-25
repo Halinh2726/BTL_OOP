@@ -3,6 +3,7 @@ package com.ptit.parking.auth.presentation.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -21,9 +22,13 @@ import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.ptit.parking.auth.application.AuthenticatedUser;
+import com.ptit.parking.auth.application.usecase.GetCurrentUserUseCase;
+import com.ptit.parking.auth.application.usecase.LoginUseCase;
 import com.ptit.parking.auth.application.usecase.StudentSocialSignInUseCase;
 import com.ptit.parking.auth.domain.Role;
 import com.ptit.parking.auth.infrastructure.persistence.SocialLoginSettingsStore;
+import com.ptit.parking.shared.domain.DomainException;
+import com.ptit.parking.shared.domain.ErrorCode;
 import com.ptit.parking.shared.infrastructure.security.WebSecurityTestConfig;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -55,7 +60,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.util.UriComponentsBuilder;
 
-@WebMvcTest(value = SocialLoginController.class, properties = {
+@WebMvcTest(controllers = {SocialLoginController.class, AuthController.class}, properties = {
         "parking.social.origin=http://localhost:5173",
         "parking.social.google.client-id=test-google",
         "parking.social.google.client-secret=test-google-secret",
@@ -63,7 +68,7 @@ import org.springframework.web.util.UriComponentsBuilder;
         "parking.social.microsoft.client-secret=test-microsoft-secret"
 })
 @Import({WebSecurityTestConfig.class, SessionSignIn.class, SocialLoginClients.class, SocialLoginSession.class,
-        SocialLoginHandlers.class, SocialLoginSecurity.class, SocialLoginSettingsStore.class})
+        SocialLoginHandlers.class, SocialLoginSecurity.class, SocialLoginSettingsStore.class, LoginThrottle.class})
 class SocialLoginControllerTest {
 
     private static final String BASE = SocialLoginClients.BASE;
@@ -85,6 +90,12 @@ class SocialLoginControllerTest {
 
     @MockitoBean
     StudentSocialSignInUseCase students;
+
+    @MockitoBean
+    LoginUseCase loginUseCase;
+
+    @MockitoBean
+    GetCurrentUserUseCase getCurrentUser;
 
     @MockitoSpyBean
     SocialLoginClients clients;
@@ -141,7 +152,7 @@ class SocialLoginControllerTest {
         try {
             callback(session, "google", location, "/register/social");
             String id = pendingId(session, email);
-            when(students.register("google", subject, "B21DCCN001", "Sinh Viên", "sinhvien01", email))
+            when(students.register("google", subject, "B21DCCN001", "Sinh Viên", "sinhvien01", email, null))
                     .thenReturn(STUDENT);
             mvc.perform(post(BASE + "/register").session(session).with(csrf()).contentType(MediaType.APPLICATION_JSON)
                             .content(registration(id)))
@@ -159,17 +170,25 @@ class SocialLoginControllerTest {
             MockHttpSession session = new MockHttpSession();
             completeMicrosoftCallback(session, "/register/social");
             assertThat(session.getAttribute(SESSION_CONTEXT)).isNull();
-            String body = registration(pendingId(session, "student@ptit.edu.vn"));
-            when(students.register("microsoft", MICROSOFT_ID, "B21DCCN001", "Sinh Viên", "sinhvien01", null))
+            String password = "MatKhauMoi@123";
+            var registration = JsonPath.parse(registration(pendingId(session, "student@ptit.edu.vn")));
+            String body = registration.put("$", "password", password).jsonString();
+            when(students.register("microsoft", MICROSOFT_ID, "B21DCCN001", "Sinh Viên", "sinhvien01", null, password))
                     .thenReturn(STUDENT);
 
+            String weakPassword = registration.put("$", "password", "short").jsonString();
+            mvc.perform(post(BASE + "/register").session(session).with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON).content(weakPassword))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.fields[0].field").value("password"));
             mvc.perform(post(BASE + "/register").session(session).contentType(MediaType.APPLICATION_JSON).content(body))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.code").value("CSRF_INVALID"));
             mvc.perform(post(BASE + "/register").session(session).with(csrf())
                             .contentType(MediaType.APPLICATION_JSON).content(body))
                     .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.user.id").value(STUDENT.id()));
+                    .andExpect(jsonPath("$.user.id").value(STUDENT.id()))
+                    .andExpect(jsonPath("$.password").doesNotExist());
             assertThat(((SecurityContextImpl) session.getAttribute(SESSION_CONTEXT)).getAuthentication().getPrincipal())
                     .isEqualTo(STUDENT);
 
@@ -201,6 +220,48 @@ class SocialLoginControllerTest {
                             .contentType(MediaType.APPLICATION_JSON).content(body))
                     .andExpect(status().isNoContent());
             verify(students).link(STUDENT, "microsoft", MICROSOFT_ID);
+        } finally {
+            microsoft.stop(0);
+        }
+    }
+
+    @Test
+    void verifiedSocialSignupCanContinueToLinkAfterPasswordSignIn() throws Exception {
+        HttpServer microsoft = stubMicrosoft();
+        try {
+            MockHttpSession session = new MockHttpSession();
+            completeMicrosoftCallback(session, "/register/social");
+            String id = pendingId(session, "student@ptit.edu.vn");
+            when(loginUseCase.login(STUDENT.username(), "WrongPassword"))
+                    .thenThrow(new DomainException(ErrorCode.INVALID_CREDENTIALS));
+            when(loginUseCase.login(STUDENT.username(), "ExistingPassword")).thenReturn(STUDENT);
+
+            mvc.perform(post("/api/v1/auth/login").session(session).contentType(MediaType.APPLICATION_JSON)
+                            .content(passwordLogin(id, "WrongPassword")))
+                    .andExpect(status().isUnauthorized());
+            assertThat(pendingId(session, "student@ptit.edu.vn")).isEqualTo(id);
+
+            MockHttpSession otherSession = new MockHttpSession();
+            mvc.perform(post("/api/v1/auth/login").session(otherSession).contentType(MediaType.APPLICATION_JSON)
+                            .content(passwordLogin(id, "ExistingPassword")))
+                    .andExpect(status().isOk());
+            mvc.perform(get(BASE + "/status").session(otherSession))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.pending").doesNotExist());
+
+            mvc.perform(post("/api/v1/auth/login").session(session).contentType(MediaType.APPLICATION_JSON)
+                            .content(passwordLogin(id, "ExistingPassword")))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.user.id").value(STUDENT.id()));
+            assertThat(pendingId(session, "student@ptit.edu.vn")).isEqualTo(id);
+            verify(students, never()).link(STUDENT, "microsoft", MICROSOFT_ID);
+
+            String confirmation = "{\"id\":\"%s\"}".formatted(id);
+            mvc.perform(post(BASE + "/link").session(session).with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON).content(confirmation))
+                    .andExpect(status().isNoContent());
+            verify(students).link(STUDENT, "microsoft", MICROSOFT_ID);
+            mvc.perform(post(BASE + "/link").session(session).with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON).content(confirmation))
+                    .andExpect(status().isUnprocessableEntity());
         } finally {
             microsoft.stop(0);
         }
@@ -263,6 +324,12 @@ class SocialLoginControllerTest {
         return """
                 {"id":"%s","studentCode":"b21dccn001","fullName":"Sinh Viên","username":"sinhvien01"}
                 """.formatted(id);
+    }
+
+    private static String passwordLogin(String id, String password) {
+        return """
+                {"username":"%s","password":"%s","socialLinkId":"%s"}
+                """.formatted(STUDENT.username(), password, id);
     }
 
     private HttpServer stubMicrosoft() throws IOException {

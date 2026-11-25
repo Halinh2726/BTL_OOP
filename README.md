@@ -318,7 +318,7 @@ npm run dev:mock
 
 #### Đăng ký và đăng nhập qua Google hoặc Microsoft
 
-Sinh viên có thể chọn Google hoặc Microsoft ngay ở trang đăng nhập và đăng ký. Lần đầu dùng một tài khoản chưa liên kết, hệ thống yêu cầu MSSV, họ tên và tên đăng nhập để tạo tài khoản gửi xe. Nếu đã có tài khoản gửi xe, đăng nhập bằng phương thức hiện tại rồi vào **Tài khoản** để liên kết. Sau đó có thể đăng nhập bằng nhà cung cấp đã liên kết.
+Sinh viên có thể chọn Google hoặc Microsoft ngay ở trang đăng nhập và đăng ký. Lần đầu dùng một tài khoản chưa liên kết, hệ thống yêu cầu MSSV, họ tên và tên đăng nhập để tạo tài khoản gửi xe. Bạn có thể đặt thêm mật khẩu để đăng nhập bằng tên đăng nhập vào cùng tài khoản. Nếu đã có tài khoản gửi xe, chọn **Đăng nhập để liên kết**, nhập tên đăng nhập và mật khẩu hiện tại, rồi bấm **Xác nhận liên kết** trong trang **Tài khoản**. Sau đó có thể đăng nhập bằng nhà cung cấp đã liên kết.
 
 Với email trường `@ptit.edu.vn`, dùng **Đăng nhập bằng email PTIT** hoặc **Liên kết email PTIT**. Hai lối này gửi yêu cầu xác thực trực tiếp đến miền của trường và dùng cùng URL chuyển hướng Microsoft.
 

@@ -23,6 +23,7 @@ export interface MeResponse {
 export interface LoginRequest {
   username: string;
   password: string;
+  socialLinkId?: string;
 }
 
 export interface RegisterStudentRequest {
@@ -66,6 +67,7 @@ export interface UpdateSocialProviderConfig {
 
 export type SocialRegisterRequest = Pick<RegisterStudentRequest, 'studentCode' | 'fullName' | 'username'> & {
   id: string;
+  password?: string;
 };
 
 export interface RegisteredStudent {

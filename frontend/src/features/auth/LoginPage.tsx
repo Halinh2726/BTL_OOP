@@ -22,6 +22,7 @@ type LoginForm = z.infer<typeof schema>;
 export interface LoginLocationState {
   from?: string;
   registered?: string;
+  socialLinkId?: string;
   /** Đợt 1: vừa đặt lại mật khẩu bằng mã email. */
   passwordReset?: boolean;
 }
@@ -30,10 +31,14 @@ export function LoginPage() {
   const { state, signedIn } = useSession();
   const location = useLocation();
   const navigationState = (location.state ?? {}) as LoginLocationState;
+  const { socialLinkId } = navigationState;
   const form = useForm<LoginForm>({ resolver: zodResolver(schema), defaultValues: { username: navigationState.registered ?? '' } });
   const login = useMutation({ mutationFn: api.login, onSuccess: signedIn });
 
   if (state.status === 'authenticated') {
+    if (socialLinkId && state.me.user.role === 'SINH_VIEN' && !state.me.mustChangePassword) {
+      return <Navigate to="/account?social=confirm" replace />;
+    }
     const home = HOME_BY_ROLE[state.me.user.role];
     const target = navigationState.from?.startsWith(home) ? navigationState.from : home;
     return <Navigate to={target} replace />;
@@ -45,7 +50,10 @@ export function LoginPage() {
 
   return (
     <AuthLayout title="Đăng nhập" subtitle="Dùng tài khoản được cấp hoặc tài khoản sinh viên đã đăng ký">
-      <form className="space-y-4" noValidate onSubmit={form.handleSubmit((values) => login.mutate(values))}>
+      <form className="space-y-4" noValidate onSubmit={form.handleSubmit((values) => login.mutate({ ...values, socialLinkId }))}>
+        {socialLinkId && (
+          <Alert tone="info">Đăng nhập bằng tên đăng nhập và mật khẩu hiện tại để xác nhận liên kết.</Alert>
+        )}
         {navigationState.registered && !login.isError && (
           <Alert tone="success">Đăng ký thành công. Mời bạn đăng nhập.</Alert>
         )}
@@ -78,12 +86,16 @@ export function LoginPage() {
           Đăng nhập
         </Button>
       </form>
-      <SocialSignInOptions />
+      {!socialLinkId && <SocialSignInOptions />}
       <p className="mt-5 text-center text-sm text-slate-600">
-        Sinh viên chưa có tài khoản?{' '}
-        <Link to="/register" className="font-semibold text-blue-700 hover:underline">
-          Đăng ký
-        </Link>
+        {socialLinkId ? (
+          <Link to="/register/social" className="font-semibold text-blue-700 hover:underline">Quay lại hoàn tất đăng ký</Link>
+        ) : (
+          <>
+            Sinh viên chưa có tài khoản?{' '}
+            <Link to="/register" className="font-semibold text-blue-700 hover:underline">Đăng ký</Link>
+          </>
+        )}
       </p>
     </AuthLayout>
   );

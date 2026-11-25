@@ -30,8 +30,24 @@ class SocialLoginSession {
     }
 
     void save(HttpServletRequest request, Identity identity, Long userId) {
-        request.getSession().setAttribute(KEY,
-                new Pending(UUID.randomUUID(), identity, userId, clock.instant().plus(TTL)));
+        HttpSession session = request.getSession();
+        synchronized (session) {
+            session.setAttribute(KEY, new Pending(UUID.randomUUID(), identity, userId, clock.instant().plus(TTL)));
+        }
+    }
+
+    /** Chuyển phiên OAuth đã xác minh sang tài khoản vừa đăng nhập, giữ nguyên hạn xác nhận. */
+    void prepareLink(HttpServletRequest request, UUID id, long userId) {
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return;
+        }
+        synchronized (session) {
+            Pending pending = find(request, null);
+            if (pending != null && pending.id().equals(id)) {
+                session.setAttribute(KEY, new Pending(id, pending.identity(), userId, pending.expiresAt()));
+            }
+        }
     }
 
     Pending find(HttpServletRequest request, Long userId) {
@@ -53,9 +69,15 @@ class SocialLoginSession {
     }
 
     void clear(HttpServletRequest request, UUID id, Long userId) {
-        Pending pending = find(request, userId);
-        if (pending != null && pending.id().equals(id)) {
-            request.getSession().removeAttribute(KEY);
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return;
+        }
+        synchronized (session) {
+            Pending pending = find(request, userId);
+            if (pending != null && pending.id().equals(id)) {
+                session.removeAttribute(KEY);
+            }
         }
     }
 }

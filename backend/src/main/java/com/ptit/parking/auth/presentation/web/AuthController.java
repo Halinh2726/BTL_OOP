@@ -3,6 +3,7 @@ package com.ptit.parking.auth.presentation.web;
 import com.ptit.parking.auth.application.AuthenticatedUser;
 import com.ptit.parking.auth.application.usecase.GetCurrentUserUseCase;
 import com.ptit.parking.auth.application.usecase.LoginUseCase;
+import com.ptit.parking.auth.domain.Role;
 import com.ptit.parking.shared.infrastructure.security.CredentialStateLookup;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -27,14 +28,16 @@ class AuthController {
     private final SessionSignIn sessionSignIn;
     private final LoginThrottle loginThrottle;
     private final CredentialStateLookup credentials;
+    private final SocialLoginSession pendingSocial;
 
     AuthController(LoginUseCase loginUseCase, GetCurrentUserUseCase getCurrentUser, SessionSignIn sessionSignIn,
-                   LoginThrottle loginThrottle, CredentialStateLookup credentials) {
+                   LoginThrottle loginThrottle, CredentialStateLookup credentials, SocialLoginSession pendingSocial) {
         this.loginUseCase = loginUseCase;
         this.getCurrentUser = getCurrentUser;
         this.sessionSignIn = sessionSignIn;
         this.loginThrottle = loginThrottle;
         this.credentials = credentials;
+        this.pendingSocial = pendingSocial;
     }
 
     @PostMapping("/auth/login")
@@ -44,7 +47,11 @@ class AuthController {
         AuthenticatedUser user = loginUseCase.login(body.username(), body.password());
         loginThrottle.succeeded(throttleKey);
         sessionSignIn.signIn(user, request, response);
-        return MeResponse.from(user, credentials.stateOf(user.id()).mustChangePassword());
+        boolean mustChangePassword = credentials.stateOf(user.id()).mustChangePassword();
+        if (body.socialLinkId() != null && user.role() == Role.SINH_VIEN && !mustChangePassword) {
+            pendingSocial.prepareLink(request, body.socialLinkId(), user.id());
+        }
+        return MeResponse.from(user, mustChangePassword);
     }
 
     /** Dùng để khôi phục phiên khi tải lại trang. Đọc lại từ CSDL để bắt kịp trạng thái bị khóa. */

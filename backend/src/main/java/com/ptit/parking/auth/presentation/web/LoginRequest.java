@@ -2,6 +2,7 @@ package com.ptit.parking.auth.presentation.web;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import java.util.UUID;
 
 /** Body của POST /auth/login (Đặc tả API #1): username 1–50 ký tự, password 1–72 ký tự. */
 record LoginRequest(
@@ -11,5 +12,7 @@ record LoginRequest(
 
         @NotBlank(message = "Vui lòng nhập mật khẩu")
         @Size(max = 72, message = "Mật khẩu tối đa 72 ký tự")
-        String password) {
+        String password,
+
+        UUID socialLinkId) {
 }

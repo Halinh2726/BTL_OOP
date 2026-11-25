@@ -1,5 +1,6 @@
 package com.ptit.parking.auth.presentation.web;
 
+import com.ptit.parking.account.domain.PasswordPolicy;
 import com.ptit.parking.auth.application.AuthenticatedUser;
 import com.ptit.parking.auth.application.usecase.StudentSocialSignInUseCase;
 import com.ptit.parking.shared.domain.DomainException;
@@ -37,11 +38,19 @@ class SocialLoginController {
                     message = "MSSV chỉ gồm chữ và số, tối đa 20 ký tự") String studentCode,
             @NotBlank @Size(max = 100, message = "Họ tên tối đa 100 ký tự") String fullName,
             @NotBlank @Pattern(regexp = "^[a-z0-9._]{4,50}$",
-                    message = "Tên đăng nhập 4–50 ký tự, chỉ gồm chữ thường, số, dấu chấm, gạch dưới") String username) {
+                    message = "Tên đăng nhập 4–50 ký tự, chỉ gồm chữ thường, số, dấu chấm, gạch dưới") String username,
+            @Size(min = PasswordPolicy.MIN_LENGTH, max = PasswordPolicy.MAX_LENGTH,
+                    message = "Mật khẩu từ 8 đến 72 ký tự") String password) {
 
         RegistrationRequest {
             studentCode = studentCode == null ? null : studentCode.strip().toUpperCase(Locale.ROOT);
             fullName = fullName == null ? null : fullName.strip();
+            password = "".equals(password) ? null : password;
+        }
+
+        @Override
+        public String toString() {
+            return "RegistrationRequest[id=" + id + "]";
         }
     }
 
@@ -76,7 +85,7 @@ class SocialLoginController {
         var identity = pending.require(request, body.id(), null).identity();
         requireActiveProvider(identity.provider());
         AuthenticatedUser registered = students.register(identity.provider(), identity.subject(),
-                body.studentCode(), body.fullName(), body.username(), identity.recoveryEmail());
+                body.studentCode(), body.fullName(), body.username(), identity.recoveryEmail(), body.password());
         pending.clear(request, body.id(), null);
         sessions.signIn(registered, request, response);
         return MeResponse.from(registered, false);

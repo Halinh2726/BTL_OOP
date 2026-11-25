@@ -104,13 +104,14 @@ class ParkingFlowIntegrationTest {
     @Test
     void socialRegistrationCreatesAStudentAndWalletAndRollsBackOnDuplicateIdentity() {
         var student = socialSignIn.register("google", "google-test-subject", "SOCIAL001", "Sinh Viên OAuth",
-                "studentsocial01", "studentsocial01@gmail.com");
+                "studentsocial01", "studentsocial01@gmail.com", PASSWORD);
 
         assertThat(student.role()).isEqualTo(Role.SINH_VIEN);
         assertThat(balanceOf(student.username())).isZero();
         assertThat(socialSignIn.findLinkedUser("google", "google-test-subject")).contains(student);
+        assertThat(passwordLogin.login(student.username(), PASSWORD)).isEqualTo(student);
         assertThatThrownBy(() -> socialSignIn.register("google", "google-test-subject", "SOCIAL002",
-                "Sinh Viên Trùng", "studentsocial02", null)).isInstanceOf(DuplicateKeyException.class);
+                "Sinh Viên Trùng", "studentsocial02", null, null)).isInstanceOf(DuplicateKeyException.class);
 
         assertThat(jdbc.sql("SELECT COUNT(*) FROM users WHERE username = 'studentsocial02'").query(Long.class).single())
                 .isZero();
