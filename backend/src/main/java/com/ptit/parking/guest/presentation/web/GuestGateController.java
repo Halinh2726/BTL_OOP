@@ -9,6 +9,7 @@ import com.ptit.parking.guest.application.GuestParking.Receipt;
 import com.ptit.parking.guest.application.GuestParkingStore.Entry;
 import com.ptit.parking.guest.domain.GuestPayment.Method;
 import com.ptit.parking.guest.domain.GuestSession;
+import com.ptit.parking.parking.domain.VietQrOrder;
 import com.ptit.parking.shared.infrastructure.security.SessionUser;
 import com.ptit.parking.shared.presentation.web.IdempotencyKeyHeader;
 import jakarta.validation.Valid;
@@ -18,7 +19,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
-import java.time.Instant;
+import java.time.Clock;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.CacheControl;
@@ -68,23 +70,27 @@ class GuestGateController {
     record VietQrRequest(@Valid LookupRequest ticket, @Size(max = 32) String observedPlate) {}
 
     record TicketResponse(long sessionId, String ticketCode, String ticketToken, String qrPayload,
-                          String plateDisplay, String vehicleTypeCode, Instant enteredAt) {}
+                          String plateDisplay, String vehicleTypeCode, String enteredAt) {}
 
     record CheckoutResponse(long sessionId, String plateNumber, String plateDisplay, String vehicleTypeCode,
-                            Instant enteredAt, Quote quote, int lostTicketFeeVnd, boolean lostTicketApproved) {}
+                            String enteredAt, Quote quote, int lostTicketFeeVnd, boolean lostTicketApproved) {}
 
     record PaymentResponse(String ticketCode, Method method, long amount, long lostTicketFee,
-                           boolean overnight, boolean lostTicket, Instant paidAt) {}
+                           boolean overnight, boolean lostTicket, String paidAt) {}
 
     record ParkedGuest(long sessionId, String plateNumber, String plateDisplay, String vehicleTypeCode,
-                       Instant enteredAt) {}
+                       String enteredAt) {}
 
     record ParkedResponse(List<ParkedGuest> items, long total, long overdue) {}
 
-    private final GuestParking guest;
+    record VietQrResponse(UUID quoteId, String expiresAt, VietQrOrder order) {}
 
-    GuestGateController(GuestParking guest) {
+    private final GuestParking guest;
+    private final ZoneId zone;
+
+    GuestGateController(GuestParking guest, Clock clock) {
         this.guest = guest;
+        this.zone = clock.getZone();
     }
 
     @PostMapping("/check-in/preview")
@@ -98,7 +104,8 @@ class GuestGateController {
         GuestSession session = guest.checkIn(guard.id(), body.toEntry());
         return ResponseEntity.status(201).cacheControl(CacheControl.noStore()).body(new TicketResponse(
                 session.id(), session.ticketCode(), session.ticketToken(), GuestSession.QR_PREFIX + session.ticketToken(),
-                session.plate() == null ? null : session.plate().display(), session.vehicleTypeCode(), session.enteredAt()));
+                session.plate() == null ? null : session.plate().display(), session.vehicleTypeCode(),
+                GuestTimes.format(session.enteredAt(), zone)));
     }
 
     @PostMapping("/check-out/preview")
@@ -106,15 +113,18 @@ class GuestGateController {
         CheckoutPreview preview = guest.previewCheckout(lookup.toLookup());
         GuestSession session = preview.session();
         return new CheckoutResponse(session.id(), session.plate() == null ? null : session.plate().value(),
-                session.plate() == null ? null : session.plate().display(), session.vehicleTypeCode(), session.enteredAt(),
+                session.plate() == null ? null : session.plate().display(), session.vehicleTypeCode(),
+                GuestTimes.format(session.enteredAt(), zone),
                 preview.quote(), preview.lostTicketFeeVnd(), session.lostTicketApproved());
     }
 
     @PostMapping("/sessions/{id}/vietqr")
-    ResponseEntity<GuestParking.VietQrPayment> vietQr(@PathVariable @Positive long id,
-                                                    @Valid @RequestBody VietQrRequest body) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(guest.vietQr(id,
-                body.ticket() == null ? null : body.ticket().toLookup(), body.observedPlate()));
+    ResponseEntity<VietQrResponse> vietQr(@PathVariable @Positive long id,
+                                          @Valid @RequestBody VietQrRequest body) {
+        GuestParking.VietQrPayment payment = guest.vietQr(id,
+                body.ticket() == null ? null : body.ticket().toLookup(), body.observedPlate());
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(new VietQrResponse(
+                payment.quoteId(), GuestTimes.format(payment.expiresAt(), zone), payment.order()));
     }
 
     @PostMapping("/check-out/cash")
@@ -144,7 +154,8 @@ class GuestGateController {
                           @RequestParam(defaultValue = "0") @Min(0) int offset) {
         var page = guest.parked(plate, limit, offset);
         return new ParkedResponse(page.items().stream().map(s -> new ParkedGuest(
-                s.id(), s.plateNumber(), s.plateDisplay(), s.vehicleTypeCode(), s.enteredAt())).toList(), page.total(), page.overdue());
+                s.id(), s.plateNumber(), s.plateDisplay(), s.vehicleTypeCode(),
+                GuestTimes.format(s.enteredAt(), zone))).toList(), page.total(), page.overdue());
     }
 
     private ResponseEntity<PaymentResponse> pay(SessionUser guard, String key, CheckoutRequest body,
@@ -152,6 +163,7 @@ class GuestGateController {
         Receipt receipt = guest.checkout(guard.id(), IdempotencyKeyHeader.parse(key), method, lost, body.toCheckout());
         var payment = receipt.payment();
         return IdempotencyKeyHeader.created(new PaymentResponse(receipt.ticketCode(), payment.method(), payment.amount(),
-                payment.lostTicketFee(), payment.overnight(), receipt.lostTicket(), payment.paidAt()), receipt.replayed());
+                payment.lostTicketFee(), payment.overnight(), receipt.lostTicket(),
+                GuestTimes.format(payment.paidAt(), zone)), receipt.replayed());
     }
 }

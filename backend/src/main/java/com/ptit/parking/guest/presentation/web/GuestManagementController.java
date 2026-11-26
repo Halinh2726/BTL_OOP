@@ -4,6 +4,7 @@ import com.ptit.parking.guest.application.GuestParking;
 import com.ptit.parking.guest.application.GuestParkingStore.ListedSession;
 import com.ptit.parking.guest.application.GuestParkingStore.Revenue;
 import com.ptit.parking.guest.application.GuestParkingStore.Settings;
+import com.ptit.parking.guest.domain.GuestPayment;
 import com.ptit.parking.shared.infrastructure.security.SessionUser;
 import com.ptit.parking.shared.presentation.web.CsvExport;
 import com.ptit.parking.shared.presentation.web.TabularReport;
@@ -35,7 +36,18 @@ import org.springframework.web.bind.annotation.RestController;
 class GuestManagementController {
     record ConfigRequest(@NotNull Boolean enabled, @NotNull @Min(0) @Max(10_000_000) Integer lostTicketFeeVnd) {}
 
-    record SessionReport(List<ListedSession> items, long total, Revenue revenue) {}
+    record SessionView(long id, String ticketCode, String plateNumber, String plateDisplay, String vehicleTypeCode,
+                       String guestName, String guestPhone, String note, String enteredAt, String exitedAt,
+                       boolean lostTicket, boolean lostTicketApproved, GuestPayment.Method paymentMethod, Long amount) {
+        static SessionView of(ListedSession s, ZoneId zone) {
+            return new SessionView(s.id(), s.ticketCode(), s.plateNumber(), s.plateDisplay(), s.vehicleTypeCode(),
+                    s.guestName(), s.guestPhone(), s.note(), GuestTimes.format(s.enteredAt(), zone),
+                    GuestTimes.format(s.exitedAt(), zone), s.lostTicket(), s.lostTicketApproved(),
+                    s.paymentMethod(), s.amount());
+        }
+    }
+
+    record SessionReport(List<SessionView> items, long total, Revenue revenue) {}
 
     private final GuestParking guest;
     private final ZoneId zone;
@@ -62,7 +74,8 @@ class GuestManagementController {
                            @RequestParam(defaultValue = "50") @Min(1) @Max(200) int limit,
                            @RequestParam(defaultValue = "0") @Min(0) int offset) {
         var page = guest.search(from, to, status, plate, limit, offset);
-        return new SessionReport(page.items(), page.total(), guest.revenue(from, to));
+        return new SessionReport(page.items().stream().map(item -> SessionView.of(item, zone)).toList(),
+                page.total(), guest.revenue(from, to));
     }
 
     @PostMapping("/api/v1/manager/guest-sessions/{id}/approve-lost-ticket")

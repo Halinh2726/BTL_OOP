@@ -1,10 +1,11 @@
 package com.ptit.parking.account.domain;
 
-import com.ptit.parking.shared.domain.DomainException;
-import com.ptit.parking.shared.domain.ErrorCode;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Pattern;
+
+import com.ptit.parking.shared.domain.DomainException;
+import com.ptit.parking.shared.domain.ErrorCode;
 
 /**
  * Địa chỉ email (value object) — dùng để nhận mã khôi phục mật khẩu. Luôn lưu chữ thường, bỏ khoảng trắng

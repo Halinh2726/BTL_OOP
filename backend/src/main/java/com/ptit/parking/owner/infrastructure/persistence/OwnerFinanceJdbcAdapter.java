@@ -14,7 +14,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
 /**
- * Cài đặt {@link OwnerFinanceQuery}: các câu SELECT tổng hợp trên sổ giao dịch. CSDL lưu giờ UTC nên nhóm theo ngày
+ * Cài đặt {@link OwnerFinanceQuery}: các câu SELECT tổng hợp trên sổ giao dịch và khoản thu khách. CSDL lưu giờ UTC nên nhóm theo ngày
  * phải đổi sang giờ Việt Nam bằng CONVERT_TZ (dùng độ lệch "+07:00", không cần bảng múi giờ của MySQL).
  */
 @Component
@@ -48,17 +48,38 @@ class OwnerFinanceJdbcAdapter implements OwnerFinanceQuery {
     public List<DailyRevenue> dailyRevenue(Instant from, Instant to, ZoneId zone) {
         String offset = zone.getRules().getOffset(from).getId();          // "+07:00"
         long ownerWallet = receivingAccount().walletId();
+        // Hai nguồn: sổ giao dịch điểm (sinh viên) và guest_payments (khách, thu bằng đồng). Tiền khách quy ra
+        // điểm theo tỷ giá LÚC THU, suy từ chính khoản thu: tỷ giá = (amount - lost_ticket_fee) / fee_points.
         return jdbc.sql("""
-                SELECT DATE(CONVERT_TZ(t.created_at, '+00:00', :offset)) AS day,
-                       SUM(t.type = 'THANH_TOAN') AS payments,
-                       COALESCE(SUM(CASE WHEN t.type IN ('THANH_TOAN', 'MUA_VE') AND t.target_wallet_id = :owner THEN t.points END), 0) AS revenue,
-                       COALESCE(SUM(CASE WHEN t.type = 'DIEU_CHINH' AND t.target_wallet_id = :owner THEN t.points
-                                         WHEN t.type = 'DIEU_CHINH' AND t.source_wallet_id = :owner THEN -t.points END), 0) AS adjustments,
-                       COALESCE(SUM(CASE WHEN t.type = 'DOI_DIEM' THEN c.cash_amount END), 0) AS cash_in,
-                       COALESCE(SUM(CASE WHEN t.type = 'RUT_DIEM' THEN c.cash_amount END), 0) AS cash_out
-                FROM point_transactions t
-                LEFT JOIN cash_details c ON c.transaction_id = t.id
-                WHERE t.created_at >= :from AND t.created_at < :to
+                SELECT day,
+                       SUM(payments) AS payments,
+                       SUM(revenue) AS revenue,
+                       SUM(adjustments) AS adjustments,
+                       SUM(cash_in) AS cash_in,
+                       SUM(cash_out) AS cash_out
+                FROM (
+                    SELECT DATE(CONVERT_TZ(t.created_at, '+00:00', :offset)) AS day,
+                           SUM(t.type = 'THANH_TOAN') AS payments,
+                           COALESCE(SUM(CASE WHEN t.type IN ('THANH_TOAN', 'MUA_VE') AND t.target_wallet_id = :owner THEN t.points END), 0) AS revenue,
+                           COALESCE(SUM(CASE WHEN t.type = 'DIEU_CHINH' AND t.target_wallet_id = :owner THEN t.points
+                                             WHEN t.type = 'DIEU_CHINH' AND t.source_wallet_id = :owner THEN -t.points END), 0) AS adjustments,
+                           COALESCE(SUM(CASE WHEN t.type = 'DOI_DIEM' THEN c.cash_amount END), 0) AS cash_in,
+                           COALESCE(SUM(CASE WHEN t.type = 'RUT_DIEM' THEN c.cash_amount END), 0) AS cash_out
+                    FROM point_transactions t
+                    LEFT JOIN cash_details c ON c.transaction_id = t.id
+                    WHERE t.created_at >= :from AND t.created_at < :to
+                    GROUP BY day
+                    UNION ALL
+                    SELECT DATE(CONVERT_TZ(g.paid_at, '+00:00', :offset)) AS day,
+                           COUNT(*) AS payments,
+                           SUM((g.amount * g.fee_points) DIV (g.amount - g.lost_ticket_fee)) AS revenue,
+                           0 AS adjustments,
+                           0 AS cash_in,
+                           0 AS cash_out
+                    FROM guest_payments g
+                    WHERE g.paid_at >= :from AND g.paid_at < :to
+                    GROUP BY day
+                ) AS sources
                 GROUP BY day
                 ORDER BY day""")
                 .param("offset", offset)

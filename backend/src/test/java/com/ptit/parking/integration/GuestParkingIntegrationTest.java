@@ -141,7 +141,9 @@ class GuestParkingIntegrationTest {
         json(post(API + GATE + "/check-in/preview"), guard, firstEntry).andExpect(status().isOk())
                 .andExpect(jsonPath("$.rules[0].feePoints").value(3000));
         MvcResult ticket = json(post(API + GATE + "/check-in"), guard, firstEntry)
-                .andExpect(status().isCreated()).andExpect(jsonPath("$.ticketCode").value("K-261120-0001")).andReturn();
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.ticketCode").value("K-261120-0001"))
+                // Đồng hồ test là 03:00 UTC: API phải trả 10:00 giờ Việt Nam kèm +07:00
+                .andExpect(jsonPath("$.enteredAt").value("2026-11-20T10:00:00+07:00")).andReturn();
         int firstId = read(ticket, "$.sessionId");
         String token = read(ticket, "$.ticketToken");
         assertThat(token).matches("[0-9a-f]{32}");
@@ -213,6 +215,13 @@ class GuestParkingIntegrationTest {
         mvc.perform(get(API + "/owner/guest-revenue").session(owner).param("from", DAY).param("to", DAY))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.payments").value(3))
                 .andExpect(jsonPath("$.cash").value(25100)).andExpect(jsonPath("$.vietqr").value(3000));
+        // Doanh thu theo ngày gộp cả tiền khách (tiền mặt + VietQR + phí mất vé), tỷ giá 1 đồng = 1 điểm
+        mvc.perform(get(API + "/owner/revenue").session(owner).param("from", DAY).param("to", DAY))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalRevenue").value(28100))
+                .andExpect(jsonPath("$.totalPayments").value(3))
+                .andExpect(jsonPath("$.days.length()").value(1))
+                .andExpect(jsonPath("$.days[0].revenue").value(28100))
+                .andExpect(jsonPath("$.totalCashIn").value(0));
         mvc.perform(get(API + "/manager/guest-sessions/export").session(manager).param("from", DAY).param("to", DAY))
                 .andExpect(status().isOk()).andExpect(header().exists("Content-Disposition"));
         assertThat(jdbc.sql("SELECT COUNT(*) FROM point_transactions").query(Long.class).single()).isZero();

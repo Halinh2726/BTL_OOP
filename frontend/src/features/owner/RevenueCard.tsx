@@ -127,7 +127,7 @@ export function RevenueCard() {
 
         {valid && !isMockMode && (
           <section className="space-y-2 rounded-xl bg-blue-50 p-4">
-            <h3 className="font-semibold text-blue-950">Doanh thu gửi xe khách</h3>
+            <h3 className="font-semibold text-blue-950">Trong đó: gửi xe khách (đã gộp vào doanh thu)</h3>
             {guestReport.isPending && <LoadingBlock label="Đang tải doanh thu khách..." />}
             {guestReport.isError && <QueryError error={guestReport.error} onRetry={() => void guestReport.refetch()} />}
             {guestReport.data && (
@@ -144,7 +144,7 @@ export function RevenueCard() {
         {data && (
           <div className={`space-y-6 transition-opacity ${report.isPlaceholderData ? 'opacity-50' : ''}`}>
             <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-500">Doanh thu sinh viên</dt><dd className="text-xl font-bold text-slate-900">{formatPoints(data.totalRevenue)}</dd></div>
+              <div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-500">Tổng doanh thu</dt><dd className="text-xl font-bold text-slate-900">{formatPoints(data.totalRevenue)}</dd></div>
               <div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-500">Lượt xe ra</dt><dd className="text-xl font-bold text-slate-900">{formatNumber(data.totalPayments)}</dd></div>
               <div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-500">Tiền mặt vào</dt><dd className="text-xl font-bold text-slate-900">{formatCash(data.totalCashIn)}</dd></div>
               <div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-500">Tiền mặt ra</dt><dd className="text-xl font-bold text-slate-900">{formatCash(data.totalCashOut)}</dd></div>
@@ -157,7 +157,7 @@ export function RevenueCard() {
                 <section className="space-y-2">
                   <div>
                     <h3 className="font-semibold text-slate-900">Doanh thu phí gửi xe</h3>
-                    <p className="text-sm text-slate-500">Điểm thu được mỗi ngày, {shortDate(data.from)} – {shortDate(data.to)}</p>
+                    <p className="text-sm text-slate-500">Sinh viên và khách, quy ra điểm theo ngày, {shortDate(data.from)} – {shortDate(data.to)}</p>
                   </div>
                   <BarChart
                     keys={dates}

@@ -16,8 +16,9 @@ public interface OwnerFinanceQuery {
     /**
      * Số liệu một ngày (giờ Việt Nam).
      *
-     * @param payments    số lượt xe ra đã thu phí
-     * @param revenue     tổng phí (điểm) nhận được
+     * @param payments    số lượt xe ra đã thu phí (sinh viên trả bằng điểm và khách)
+     * @param revenue     tổng doanh thu quy ra điểm: phí và vé tháng vào ví chủ bãi, cộng tiền khách (kể cả phí mất vé).
+     *                    Tiền khách KHÔNG vào ví nên không làm tăng số điểm rút được
      * @param adjustments điểm điều chỉnh ròng vào ví chủ bãi (âm: hoàn điểm cho sinh viên)
      * @param cashIn      tiền mặt quản lý nhận khi đổi điểm (kênh TIỀN MẶT vào hệ thống)
      * @param cashOut     tiền mặt quản lý trả khi rút điểm (kênh TIỀN MẶT ra khỏi hệ thống)
