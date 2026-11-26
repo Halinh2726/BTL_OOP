@@ -5,7 +5,6 @@ import { Button } from '../../shared/components/Button';
 import { Card } from '../../shared/components/Card';
 import { useVehicleTypeName } from '../../shared/hooks/useVehicleTypeName';
 import type { GuestTicket } from '../../shared/types/guest';
-import { formatDateTime } from '../../shared/utils/format';
 
 export function GuestTicketCard({ ticket, onNext }: { ticket: GuestTicket; onNext: () => void }) {
   const [qrData, setQrData] = useState<string | null>(null);
@@ -38,7 +37,6 @@ export function GuestTicketCard({ ticket, onNext }: { ticket: GuestTicket; onNex
       <h2 className="font-mono text-3xl font-bold tracking-wider text-slate-900">{ticket.ticketCode}</h2>
       <p className="text-lg font-semibold">{ticket.plateDisplay ?? 'Xe đạp không biển'}</p>
       {ticket.plateDisplay && <p className="text-sm text-slate-600">{typeName(ticket.vehicleTypeCode)}</p>}
-      <p className="text-sm text-slate-600">Giờ vào {formatDateTime(ticket.enteredAt)}</p>
       {qrData && <img src={qrData} width={200} height={200} alt="QR vé gửi xe khách" />}
       <p className="text-sm font-medium">Giữ mã vé để lấy xe</p>
     </>

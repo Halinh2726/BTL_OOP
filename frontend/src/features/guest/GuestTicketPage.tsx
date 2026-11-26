@@ -6,7 +6,7 @@ import { Badge } from '../../shared/components/Badge';
 import { Card, InfoRow } from '../../shared/components/Card';
 import { QueryError } from '../../shared/components/QueryError';
 import { LoadingBlock } from '../../shared/components/Spinner';
-import { formatCash, formatDateTime, formatDuration } from '../../shared/utils/format';
+import { formatCash } from '../../shared/utils/format';
 
 export function GuestTicketPage() {
   const { token = '' } = useParams();
@@ -33,12 +33,11 @@ export function GuestTicketPage() {
               <p className="text-sm font-medium text-blue-800">{data.exitedAt ? 'Đã thanh toán' : 'Phí tạm tính'}</p>
               <p className="text-4xl font-bold text-blue-950">{formatCash(data.amount)}</p>
             </div>
-            <dl>
-              <InfoRow label="Giờ vào" value={formatDateTime(data.enteredAt)} />
-              <InfoRow label="Thời gian gửi" value={formatDuration(data.minutesParked)} />
-              {data.exitedAt && <InfoRow label="Giờ ra" value={formatDateTime(data.exitedAt)} />}
-              {data.checkoutCurfewTime && <InfoRow label="Giờ khóa lấy xe" value={data.checkoutCurfewTime.slice(0, 5)} />}
-            </dl>
+            {data.checkoutCurfewTime && (
+              <dl>
+                <InfoRow label="Giờ khóa lấy xe" value={data.checkoutCurfewTime.slice(0, 5)} />
+              </dl>
+            )}
             {data.checkoutLocked && <Alert tone="warning">Đã qua giờ khóa lấy xe. Bạn có thể lấy xe vào ngày hôm sau.</Alert>}
             {data.overnight && <p className="text-sm text-slate-600">Lượt này áp dụng phí qua đêm.</p>}
             {!data.exitedAt && <p className="text-sm text-slate-600">Giữ vé đã nhận tại chốt để xuất trình khi lấy xe.</p>}

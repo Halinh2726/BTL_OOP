@@ -7,7 +7,7 @@ import { Card, InfoRow } from '../../shared/components/Card';
 import { newIdempotencyKey } from '../../shared/hooks/useIdempotencyKey';
 import { useVehicleTypeName } from '../../shared/hooks/useVehicleTypeName';
 import type { GuestCheckout, GuestLookup, GuestPaymentRoute } from '../../shared/types/guest';
-import { formatCash, formatDateTime, formatDuration, formatTime } from '../../shared/utils/format';
+import { formatCash, formatTime } from '../../shared/utils/format';
 import { guestLookup } from '../../shared/utils/guestTicket';
 import { QrScannerDialog } from './QrScannerDialog';
 import { ReportIncidentDialog } from './ReportIncidentDialog';
@@ -101,7 +101,6 @@ export function GuestCheckoutPanel({ initialToken }: { initialToken?: string }) 
         <InfoRow label="Phương thức" value={receipt.method === 'TIEN_MAT' ? 'Tiền mặt' : 'VietQR'} />
         <InfoRow label="Thực thu" value={formatCash(receipt.amount)} />
         {receipt.lostTicket && <InfoRow label="Phí mất vé" value={formatCash(receipt.lostTicketFee)} />}
-        <InfoRow label="Giờ ra" value={formatDateTime(receipt.paidAt)} />
       </SuccessPanel>
     );
   }
@@ -145,12 +144,10 @@ export function GuestCheckoutPanel({ initialToken }: { initialToken?: string }) 
                 {plateLabel}
               </div>
               <p className="mt-2 text-sm text-slate-600">
-                {typeName(data.vehicleTypeCode)} · Gửi {formatDuration(data.quote.minutesParked)} ·{' '}
-                <strong className="text-slate-900">{formatCash(amount)}</strong>
+                {typeName(data.vehicleTypeCode)} · <strong className="text-slate-900">{formatCash(amount)}</strong>
               </p>
             </div>
             <dl>
-              <InfoRow label="Giờ vào" value={formatDateTime(data.enteredAt)} />
               <InfoRow label={data.quote.overnight ? 'Phí qua đêm' : 'Phí gửi'} value={formatCash(data.quote.amount)} />
             </dl>
             {mismatchReported && (

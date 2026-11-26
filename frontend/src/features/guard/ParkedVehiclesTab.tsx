@@ -110,9 +110,11 @@ export function ParkedVehiclesTab() {
                   {typeName(vehicle.vehicleTypeCode)}
                   {!item.guest && ` · ${item.vehicle.fullName} (${item.vehicle.studentCode})`}
                 </p>
-                <p className="text-xs text-slate-500">
-                  Vào {formatDateTime(vehicle.enteredAt)}{!item.guest && ` · ${item.vehicle.entryGuardName}`}
-                </p>
+                {!item.guest && (
+                  <p className="text-xs text-slate-500">
+                    Vào {formatDateTime(vehicle.enteredAt)} · {item.vehicle.entryGuardName}
+                  </p>
+                )}
               </div>
               <div className="flex shrink-0 flex-col items-end gap-2">
                 {item.guest && <Badge tone="amber">Khách</Badge>}
